@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 
-export default function AdminDashboard() {
+export default function SecureAdminDashboard() {
   const router = useRouter()
   const [user, setUser] = useState(null)
   const [stats, setStats] = useState(null)
@@ -171,7 +171,6 @@ export default function AdminDashboard() {
         {/* Overview Tab */}
         {activeTab === 'overview' && (
           <div className="grid md:grid-cols-2 gap-6">
-            {/* Recent Requests */}
             <div className="bg-white rounded-xl shadow-sm">
               <div className="p-4 border-b">
                 <h2 className="font-semibold">Dernières demandes</h2>
@@ -191,7 +190,6 @@ export default function AdminDashboard() {
               </div>
             </div>
 
-            {/* Providers */}
             <div className="bg-white rounded-xl shadow-sm">
               <div className="p-4 border-b">
                 <h2 className="font-semibold">Prestataires</h2>

@@ -562,6 +562,78 @@ async function handleRoute(request, { params }) {
       }))
     }
 
+    // POST /api/auth/provider/register - Provider registration
+    if (route === '/auth/provider/register' && method === 'POST') {
+      const body = await request.json()
+      const { phone, password, businessName, serviceCategory, city } = body
+      
+      if (!phone || !password || !businessName || !serviceCategory || !city) {
+        return handleCORS(NextResponse.json({ error: 'Tous les champs sont requis' }, { status: 400 }))
+      }
+      
+      // Check if user already exists
+      const existingUser = await db.collection('users').findOne({ 
+        phone: { $regex: new RegExp(phone.replace(/[^\d]/g, '').slice(-9)) }
+      })
+      
+      if (existingUser) {
+        return handleCORS(NextResponse.json({ error: 'Ce numéro est déjà enregistré' }, { status: 400 }))
+      }
+      
+      // Create user
+      const passwordHash = await bcrypt.hash(password, 10)
+      const user = {
+        id: uuidv4(),
+        name: businessName,
+        phone,
+        role: 'PROVIDER',
+        passwordHash,
+        city,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }
+      await db.collection('users').insertOne(user)
+      
+      // Create provider profile
+      const provider = {
+        id: uuidv4(),
+        userId: user.id,
+        businessName,
+        serviceCategory,
+        city,
+        zones: [],
+        rating: 0,
+        isAvailable: true,
+        isVerified: false,
+        whatsappNumber: phone,
+        description: `${serviceCategory} à ${city}`,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }
+      await db.collection('provider_profiles').insertOne(provider)
+      
+      // Generate token
+      const token = Buffer.from(`${user.id}:${user.role}:${Date.now()}`).toString('base64')
+      
+      return handleCORS(NextResponse.json({
+        success: true,
+        token,
+        user: {
+          id: user.id,
+          name: user.name,
+          phone: user.phone,
+          role: user.role
+        },
+        provider: {
+          id: provider.id,
+          businessName: provider.businessName,
+          serviceCategory: provider.serviceCategory,
+          city: provider.city,
+          isAvailable: provider.isAvailable
+        }
+      }))
+    }
+
     // POST /api/auth/login - General login for all roles
     if (route === '/auth/login' && method === 'POST') {
       const body = await request.json()
