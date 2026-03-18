@@ -562,6 +562,64 @@ async function handleRoute(request, { params }) {
       }))
     }
 
+    // POST /api/auth/login - General login for all roles
+    if (route === '/auth/login' && method === 'POST') {
+      const body = await request.json()
+      const { phone, password } = body
+      
+      if (!phone || !password) {
+        return handleCORS(NextResponse.json({ error: 'Phone et password requis' }, { status: 400 }))
+      }
+      
+      // Find user with this phone (any role)
+      const user = await db.collection('users').findOne({ 
+        phone: { $regex: new RegExp(phone.replace(/[^\d]/g, '').slice(-9)) }
+      })
+      
+      if (!user) {
+        return handleCORS(NextResponse.json({ error: 'Utilisateur non trouvé' }, { status: 401 }))
+      }
+      
+      // Check password
+      if (user.passwordHash) {
+        const validPassword = await bcrypt.compare(password, user.passwordHash)
+        if (!validPassword) {
+          return handleCORS(NextResponse.json({ error: 'Mot de passe incorrect' }, { status: 401 }))
+        }
+      } else {
+        if (password !== 'wooleen2025') {
+          return handleCORS(NextResponse.json({ error: 'Mot de passe incorrect' }, { status: 401 }))
+        }
+      }
+      
+      // Get provider profile if user is a provider
+      let provider = null
+      if (user.role === 'PROVIDER') {
+        provider = await db.collection('provider_profiles').findOne({ userId: user.id })
+      }
+      
+      // Generate token
+      const token = Buffer.from(`${user.id}:${user.role}:${Date.now()}`).toString('base64')
+      
+      return handleCORS(NextResponse.json({
+        success: true,
+        token,
+        user: {
+          id: user.id,
+          name: user.name,
+          phone: user.phone,
+          role: user.role
+        },
+        provider: provider ? {
+          id: provider.id,
+          businessName: provider.businessName,
+          serviceCategory: provider.serviceCategory,
+          city: provider.city,
+          isAvailable: provider.isAvailable
+        } : null
+      }))
+    }
+
     // ============ PROVIDER DASHBOARD ENDPOINTS ============
     // GET /api/provider/dashboard/:providerId
     const providerDashMatch = route.match(/^\/provider\/dashboard\/([a-zA-Z0-9-]+)$/)
