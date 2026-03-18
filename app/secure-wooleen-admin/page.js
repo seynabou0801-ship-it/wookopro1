@@ -15,12 +15,12 @@ export default function SecureAdminDashboard() {
   useEffect(() => {
     const storedUser = localStorage.getItem('wooleen_user')
     if (!storedUser) {
-      router.push('/login')
+      router.push('/secure-wooleen-admin/login')
       return
     }
     const userData = JSON.parse(storedUser)
     if (userData.role !== 'ADMIN') {
-      router.push('/login')
+      router.push('/secure-wooleen-admin/login')
       return
     }
     setUser(userData)
