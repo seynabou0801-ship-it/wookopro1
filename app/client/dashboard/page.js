@@ -3,10 +3,11 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { openWhatsApp, getDefaultWhatsAppNumber } from '@/lib/whatsapp'
 
 export default function ClientDashboard() {
   const router = useRouter()
-  const phone = process.env.NEXT_PUBLIC_DEFAULT_WHATSAPP_NUMBER || "+33746380448"
+  const phone = getDefaultWhatsAppNumber()
   const [user, setUser] = useState(null)
   const [requests, setRequests] = useState([])
   const [loading, setLoading] = useState(true)
@@ -117,13 +118,12 @@ export default function ClientDashboard() {
         <div className="bg-green-50 border border-green-200 rounded-xl p-6 mb-8">
           <h2 className="text-lg font-semibold text-green-800">Nouvelle demande ?</h2>
           <p className="text-green-700 mt-1">Décrivez votre besoin sur WhatsApp</p>
-          <a
-            href={`https://wa.me/${phone.replace(/[^0-9]/g, '')}?text=Bonjour%20Wooleen`}
-            target="_blank"
-            className="inline-block mt-4 bg-green-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-green-700"
+          <button
+            onClick={() => openWhatsApp(phone, "Bonjour Wooleen")}
+            className="mt-4 bg-green-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-green-700"
           >
             💬 Envoyer sur WhatsApp
-          </a>
+          </button>
         </div>
 
         {/* Requests List */}

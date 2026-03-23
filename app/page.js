@@ -1,7 +1,14 @@
+'use client'
+
 import Link from "next/link";
+import { openWhatsApp, getDefaultWhatsAppNumber, getWhatsAppUrl } from "@/lib/whatsapp";
 
 export default function HomePage() {
-  const phone = process.env.NEXT_PUBLIC_DEFAULT_WHATSAPP_NUMBER || "+33746380448";
+  const phone = getDefaultWhatsAppNumber();
+
+  const handleWhatsAppClick = () => {
+    openWhatsApp(phone, "Bonjour Wooleen");
+  };
 
   return (
     <main className="min-h-screen bg-white">
@@ -27,13 +34,12 @@ export default function HomePage() {
               Espace prestataire
             </Link>
 
-            <a
-              href={`https://wa.me/${phone.replace(/[^0-9]/g, '')}`}
-              target="_blank"
+            <button
+              onClick={() => openWhatsApp(phone)}
               className="bg-green-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-green-700"
             >
               WhatsApp
-            </a>
+            </button>
           </div>
         </div>
       </header>
@@ -48,13 +54,12 @@ export default function HomePage() {
           Décrivez votre besoin sur WhatsApp et recevez des réponses rapidement.
         </p>
 
-        <a
-          href={`https://wa.me/${phone.replace(/[^0-9]/g, '')}?text=Bonjour%20Wooleen`}
-          target="_blank"
+        <button
+          onClick={handleWhatsAppClick}
           className="mt-8 bg-green-600 text-white px-6 py-4 rounded-xl text-lg font-semibold hover:bg-green-700"
         >
           💬 Décrire mon besoin sur WhatsApp
-        </a>
+        </button>
 
         <p className="mt-6 text-sm text-gray-500">
           Vous êtes prestataire ?{" "}
