@@ -189,7 +189,7 @@ export default function ProviderLoginPage() {
                   type="tel"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
-                  placeholder="+221770000000"
+                  placeholder="+33746380448"
                   className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500"
                   required
                 />

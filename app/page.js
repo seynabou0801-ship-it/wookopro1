@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 export default function HomePage() {
-  const phone = "221770000000";
+  const phone = process.env.NEXT_PUBLIC_DEFAULT_WHATSAPP_NUMBER || "+33746380448";
 
   return (
     <main className="min-h-screen bg-white">
@@ -28,7 +28,7 @@ export default function HomePage() {
             </Link>
 
             <a
-              href={`https://wa.me/${phone}`}
+              href={`https://wa.me/${phone.replace(/[^0-9]/g, '')}`}
               target="_blank"
               className="bg-green-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-green-700"
             >
@@ -49,7 +49,7 @@ export default function HomePage() {
         </p>
 
         <a
-          href={`https://wa.me/${phone}?text=Bonjour%20Wooleen`}
+          href={`https://wa.me/${phone.replace(/[^0-9]/g, '')}?text=Bonjour%20Wooleen`}
           target="_blank"
           className="mt-8 bg-green-600 text-white px-6 py-4 rounded-xl text-lg font-semibold hover:bg-green-700"
         >

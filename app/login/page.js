@@ -6,7 +6,8 @@ import Link from 'next/link'
 
 export default function LoginPage() {
   const router = useRouter()
-  const [phone, setPhone] = useState('')
+  const phone = process.env.NEXT_PUBLIC_DEFAULT_WHATSAPP_NUMBER || "+33746380448"
+  const [phoneInput, setPhoneInput] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -20,7 +21,7 @@ export default function LoginPage() {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, password })
+        body: JSON.stringify({ phone: phoneInput, password })
       })
 
       const data = await res.json()
@@ -78,9 +79,9 @@ export default function LoginPage() {
                 </label>
                 <input
                   type="tel"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="+221770000000"
+                  value={phoneInput}
+                  onChange={(e) => setPhoneInput(e.target.value)}
+                  placeholder="+33746380448"
                   className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500"
                   required
                 />

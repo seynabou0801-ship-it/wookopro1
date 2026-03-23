@@ -6,6 +6,7 @@ import Link from 'next/link'
 
 export default function ClientDashboard() {
   const router = useRouter()
+  const phone = process.env.NEXT_PUBLIC_DEFAULT_WHATSAPP_NUMBER || "+33746380448"
   const [user, setUser] = useState(null)
   const [requests, setRequests] = useState([])
   const [loading, setLoading] = useState(true)
@@ -117,7 +118,7 @@ export default function ClientDashboard() {
           <h2 className="text-lg font-semibold text-green-800">Nouvelle demande ?</h2>
           <p className="text-green-700 mt-1">Décrivez votre besoin sur WhatsApp</p>
           <a
-            href="https://wa.me/221770000000?text=Bonjour%20Wooleen"
+            href={`https://wa.me/${phone.replace(/[^0-9]/g, '')}?text=Bonjour%20Wooleen`}
             target="_blank"
             className="inline-block mt-4 bg-green-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-green-700"
           >
