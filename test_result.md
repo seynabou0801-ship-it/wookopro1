@@ -337,15 +337,18 @@ backend:
 frontend:
   - task: "Lead Capture Form (Homepage)"
     implemented: true
-    working: "NA"
+    working: true
     file: "app/page.js"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
-        comment: "Modal formulaire de capture avec Service (select), Ville (select), Téléphone (input), Description (textarea optionnel). Appelle POST /api/leads puis ouvre WhatsApp avec message prérempli. Screenshot confirmé - UI fonctionnelle. Nécessite test backend."
+        comment: "Modal formulaire de capture avec Service (select), Ville (select), Téléphone (input), Description (textarea optionnel). Appelle POST /api/leads puis ouvre WhatsApp avec message prérempli. Screenshot confirmé - UI fonctionnelle. Backend testé et fonctionnel. Prêt pour test Playwright complet."
+      - working: true
+        agent: "testing"
+        comment: "✅ FORMULAIRE LEAD CAPTURE ENTIÈREMENT FONCTIONNEL - Tests Playwright complets réalisés avec succès (7/7 scénarios passés): (1) Homepage charge correctement avec trust indicators (500+, 15 min, 4.8/5, 100%), (2) Modal s'ouvre avec titre 'Décrivez votre besoin' et 4 champs présents, (3) Validation HTML5 empêche soumission vide, (4) Soumission complète fonctionne - API POST /api/leads retourne success:true + leadId + requestId + 1 provider matché, (5) Soumission sans description optionnelle fonctionne, (6) Bouton fermeture (×) ferme le modal, (7) Design responsive mobile fonctionnel. Intégration backend parfaite. Aucune erreur critique détectée."
 
   - task: "Trust Indicators Section"
     implemented: true
@@ -484,3 +487,28 @@ agent_communication:
       - Toutes les réponses contiennent { success: true, leadId, requestId, matchedProviders }
       
       ENDPOINT LEAD CAPTURE ENTIÈREMENT FONCTIONNEL ✅
+  - agent: "testing"
+    message: |
+      🎯 FRONTEND LEAD CAPTURE FORM TESTING COMPLET - 7/7 SCÉNARIOS PASSÉS (100%)
+      
+      Tests Playwright réalisés avec succès sur https://provider-connect-24.preview.emergentagent.com:
+      
+      ✅ SCÉNARIOS TESTÉS:
+      1. Homepage Loading & Trust Indicators - Tous les éléments visibles (500+, 15 min, 4.8/5, 100%)
+      2. Modal Opening - S'ouvre avec titre "Décrivez votre besoin" et 4 champs présents
+      3. Form Validation - HTML5 required empêche soumission vide
+      4. Complete Form Submission - API POST /api/leads successful:
+         - Response: { success: true, leadId: "a610c8ff-9150-4107-94d5-378f5259ef1a", requestId: "7fa4c9a8-e88e-4faf-87d5-8cd8bc2cab2b", matchedProviders: 1 }
+         - Modal se ferme après soumission
+      5. Optional Description Test - Fonctionne sans description
+      6. Modal Close Functionality - Bouton × ferme le modal
+      7. Responsive Design - Tous les champs accessibles sur mobile (390x844)
+      
+      ✅ INTÉGRATION BACKEND PARFAITE:
+      - API calls interceptés et validés
+      - Réponses JSON correctes
+      - Matching automatique opérationnel (1 provider trouvé)
+      - Aucune erreur console détectée
+      
+      🏆 FORMULAIRE LEAD CAPTURE HOMEPAGE ENTIÈREMENT FONCTIONNEL
+      Prêt pour production - Tous les scénarios de test passés avec succès.
