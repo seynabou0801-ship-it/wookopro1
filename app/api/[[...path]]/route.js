@@ -174,37 +174,69 @@ async function parseWithOpenAI(message) {
   return parseLocally(message)
 }
 
-// ============ Matching Algorithm ============
+// ============ Improved Matching Algorithm ============
 function computeScore(provider, req) {
   let score = 0
   let reasons = []
   
+  // Category match (highest weight)
   if (provider.serviceCategory?.toLowerCase() === req.serviceCategory?.toLowerCase()) {
     score += 50
-    reasons.push('Même catégorie de service')
+    reasons.push('Même catégorie')
   }
+  
+  // City match
   if (provider.city?.toLowerCase() === req.city?.toLowerCase()) {
     score += 20
     reasons.push('Même ville')
   }
+  
+  // Zone match (bonus if provider covers the specific zone)
   if (req.zone && provider.zones?.some(z => z.toLowerCase() === req.zone?.toLowerCase())) {
     score += 15
     reasons.push('Zone couverte')
   }
+  
+  // Availability bonus
   if (provider.isAvailable) {
     score += 10
     reasons.push('Disponible')
+  } else {
+    score -= 20 // Penalty for unavailable
   }
+  
+  // Verification bonus
   if (provider.isVerified) {
-    score += 3
+    score += 5
     reasons.push('Vérifié')
   }
-  score += Math.min(provider.rating || 0, 5) * 2
   
-  return { score, reason: reasons.join(', ') || 'Correspondance partielle' }
+  // Rating bonus (up to 10 points)
+  const ratingBonus = Math.min(provider.rating || 0, 5) * 2
+  score += ratingBonus
+  if (ratingBonus > 0) {
+    reasons.push(`Note ${provider.rating?.toFixed(1)}`)
+  }
+  
+  // Tier bonus (for future monetization)
+  if (provider.tier === 'premium') {
+    score += 8
+    reasons.push('Premium')
+  } else if (provider.tier === 'pro') {
+    score += 4
+    reasons.push('Pro')
+  }
+  
+  // Response rate bonus
+  if (provider.responseRate && provider.responseRate > 80) {
+    score += 5
+    reasons.push('Réactif')
+  }
+  
+  return { score: Math.max(0, score), reason: reasons.join(', ') || 'Correspondance partielle' }
 }
 
-// ============ WhatsApp Service (Mock + Real ready) ============
+// ============ WhatsApp Service ============
 const whatsappMessages = []
 
 async function sendWhatsAppMessage(to, text, db = null) {
@@ -217,10 +249,8 @@ async function sendWhatsAppMessage(to, text, db = null) {
     mocked: !process.env.WHATSAPP_TOKEN
   }
   
-  // Store in memory
   whatsappMessages.push(message)
   
-  // Store in DB if available
   if (db) {
     try {
       await db.collection('whatsapp_messages').insertOne(message)
@@ -229,7 +259,6 @@ async function sendWhatsAppMessage(to, text, db = null) {
     }
   }
   
-  // If real WhatsApp token is configured, send real message
   if (process.env.WHATSAPP_TOKEN && process.env.WHATSAPP_PHONE_NUMBER_ID) {
     try {
       const response = await fetch(
@@ -307,15 +336,47 @@ async function createServiceRequestFromParsed(db, phone, rawMessage, parsed) {
 }
 
 async function findBestProviders(db, parsed) {
+  // Build query with improved filtering
   const query = { isAvailable: true }
+  
   if (parsed.service_category && parsed.service_category !== 'autre') {
     query.serviceCategory = { $regex: new RegExp(parsed.service_category, 'i') }
   }
-  if (parsed.city) {
-    query.city = { $regex: new RegExp(parsed.city, 'i') }
+  
+  // City or zone matching
+  if (parsed.city || parsed.zone) {
+    query.$or = []
+    if (parsed.city) {
+      query.$or.push({ city: { $regex: new RegExp(parsed.city, 'i') } })
+    }
+    if (parsed.zone) {
+      query.$or.push({ zones: { $elemMatch: { $regex: new RegExp(parsed.zone, 'i') } } })
+    }
+    // Fallback: if no direct match, get all providers in category
+    if (query.$or.length === 0) delete query.$or
   }
 
   const providers = await db.collection('provider_profiles').find(query).toArray()
+  
+  // If no providers found with strict criteria, relax and try category only
+  if (providers.length === 0 && parsed.service_category !== 'autre') {
+    const relaxedProviders = await db.collection('provider_profiles').find({
+      serviceCategory: { $regex: new RegExp(parsed.service_category, 'i') },
+      isAvailable: true
+    }).toArray()
+    
+    return relaxedProviders
+      .map(provider => {
+        const { score, reason } = computeScore(provider, {
+          serviceCategory: parsed.service_category,
+          city: parsed.city,
+          zone: parsed.zone
+        })
+        return { ...provider, score, reason: reason + ' (élargi)' }
+      })
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 5)
+  }
 
   return providers
     .map(provider => {
@@ -351,6 +412,14 @@ async function persistMatches(db, requestId, providers) {
       { upsert: true }
     )
   }
+  
+  // Track lead for monetization
+  await db.collection('lead_events').insertOne({
+    id: uuidv4(),
+    requestId,
+    providersNotified: providers.length,
+    timestamp: new Date()
+  })
 }
 
 async function notifyClient(db, phone, parsed, count) {
@@ -378,7 +447,7 @@ async function notifyProviders(db, providers, parsed, requestId) {
   }
 }
 
-// ============ Handle Provider Response (OUI/NON) ============
+// ============ Handle Provider Response ============
 async function handleProviderResponse(db, fromPhone, messageText, requestRef) {
   const lowerText = messageText.toLowerCase().trim()
   const isAccept = lowerText === 'oui' || lowerText.startsWith('oui ')
@@ -386,14 +455,12 @@ async function handleProviderResponse(db, fromPhone, messageText, requestRef) {
   
   if (!isAccept && !isDecline) return null
   
-  // Find provider by phone
   const provider = await db.collection('provider_profiles').findOne({ 
     whatsappNumber: { $regex: new RegExp(fromPhone.replace(/[^\d]/g, '').slice(-9)) }
   })
   
   if (!provider) return null
   
-  // Find the latest match for this provider
   let match = null
   if (requestRef) {
     match = await db.collection('request_matches').findOne({
@@ -413,29 +480,28 @@ async function handleProviderResponse(db, fromPhone, messageText, requestRef) {
   
   const newStatus = isAccept ? 'ACCEPTED' : 'DECLINED'
   
-  // Update match status
   await db.collection('request_matches').updateOne(
     { _id: match._id },
-    { 
-      $set: { 
-        status: newStatus, 
-        respondedAt: new Date(),
-        updatedAt: new Date()
-      } 
-    }
+    { $set: { status: newStatus, respondedAt: new Date(), updatedAt: new Date() } }
   )
   
-  // Get the request
   const request = await db.collection('service_requests').findOne({ id: match.requestId })
   
   if (isAccept && request) {
-    // Update request status to ASSIGNED
     await db.collection('service_requests').updateOne(
       { id: match.requestId },
       { $set: { status: 'ASSIGNED', assignedProviderId: provider.id, updatedAt: new Date() } }
     )
     
-    // Notify client
+    // Track conversion for monetization
+    await db.collection('lead_events').insertOne({
+      id: uuidv4(),
+      type: 'CONVERSION',
+      requestId: match.requestId,
+      providerId: provider.id,
+      timestamp: new Date()
+    })
+    
     if (request.clientPhone) {
       await sendWhatsAppMessage(
         request.clientPhone,
@@ -447,7 +513,6 @@ async function handleProviderResponse(db, fromPhone, messageText, requestRef) {
       )
     }
     
-    // Confirm to provider
     await sendWhatsAppMessage(
       provider.whatsappNumber,
       `✅ Demande acceptée !\n\n` +
@@ -458,7 +523,6 @@ async function handleProviderResponse(db, fromPhone, messageText, requestRef) {
       db
     )
   } else if (isDecline) {
-    // Notify provider of decline confirmation
     await sendWhatsAppMessage(
       provider.whatsappNumber,
       `❌ Demande refusée.\n\nVous recevrez d'autres opportunités bientôt.`,
@@ -479,32 +543,101 @@ async function handleRoute(request, { params }) {
   try {
     const db = await connectToMongo()
 
-    // ============ ROOT ENDPOINTS ============
+    // ============ ROOT ============
     if ((route === '/root' || route === '/') && method === 'GET') {
       return handleCORS(NextResponse.json({ 
         message: 'Bienvenue sur Wooleen API',
-        version: '2.0.0',
-        features: [
-          'OpenAI GPT-4o-mini parsing',
-          'WhatsApp integration (mock/real)',
-          'Provider response handling (OUI/NON)',
-          'Provider authentication'
-        ],
-        endpoints: [
-          '/api/webhooks/whatsapp',
-          '/api/providers',
-          '/api/requests',
-          '/api/admin/stats',
-          '/api/whatsapp/send',
-          '/api/whatsapp/messages',
-          '/api/auth/login',
-          '/api/auth/provider/login'
-        ]
+        version: '2.1.0',
+        features: ['Lead capture', 'OpenAI GPT parsing', 'Improved matching', 'Monetization ready']
+      }))
+    }
+
+    // ============ LEAD CAPTURE (NEW) ============
+    if (route === '/leads' && method === 'POST') {
+      const body = await request.json()
+      const { serviceCategory, city, phone, description, source } = body
+      
+      // Create or find user
+      let user = await db.collection('users').findOne({ 
+        phone: { $regex: new RegExp(phone?.replace(/[^\d]/g, '').slice(-9) || '') }
+      })
+      
+      if (!user && phone) {
+        user = {
+          id: uuidv4(),
+          name: phone,
+          phone,
+          role: 'CLIENT',
+          createdAt: new Date(),
+          updatedAt: new Date()
+        }
+        await db.collection('users').insertOne(user)
+      }
+      
+      // Create lead record
+      const lead = {
+        id: uuidv4(),
+        userId: user?.id,
+        serviceCategory: serviceCategory || 'autre',
+        city: city || '',
+        phone: phone || '',
+        description: description || '',
+        source: source || 'web',
+        status: 'NEW',
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }
+      
+      await db.collection('leads').insertOne(lead)
+      
+      // Also create a service request for tracking
+      const serviceRequest = {
+        id: uuidv4(),
+        clientId: user?.id,
+        clientPhone: phone,
+        rawMessage: description || `Demande de ${serviceCategory} à ${city}`,
+        normalizedText: description || `Demande de ${serviceCategory} à ${city}`,
+        serviceCategory: serviceCategory || 'autre',
+        city: city || '',
+        zone: '',
+        urgency: 'normale',
+        status: 'PENDING',
+        source: source || 'homepage_form',
+        leadId: lead.id,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }
+      
+      await db.collection('service_requests').insertOne(serviceRequest)
+      
+      // Find and notify matching providers in background
+      const parsed = {
+        service_category: serviceCategory || 'autre',
+        city: city || '',
+        zone: '',
+        urgency: 'normale',
+        short_summary: description || `Demande de ${serviceCategory}`
+      }
+      
+      const providers = await findBestProviders(db, parsed)
+      
+      if (providers.length > 0) {
+        await persistMatches(db, serviceRequest.id, providers)
+        await db.collection('service_requests').updateOne(
+          { id: serviceRequest.id },
+          { $set: { status: 'MATCHING', matchedCount: providers.length } }
+        )
+      }
+      
+      return handleCORS(NextResponse.json({
+        success: true,
+        leadId: lead.id,
+        requestId: serviceRequest.id,
+        matchedProviders: providers.length
       }))
     }
 
     // ============ AUTHENTICATION ============
-    // POST /api/auth/provider/login
     if (route === '/auth/provider/login' && method === 'POST') {
       const body = await request.json()
       const { phone, password } = body
@@ -513,7 +646,6 @@ async function handleRoute(request, { params }) {
         return handleCORS(NextResponse.json({ error: 'Phone et password requis' }, { status: 400 }))
       }
       
-      // Find user with this phone
       const user = await db.collection('users').findOne({ 
         phone: { $regex: new RegExp(phone.replace(/[^\d]/g, '').slice(-9)) },
         role: 'PROVIDER'
@@ -523,46 +655,36 @@ async function handleRoute(request, { params }) {
         return handleCORS(NextResponse.json({ error: 'Prestataire non trouvé' }, { status: 401 }))
       }
       
-      // Check password (if exists)
       if (user.passwordHash) {
         const validPassword = await bcrypt.compare(password, user.passwordHash)
         if (!validPassword) {
           return handleCORS(NextResponse.json({ error: 'Mot de passe incorrect' }, { status: 401 }))
         }
       } else {
-        // If no password set, check against default
         if (password !== 'wooleen2025') {
           return handleCORS(NextResponse.json({ error: 'Mot de passe incorrect' }, { status: 401 }))
         }
       }
       
-      // Get provider profile
       const provider = await db.collection('provider_profiles').findOne({ userId: user.id })
-      
-      // Generate simple token
       const token = Buffer.from(`${user.id}:${Date.now()}`).toString('base64')
       
       return handleCORS(NextResponse.json({
         success: true,
         token,
-        user: {
-          id: user.id,
-          name: user.name,
-          phone: user.phone,
-          role: user.role
-        },
+        user: { id: user.id, name: user.name, phone: user.phone, role: user.role },
         provider: provider ? {
           id: provider.id,
           businessName: provider.businessName,
           serviceCategory: provider.serviceCategory,
           city: provider.city,
           isAvailable: provider.isAvailable,
-          rating: provider.rating
+          rating: provider.rating,
+          tier: provider.tier || 'free'
         } : null
       }))
     }
 
-    // POST /api/auth/provider/register - Provider registration
     if (route === '/auth/provider/register' && method === 'POST') {
       const body = await request.json()
       const { phone, password, businessName, serviceCategory, city } = body
@@ -571,7 +693,6 @@ async function handleRoute(request, { params }) {
         return handleCORS(NextResponse.json({ error: 'Tous les champs sont requis' }, { status: 400 }))
       }
       
-      // Check if user already exists
       const existingUser = await db.collection('users').findOne({ 
         phone: { $regex: new RegExp(phone.replace(/[^\d]/g, '').slice(-9)) }
       })
@@ -580,7 +701,6 @@ async function handleRoute(request, { params }) {
         return handleCORS(NextResponse.json({ error: 'Ce numéro est déjà enregistré' }, { status: 400 }))
       }
       
-      // Create user
       const passwordHash = await bcrypt.hash(password, 10)
       const user = {
         id: uuidv4(),
@@ -594,7 +714,6 @@ async function handleRoute(request, { params }) {
       }
       await db.collection('users').insertOne(user)
       
-      // Create provider profile
       const provider = {
         id: uuidv4(),
         userId: user.id,
@@ -603,8 +722,10 @@ async function handleRoute(request, { params }) {
         city,
         zones: [],
         rating: 0,
+        responseRate: 0,
         isAvailable: true,
         isVerified: false,
+        tier: 'free', // For monetization: free, pro, premium
         whatsappNumber: phone,
         description: `${serviceCategory} à ${city}`,
         createdAt: new Date(),
@@ -612,29 +733,23 @@ async function handleRoute(request, { params }) {
       }
       await db.collection('provider_profiles').insertOne(provider)
       
-      // Generate token
       const token = Buffer.from(`${user.id}:${user.role}:${Date.now()}`).toString('base64')
       
       return handleCORS(NextResponse.json({
         success: true,
         token,
-        user: {
-          id: user.id,
-          name: user.name,
-          phone: user.phone,
-          role: user.role
-        },
+        user: { id: user.id, name: user.name, phone: user.phone, role: user.role },
         provider: {
           id: provider.id,
           businessName: provider.businessName,
           serviceCategory: provider.serviceCategory,
           city: provider.city,
-          isAvailable: provider.isAvailable
+          isAvailable: provider.isAvailable,
+          tier: provider.tier
         }
       }))
     }
 
-    // POST /api/auth/login - General login for all roles
     if (route === '/auth/login' && method === 'POST') {
       const body = await request.json()
       const { phone, password } = body
@@ -643,7 +758,6 @@ async function handleRoute(request, { params }) {
         return handleCORS(NextResponse.json({ error: 'Phone et password requis' }, { status: 400 }))
       }
       
-      // Find user with this phone (any role)
       const user = await db.collection('users').findOne({ 
         phone: { $regex: new RegExp(phone.replace(/[^\d]/g, '').slice(-9)) }
       })
@@ -652,7 +766,6 @@ async function handleRoute(request, { params }) {
         return handleCORS(NextResponse.json({ error: 'Utilisateur non trouvé' }, { status: 401 }))
       }
       
-      // Check password
       if (user.passwordHash) {
         const validPassword = await bcrypt.compare(password, user.passwordHash)
         if (!validPassword) {
@@ -664,36 +777,29 @@ async function handleRoute(request, { params }) {
         }
       }
       
-      // Get provider profile if user is a provider
       let provider = null
       if (user.role === 'PROVIDER') {
         provider = await db.collection('provider_profiles').findOne({ userId: user.id })
       }
       
-      // Generate token
       const token = Buffer.from(`${user.id}:${user.role}:${Date.now()}`).toString('base64')
       
       return handleCORS(NextResponse.json({
         success: true,
         token,
-        user: {
-          id: user.id,
-          name: user.name,
-          phone: user.phone,
-          role: user.role
-        },
+        user: { id: user.id, name: user.name, phone: user.phone, role: user.role },
         provider: provider ? {
           id: provider.id,
           businessName: provider.businessName,
           serviceCategory: provider.serviceCategory,
           city: provider.city,
-          isAvailable: provider.isAvailable
+          isAvailable: provider.isAvailable,
+          tier: provider.tier || 'free'
         } : null
       }))
     }
 
-    // ============ PROVIDER DASHBOARD ENDPOINTS ============
-    // GET /api/provider/dashboard/:providerId
+    // ============ PROVIDER DASHBOARD ============
     const providerDashMatch = route.match(/^\/provider\/dashboard\/([a-zA-Z0-9-]+)$/)
     if (providerDashMatch && method === 'GET') {
       const providerId = providerDashMatch[1]
@@ -703,14 +809,12 @@ async function handleRoute(request, { params }) {
         return handleCORS(NextResponse.json({ error: 'Provider not found' }, { status: 404 }))
       }
       
-      // Get matches for this provider
       const matches = await db.collection('request_matches')
         .find({ providerId })
         .sort({ sentAt: -1 })
         .limit(20)
         .toArray()
       
-      // Get request details for each match
       const requestIds = matches.map(m => m.requestId)
       const requests = await db.collection('service_requests')
         .find({ id: { $in: requestIds } })
@@ -724,12 +828,14 @@ async function handleRoute(request, { params }) {
         request: requestMap[m.requestId] || null
       }))
       
-      // Stats
       const stats = {
         totalLeads: matches.length,
         pending: matches.filter(m => m.status === 'SENT').length,
         accepted: matches.filter(m => m.status === 'ACCEPTED').length,
-        declined: matches.filter(m => m.status === 'DECLINED').length
+        declined: matches.filter(m => m.status === 'DECLINED').length,
+        responseRate: matches.length > 0 
+          ? Math.round((matches.filter(m => m.status !== 'SENT').length / matches.length) * 100)
+          : 0
       }
       
       const { _id, ...cleanProvider } = provider
@@ -741,7 +847,6 @@ async function handleRoute(request, { params }) {
       }))
     }
 
-    // PATCH /api/provider/:providerId/availability
     const availMatch = route.match(/^\/provider\/([a-zA-Z0-9-]+)\/availability$/)
     if (availMatch && method === 'PATCH') {
       const providerId = availMatch[1]
@@ -757,7 +862,6 @@ async function handleRoute(request, { params }) {
       return handleCORS(NextResponse.json(clean))
     }
 
-    // POST /api/provider/:providerId/respond
     const respondMatch = route.match(/^\/provider\/([a-zA-Z0-9-]+)\/respond$/)
     if (respondMatch && method === 'POST') {
       const providerId = respondMatch[1]
@@ -771,7 +875,6 @@ async function handleRoute(request, { params }) {
       const isAccept = resp.toLowerCase() === 'accept' || resp.toLowerCase() === 'oui'
       const newStatus = isAccept ? 'ACCEPTED' : 'DECLINED'
       
-      // Find the match
       const match = await db.collection('request_matches').findOne({ 
         requestId: matchId, 
         providerId 
@@ -781,35 +884,50 @@ async function handleRoute(request, { params }) {
         return handleCORS(NextResponse.json({ error: 'Match not found' }, { status: 404 }))
       }
       
-      // Update match
       await db.collection('request_matches').updateOne(
         { requestId: matchId, providerId },
         { $set: { status: newStatus, respondedAt: new Date(), updatedAt: new Date() } }
       )
       
-      // Get provider and request
       const provider = await db.collection('provider_profiles').findOne({ id: providerId })
       const serviceRequest = await db.collection('service_requests').findOne({ id: matchId })
       
       if (isAccept && serviceRequest) {
-        // Update request status
         await db.collection('service_requests').updateOne(
           { id: matchId },
           { $set: { status: 'ASSIGNED', assignedProviderId: providerId, updatedAt: new Date() } }
         )
         
-        // Notify client via WhatsApp
+        // Track conversion
+        await db.collection('lead_events').insertOne({
+          id: uuidv4(),
+          type: 'CONVERSION',
+          requestId: matchId,
+          providerId,
+          timestamp: new Date()
+        })
+        
         if (serviceRequest.clientPhone && provider) {
           await sendWhatsAppMessage(
             serviceRequest.clientPhone,
             `✅ Bonne nouvelle !\n\n` +
             `Le prestataire "${provider.businessName}" a accepté votre demande.\n\n` +
-            `📞 Contact : ${provider.whatsappNumber}\n\n` +
+            `📞 Contact : ${provider.whatsappNumber}\n` +
+            `⭐ Note : ${provider.rating?.toFixed(1) || 'Nouveau'}\n\n` +
             `Il vous contactera très bientôt.`,
             db
           )
         }
       }
+      
+      // Update provider response rate
+      const allMatches = await db.collection('request_matches').find({ providerId }).toArray()
+      const responded = allMatches.filter(m => m.status !== 'SENT').length
+      const responseRate = allMatches.length > 0 ? Math.round((responded / allMatches.length) * 100) : 0
+      await db.collection('provider_profiles').updateOne(
+        { id: providerId },
+        { $set: { responseRate } }
+      )
       
       return handleCORS(NextResponse.json({ 
         success: true, 
@@ -844,7 +962,6 @@ async function handleRoute(request, { params }) {
       const phone = String(message.from)
       const fromName = contact?.profile?.name || null
 
-      // Store inbound message
       await db.collection('whatsapp_inbound').insertOne({
         id: uuidv4(),
         waMessageId: message.id,
@@ -855,10 +972,8 @@ async function handleRoute(request, { params }) {
         createdAt: new Date()
       })
 
-      // Check if this is a provider response (OUI/NON)
       const lowerText = incomingText.toLowerCase().trim()
       if (lowerText === 'oui' || lowerText === 'non' || lowerText.startsWith('oui ') || lowerText.startsWith('non ')) {
-        // Extract reference from message if present
         const refMatch = incomingText.match(/Ref:\s*([a-zA-Z0-9]+)/i)
         const requestRef = refMatch ? refMatch[1] : null
         
@@ -868,7 +983,6 @@ async function handleRoute(request, { params }) {
         }
       }
 
-      // Otherwise, treat as a new service request
       const parsed = await parseWithOpenAI(incomingText)
 
       if (!parsed.ready_for_matching) {
@@ -903,7 +1017,6 @@ async function handleRoute(request, { params }) {
     }
 
     if (route === '/whatsapp/messages' && method === 'GET') {
-      // Get from DB first, then memory
       const dbMessages = await db.collection('whatsapp_messages')
         .find({})
         .sort({ timestamp: -1 })
@@ -926,7 +1039,6 @@ async function handleRoute(request, { params }) {
         return handleCORS(NextResponse.json({ error: 'from and text are required' }, { status: 400 }))
       }
 
-      // Check if this is a provider response
       const lowerText = text.toLowerCase().trim()
       if (lowerText === 'oui' || lowerText === 'non') {
         const result = await handleProviderResponse(db, from, text, null)
@@ -950,7 +1062,6 @@ async function handleRoute(request, { params }) {
       await notifyClient(db, from, parsed, bestProviders.length)
       await notifyProviders(db, bestProviders, parsed, requestRecord.id)
 
-      // Get last messages
       const recentMessages = await db.collection('whatsapp_messages')
         .find({})
         .sort({ timestamp: -1 })
@@ -965,7 +1076,9 @@ async function handleRoute(request, { params }) {
           id: p.id,
           businessName: p.businessName,
           score: p.score,
-          reason: p.reason
+          reason: p.reason,
+          rating: p.rating,
+          tier: p.tier || 'free'
         })),
         parsed,
         whatsappMessages: [...recentMessages.map(({ _id, ...m }) => m), ...whatsappMessages.slice(-10)]
@@ -978,7 +1091,7 @@ async function handleRoute(request, { params }) {
         .aggregate([
           { $lookup: { from: 'users', localField: 'userId', foreignField: 'id', as: 'user' } },
           { $unwind: { path: '$user', preserveNullAndEmptyArrays: true } },
-          { $sort: { createdAt: -1 } }
+          { $sort: { tier: -1, rating: -1, createdAt: -1 } }
         ])
         .toArray()
       return handleCORS(NextResponse.json(providers.map(({ _id, ...rest }) => rest)))
@@ -992,6 +1105,8 @@ async function handleRoute(request, { params }) {
         isVerified: body.isVerified ?? false,
         isAvailable: body.isAvailable ?? true,
         rating: body.rating ?? 0,
+        responseRate: 0,
+        tier: body.tier || 'free',
         zones: body.zones || [],
         createdAt: new Date(),
         updatedAt: new Date()
@@ -1109,13 +1224,15 @@ async function handleRoute(request, { params }) {
 
     // ============ ADMIN STATS ============
     if (route === '/admin/stats' && method === 'GET') {
-      const [providers, requests, matches, activeProviders, pendingMatches, acceptedMatches] = await Promise.all([
+      const [providers, requests, matches, activeProviders, pendingMatches, acceptedMatches, leads, conversions] = await Promise.all([
         db.collection('provider_profiles').countDocuments(),
         db.collection('service_requests').countDocuments(),
         db.collection('request_matches').countDocuments(),
         db.collection('provider_profiles').countDocuments({ isAvailable: true }),
         db.collection('request_matches').countDocuments({ status: 'SENT' }),
-        db.collection('request_matches').countDocuments({ status: 'ACCEPTED' })
+        db.collection('request_matches').countDocuments({ status: 'ACCEPTED' }),
+        db.collection('leads').countDocuments(),
+        db.collection('lead_events').countDocuments({ type: 'CONVERSION' })
       ])
 
       return handleCORS(NextResponse.json({
@@ -1125,6 +1242,9 @@ async function handleRoute(request, { params }) {
         activeProviders,
         pendingMatches,
         acceptedMatches,
+        leads,
+        conversions,
+        conversionRate: matches > 0 ? Math.round((conversions / matches) * 100) : 0,
         aiStatus: process.env.OPENAI_API_KEY ? 'OpenAI GPT-4o-mini' : 'Local parsing',
         whatsappStatus: process.env.WHATSAPP_TOKEN ? 'Real WhatsApp' : 'Mocked'
       }))
@@ -1134,7 +1254,6 @@ async function handleRoute(request, { params }) {
     if (route === '/seed' && method === 'POST') {
       const passwordHash = await bcrypt.hash('wooleen2025', 10)
       
-      // Create admin
       const admin = {
         id: uuidv4(),
         name: 'Admin Wooleen',
@@ -1147,7 +1266,6 @@ async function handleRoute(request, { params }) {
       }
       await db.collection('users').updateOne({ phone: admin.phone }, { $setOnInsert: admin }, { upsert: true })
 
-      // Create categories
       const categories = [
         { id: uuidv4(), name: 'Plomberie', slug: 'plombier' },
         { id: uuidv4(), name: 'Électricité', slug: 'electricien' },
@@ -1164,13 +1282,12 @@ async function handleRoute(request, { params }) {
         )
       }
 
-      // Create providers
       const providerData = [
-        { name: 'Mamadou Plomberie', phone: '+221700000101', category: 'plombier', city: 'Dakar', zones: ['Ouakam', 'Mermoz', 'Yoff'], rating: 4.7 },
-        { name: 'Samba Électricité', phone: '+221700000102', category: 'electricien', city: 'Dakar', zones: ['Pikine', 'Guédiawaye', 'Parcelles'], rating: 4.4 },
-        { name: 'Thiès Froid Service', phone: '+221700000103', category: 'climatiseur', city: 'Thiès', zones: ['Thiès Nord', 'Thiès Sud'], rating: 4.8 },
-        { name: 'Ibrahima Menuiserie', phone: '+221700000104', category: 'menuisier', city: 'Dakar', zones: ['Médina', 'Plateau', 'Fann'], rating: 4.6 },
-        { name: 'Fatou Nettoyage Pro', phone: '+221700000105', category: 'nettoyage', city: 'Dakar', zones: ['Almadies', 'Ngor', 'Yoff'], rating: 4.9 }
+        { name: 'Mamadou Plomberie', phone: '+221700000101', category: 'plombier', city: 'Dakar', zones: ['Ouakam', 'Mermoz', 'Yoff'], rating: 4.7, tier: 'premium' },
+        { name: 'Samba Électricité', phone: '+221700000102', category: 'electricien', city: 'Dakar', zones: ['Pikine', 'Guédiawaye', 'Parcelles'], rating: 4.4, tier: 'pro' },
+        { name: 'Thiès Froid Service', phone: '+221700000103', category: 'climatiseur', city: 'Thiès', zones: ['Thiès Nord', 'Thiès Sud'], rating: 4.8, tier: 'premium' },
+        { name: 'Ibrahima Menuiserie', phone: '+221700000104', category: 'menuisier', city: 'Dakar', zones: ['Médina', 'Plateau', 'Fann'], rating: 4.6, tier: 'free' },
+        { name: 'Fatou Nettoyage Pro', phone: '+221700000105', category: 'nettoyage', city: 'Dakar', zones: ['Almadies', 'Ngor', 'Yoff'], rating: 4.9, tier: 'pro' }
       ]
 
       for (const item of providerData) {
@@ -1202,8 +1319,10 @@ async function handleRoute(request, { params }) {
               city: item.city,
               zones: item.zones,
               rating: item.rating,
+              responseRate: Math.floor(Math.random() * 30) + 70,
               isAvailable: true,
               isVerified: true,
+              tier: item.tier,
               whatsappNumber: item.phone,
               description: `${item.category} professionnel à ${item.city}`,
               createdAt: new Date(),
