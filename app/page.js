@@ -80,33 +80,37 @@ export default function HomePage() {
   return (
     <main className="min-h-screen bg-white">
       {/* Header */}
-      <header className="border-b sticky top-0 bg-white z-40 shadow-sm">
-        <div className="max-w-5xl mx-auto px-4 py-6 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-3">
-            <img src="/wooko-logo.png" alt="Wooko" className="h-14 sm:h-24" />
+      <header className="border-b sticky top-0 bg-white z-40 shadow-md">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 sm:py-5 flex items-center justify-between">
+          <Link href="/" className="flex items-center">
+            <img 
+              src="/wooko-logo.png" 
+              alt="Wooko - Besoin d'un service ?" 
+              className="h-10 sm:h-14 w-auto object-contain" 
+            />
           </Link>
           
-          <div className="flex items-center gap-2 sm:gap-4">
+          <div className="flex items-center gap-3 sm:gap-5">
             <Link
               href="/login"
-              className="text-sm text-gray-600 hover:text-black px-3 py-2 font-medium"
+              className="text-sm sm:text-base text-gray-700 hover:text-orange-600 px-3 py-2 font-medium transition-colors"
             >
               Connexion
             </Link>
 
             <Link
               href="/provider/login"
-              className="hidden sm:inline-block text-sm text-gray-600 hover:text-black px-3 py-2 font-medium"
+              className="hidden md:inline-block text-sm sm:text-base text-gray-700 hover:text-orange-600 px-3 py-2 font-medium transition-colors"
             >
-              Espace prestataire
+              Prestataire
             </Link>
 
             <button
               onClick={handleQuickWhatsApp}
-              className="bg-[#25D366] text-white px-4 py-2.5 rounded-lg text-sm font-semibold hover:bg-[#20BA5A] flex items-center gap-2 shadow-md"
+              className="bg-[#25D366] text-white px-4 sm:px-5 py-2.5 sm:py-3 rounded-lg text-sm sm:text-base font-bold hover:bg-[#20BA5A] flex items-center gap-2 shadow-lg hover:shadow-xl transition-all"
             >
-              <span>💬</span>
-              <span className="hidden sm:inline">WhatsApp</span>
+              <span className="text-lg">💬</span>
+              <span>WhatsApp</span>
             </button>
           </div>
         </div>
