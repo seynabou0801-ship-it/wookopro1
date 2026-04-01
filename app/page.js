@@ -83,7 +83,7 @@ export default function HomePage() {
       <header className="border-b sticky top-0 bg-white z-40">
         <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-3">
-            <img src="/wooko-logo.png" alt="Wooko" className="h-10 sm:h-12" />
+            <img src="/wooko-logo.png" alt="Wooko" className="h-10 sm:h-20" />
           </Link>
           
           <div className="flex items-center gap-2 sm:gap-3">
@@ -103,7 +103,7 @@ export default function HomePage() {
 
             <button
               onClick={handleQuickWhatsApp}
-              className="bg-green-600 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-green-700 flex items-center gap-1"
+              className="bg-orange-600 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-orange-700 flex items-center gap-1"
             >
               <span>💬</span>
               <span className="hidden sm:inline">WhatsApp</span>
@@ -127,7 +127,7 @@ export default function HomePage() {
           <div className="mt-8 space-y-3">
             <button
               onClick={() => setShowForm(true)}
-              className="w-full sm:w-auto bg-green-600 text-white px-8 py-4 rounded-xl text-lg font-semibold hover:bg-green-700 shadow-lg hover:shadow-xl transition-all"
+              className="w-full sm:w-auto bg-orange-600 text-white px-8 py-4 rounded-xl text-lg font-semibold hover:bg-orange-700 shadow-lg hover:shadow-xl transition-all"
             >
               💬 Décrire mon besoin
             </button>
@@ -161,7 +161,7 @@ export default function HomePage() {
                 <select
                   value={formData.serviceCategory}
                   onChange={(e) => setFormData({ ...formData, serviceCategory: e.target.value })}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white"
                   required
                 >
                   <option value="">Sélectionner un service</option>
@@ -179,7 +179,7 @@ export default function HomePage() {
                 <select
                   value={formData.city}
                   onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white"
                   required
                 >
                   <option value="">Sélectionner une ville</option>
@@ -199,7 +199,7 @@ export default function HomePage() {
                   value={formData.phone}
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                   placeholder="+221 77 000 00 00"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500"
                   required
                 />
               </div>
@@ -214,7 +214,7 @@ export default function HomePage() {
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   placeholder="Décrivez votre problème ou besoin..."
                   rows={3}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 resize-none"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 resize-none"
                 />
               </div>
 
@@ -222,7 +222,7 @@ export default function HomePage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-green-600 text-white py-4 rounded-xl font-semibold hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2"
+                className="w-full bg-orange-600 text-white py-4 rounded-xl font-semibold hover:bg-orange-700 disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {loading ? (
                   'Envoi...'
@@ -247,19 +247,19 @@ export default function HomePage() {
         <div className="max-w-4xl mx-auto px-4">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
             <div className="p-4">
-              <p className="text-2xl font-bold text-green-600">500+</p>
+              <p className="text-2xl font-bold text-orange-600">500+</p>
               <p className="text-sm text-gray-600">Prestataires vérifiés</p>
             </div>
             <div className="p-4">
-              <p className="text-2xl font-bold text-green-600">15 min</p>
+              <p className="text-2xl font-bold text-orange-600">15 min</p>
               <p className="text-sm text-gray-600">Temps de réponse moyen</p>
             </div>
             <div className="p-4">
-              <p className="text-2xl font-bold text-green-600">4.8/5</p>
+              <p className="text-2xl font-bold text-orange-600">4.8/5</p>
               <p className="text-sm text-gray-600">Satisfaction client</p>
             </div>
             <div className="p-4">
-              <p className="text-2xl font-bold text-green-600">100%</p>
+              <p className="text-2xl font-bold text-orange-600">100%</p>
               <p className="text-sm text-gray-600">Gratuit pour vous</p>
             </div>
           </div>
@@ -271,7 +271,7 @@ export default function HomePage() {
         <h2 className="text-2xl font-bold text-center mb-8">Comment ça marche ?</h2>
         <div className="grid md:grid-cols-3 gap-6">
           <div className="text-center p-4">
-            <div className="w-14 h-14 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <div className="w-14 h-14 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <span className="text-2xl">1️⃣</span>
             </div>
             <h3 className="font-semibold text-gray-900 mb-2">Décrivez votre besoin</h3>

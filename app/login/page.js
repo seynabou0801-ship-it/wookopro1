@@ -68,7 +68,7 @@ export default function LoginPage() {
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder="+221..."
-                className="w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500"
+                className="w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500"
                 required
               />
             </div>
@@ -82,7 +82,7 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••"
-                className="w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500"
+                className="w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500"
                 required
               />
             </div>
@@ -94,7 +94,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-green-600 text-white py-3 rounded-xl font-semibold hover:bg-green-700 disabled:opacity-50"
+              className="w-full bg-orange-600 text-white py-3 rounded-xl font-semibold hover:bg-orange-700 disabled:opacity-50"
             >
               {loading ? 'Connexion...' : 'Se connecter'}
             </button>
@@ -106,7 +106,7 @@ export default function LoginPage() {
         </div>
 
         <p className="text-center mt-4 text-sm text-gray-600">
-          Vous êtes prestataire ? <Link href="/provider/login" className="text-green-600 hover:underline">Accédez à votre espace</Link>
+          Vous êtes prestataire ? <Link href="/provider/login" className="text-orange-600 hover:underline">Accédez à votre espace</Link>
         </p>
 
         <p className="text-center mt-2">

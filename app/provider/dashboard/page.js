@@ -92,7 +92,7 @@ export default function ProviderDashboard() {
   const getStatusColor = (status) => {
     const colors = {
       SENT: 'bg-blue-100 text-blue-800',
-      ACCEPTED: 'bg-green-100 text-green-800',
+      ACCEPTED: 'bg-orange-100 text-orange-800',
       DECLINED: 'bg-red-100 text-red-800'
     }
     return colors[status] || 'bg-gray-100 text-gray-800'
@@ -141,7 +141,7 @@ export default function ProviderDashboard() {
                 onClick={toggleAvailability}
                 className={`px-4 py-2 rounded-lg font-medium ${
                   provider?.isAvailable
-                    ? 'bg-green-100 text-green-700'
+                    ? 'bg-orange-100 text-orange-700'
                     : 'bg-red-100 text-red-700'
                 }`}
               >
@@ -164,7 +164,7 @@ export default function ProviderDashboard() {
           </div>
           <div className="bg-white p-4 rounded-xl shadow-sm">
             <p className="text-sm text-gray-500">Acceptés</p>
-            <p className="text-2xl font-bold text-green-600">{dashboard?.stats?.accepted || 0}</p>
+            <p className="text-2xl font-bold text-orange-600">{dashboard?.stats?.accepted || 0}</p>
           </div>
           <div className="bg-white p-4 rounded-xl shadow-sm">
             <p className="text-sm text-gray-500">Refusés</p>
@@ -213,7 +213,7 @@ export default function ProviderDashboard() {
                         <div className="flex gap-2 ml-4">
                           <button
                             onClick={() => respondToLead(match.requestId, 'accept')}
-                            className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700"
+                            className="px-4 py-2 bg-orange-600 text-white rounded-lg text-sm font-medium hover:bg-orange-700"
                           >
                             ✓ Accepter
                           </button>
@@ -233,8 +233,8 @@ export default function ProviderDashboard() {
                   </div>
                   
                   {match.status === 'ACCEPTED' && match.request?.clientPhone && (
-                    <div className="mt-3 p-3 bg-green-50 rounded-lg">
-                      <p className="text-sm text-green-800">📞 Contact client: {match.request.clientPhone}</p>
+                    <div className="mt-3 p-3 bg-orange-50 rounded-lg">
+                      <p className="text-sm text-orange-800">📞 Contact client: {match.request.clientPhone}</p>
                     </div>
                   )}
                 </div>

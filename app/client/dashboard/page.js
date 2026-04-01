@@ -105,7 +105,7 @@ export default function ClientDashboard() {
     const colors = {
       PENDING: 'bg-yellow-100 text-yellow-800',
       MATCHING: 'bg-blue-100 text-blue-800',
-      ASSIGNED: 'bg-green-100 text-green-800',
+      ASSIGNED: 'bg-orange-100 text-orange-800',
       COMPLETED: 'bg-emerald-100 text-emerald-800',
       CANCELLED: 'bg-red-100 text-red-800'
     }
@@ -126,7 +126,7 @@ export default function ClientDashboard() {
       <header className="bg-white border-b">
         <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
-            <img src="/wooko-logo.png" alt="Wooko" className="h-10" />
+            <img src="/wooko-logo.png" alt="Wooko" className="h-16" />
           </Link>
           <div className="flex items-center gap-4">
             <span className="text-sm text-gray-600">{user?.name || user?.phone}</span>
@@ -155,7 +155,7 @@ export default function ClientDashboard() {
           </div>
           <div className="bg-white p-4 rounded-xl shadow-sm">
             <p className="text-sm text-gray-500">Assignées</p>
-            <p className="text-2xl font-bold text-green-600">
+            <p className="text-2xl font-bold text-orange-600">
               {requests.filter(r => r.status === 'ASSIGNED').length}
             </p>
           </div>
@@ -168,12 +168,12 @@ export default function ClientDashboard() {
         </div>
 
         {/* CTA WhatsApp */}
-        <div className="bg-green-50 border border-green-200 rounded-xl p-6 mb-8">
-          <h2 className="text-lg font-semibold text-green-800">Nouvelle demande ?</h2>
-          <p className="text-green-700 mt-1">Créez une demande et nous contacterons les prestataires</p>
+        <div className="bg-orange-50 border border-orange-200 rounded-xl p-6 mb-8">
+          <h2 className="text-lg font-semibold text-orange-800">Nouvelle demande ?</h2>
+          <p className="text-orange-700 mt-1">Créez une demande et nous contacterons les prestataires</p>
           <button
             onClick={() => setShowNewRequestForm(true)}
-            className="mt-4 bg-green-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-green-700"
+            className="mt-4 bg-orange-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-orange-700"
           >
             ➕ Créer une demande
           </button>
@@ -201,7 +201,7 @@ export default function ClientDashboard() {
                   <select
                     value={formData.serviceCategory}
                     onChange={(e) => setFormData({ ...formData, serviceCategory: e.target.value })}
-                    className="w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500"
+                    className="w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500"
                     required
                   >
                     <option value="">Sélectionner...</option>
@@ -226,7 +226,7 @@ export default function ClientDashboard() {
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                     placeholder="Décrivez votre problème ou besoin..."
                     rows={4}
-                    className="w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 resize-none"
+                    className="w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 resize-none"
                     required
                   />
                 </div>
@@ -234,7 +234,7 @@ export default function ClientDashboard() {
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="w-full bg-green-600 text-white py-3 rounded-xl font-semibold hover:bg-green-700 disabled:opacity-50"
+                  className="w-full bg-orange-600 text-white py-3 rounded-xl font-semibold hover:bg-orange-700 disabled:opacity-50"
                 >
                   {submitting ? 'Création...' : '💬 Créer et envoyer'}
                 </button>
@@ -277,8 +277,8 @@ export default function ClientDashboard() {
                     </span>
                   </div>
                   {req.status === 'ASSIGNED' && req.assignedProviderId && (
-                    <div className="mt-3 p-3 bg-green-50 rounded-lg">
-                      <p className="text-sm text-green-800">✅ Un prestataire a accepté votre demande</p>
+                    <div className="mt-3 p-3 bg-orange-50 rounded-lg">
+                      <p className="text-sm text-orange-800">✅ Un prestataire a accepté votre demande</p>
                     </div>
                   )}
                 </div>

@@ -74,7 +74,7 @@ export default function SecureAdminDashboard() {
       VALIDEE_PAR_ADMIN: 'bg-blue-100 text-blue-800',
       REJETEE_PAR_ADMIN: 'bg-red-100 text-red-800',
       MATCHING: 'bg-blue-100 text-blue-800',
-      ASSIGNED: 'bg-green-100 text-green-800',
+      ASSIGNED: 'bg-orange-100 text-orange-800',
       COMPLETED: 'bg-emerald-100 text-emerald-800',
       CANCELLED: 'bg-red-100 text-red-800'
     }
@@ -143,7 +143,7 @@ export default function SecureAdminDashboard() {
       <header className="bg-white border-b">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
           <Link href="/">
-            <img src="/wooko-logo.png" alt="Wooko Admin" className="h-12" />
+            <img src="/wooko-logo.png" alt="Wooko Admin" className="h-20" />
           </Link>
           <div className="flex items-center gap-4">
             <button
@@ -177,7 +177,7 @@ export default function SecureAdminDashboard() {
           </div>
           <div className="bg-white p-4 rounded-xl shadow-sm">
             <p className="text-sm text-gray-500">Actifs</p>
-            <p className="text-2xl font-bold text-green-600">{stats?.activeProviders || 0}</p>
+            <p className="text-2xl font-bold text-orange-600">{stats?.activeProviders || 0}</p>
           </div>
           <div className="bg-white p-4 rounded-xl shadow-sm">
             <p className="text-sm text-gray-500">Demandes</p>
@@ -256,7 +256,7 @@ export default function SecureAdminDashboard() {
                     <div className="flex items-center justify-between">
                       <span className="font-medium">{p.businessName}</span>
                       <span className={`px-2 py-0.5 rounded-full text-xs ${
-                        p.isAvailable ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                        p.isAvailable ? 'bg-orange-100 text-orange-800' : 'bg-red-100 text-red-800'
                       }`}>
                         {p.isAvailable ? 'Actif' : 'Inactif'}
                       </span>
@@ -295,7 +295,7 @@ export default function SecureAdminDashboard() {
                       <td className="px-4 py-3 text-gray-600">⭐ {p.rating?.toFixed(1)}</td>
                       <td className="px-4 py-3">
                         <span className={`px-2 py-0.5 rounded-full text-xs ${
-                          p.isAvailable ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                          p.isAvailable ? 'bg-orange-100 text-orange-800' : 'bg-red-100 text-red-800'
                         }`}>
                           {p.isAvailable ? 'Actif' : 'Inactif'}
                         </span>
@@ -371,7 +371,7 @@ export default function SecureAdminDashboard() {
                               <button
                                 onClick={() => handleValidateRequest(r.id)}
                                 disabled={actionLoading}
-                                className="px-2 py-1 bg-green-600 text-white rounded text-xs font-medium hover:bg-green-700 disabled:opacity-50"
+                                className="px-2 py-1 bg-orange-600 text-white rounded text-xs font-medium hover:bg-orange-700 disabled:opacity-50"
                               >
                                 ✓
                               </button>
@@ -475,7 +475,7 @@ export default function SecureAdminDashboard() {
               {/* Localisation */}
               <div>
                 <h3 className="text-sm font-semibold text-gray-500 uppercase mb-3">Localisation & Zones</h3>
-                <div className="bg-green-50 rounded-xl p-4 space-y-3">
+                <div className="bg-orange-50 rounded-xl p-4 space-y-3">
                   <div className="flex items-start gap-3">
                     <span className="text-2xl">🌍</span>
                     <div className="flex-1">
@@ -491,7 +491,7 @@ export default function SecureAdminDashboard() {
                       <div className="flex flex-wrap gap-1 mt-1">
                         {selectedProvider.zones?.length > 0 ? (
                           selectedProvider.zones.map((zone, idx) => (
-                            <span key={idx} className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs">
+                            <span key={idx} className="px-2 py-1 bg-orange-100 text-orange-800 rounded-full text-xs">
                               {zone}
                             </span>
                           ))
@@ -647,7 +647,7 @@ export default function SecureAdminDashboard() {
               {/* Localisation */}
               <div>
                 <h3 className="text-sm font-semibold text-gray-500 uppercase mb-3">Localisation</h3>
-                <div className="bg-green-50 rounded-xl p-4 space-y-3">
+                <div className="bg-orange-50 rounded-xl p-4 space-y-3">
                   <div className="flex items-start gap-3">
                     <span className="text-2xl">🌍</span>
                     <div className="flex-1">
@@ -714,7 +714,7 @@ export default function SecureAdminDashboard() {
                             <p className="text-xs text-gray-500">Score: {match.score} • {match.reason}</p>
                           </div>
                           <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                            match.status === 'ACCEPTED' ? 'bg-green-100 text-green-800' :
+                            match.status === 'ACCEPTED' ? 'bg-orange-100 text-orange-800' :
                             match.status === 'DECLINED' ? 'bg-red-100 text-red-800' :
                             'bg-yellow-100 text-yellow-800'
                           }`}>
@@ -759,7 +759,7 @@ export default function SecureAdminDashboard() {
                     <button
                       onClick={() => handleValidateRequest(selectedRequest.id)}
                       disabled={actionLoading}
-                      className="flex-1 bg-green-600 text-white py-3 rounded-xl font-semibold hover:bg-green-700 disabled:opacity-50"
+                      className="flex-1 bg-orange-600 text-white py-3 rounded-xl font-semibold hover:bg-orange-700 disabled:opacity-50"
                     >
                       {actionLoading ? 'En cours...' : '✓ VALIDER'}
                     </button>
