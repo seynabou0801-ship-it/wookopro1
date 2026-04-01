@@ -80,30 +80,30 @@ export default function HomePage() {
   return (
     <main className="min-h-screen bg-white">
       {/* Header */}
-      <header className="border-b sticky top-0 bg-white z-40">
-        <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
+      <header className="border-b sticky top-0 bg-white z-40 shadow-sm">
+        <div className="max-w-5xl mx-auto px-4 py-6 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-3">
-            <img src="/wooko-logo.png" alt="Wooko" className="h-10 sm:h-20" />
+            <img src="/wooko-logo.png" alt="Wooko" className="h-14 sm:h-24" />
           </Link>
           
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-2 sm:gap-4">
             <Link
               href="/login"
-              className="text-sm text-gray-600 hover:text-black px-2 py-1"
+              className="text-sm text-gray-600 hover:text-black px-3 py-2 font-medium"
             >
               Connexion
             </Link>
 
             <Link
               href="/provider/login"
-              className="hidden sm:inline-block text-sm text-gray-600 hover:text-black px-2 py-1"
+              className="hidden sm:inline-block text-sm text-gray-600 hover:text-black px-3 py-2 font-medium"
             >
               Espace prestataire
             </Link>
 
             <button
               onClick={handleQuickWhatsApp}
-              className="bg-orange-600 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-orange-700 flex items-center gap-1"
+              className="bg-[#25D366] text-white px-4 py-2.5 rounded-lg text-sm font-semibold hover:bg-[#20BA5A] flex items-center gap-2 shadow-md"
             >
               <span>💬</span>
               <span className="hidden sm:inline">WhatsApp</span>
@@ -127,9 +127,10 @@ export default function HomePage() {
           <div className="mt-8 space-y-3">
             <button
               onClick={() => setShowForm(true)}
-              className="w-full sm:w-auto bg-orange-600 text-white px-8 py-4 rounded-xl text-lg font-semibold hover:bg-orange-700 shadow-lg hover:shadow-xl transition-all"
+              className="w-full sm:w-auto bg-[#25D366] text-white px-8 py-4 rounded-xl text-lg font-bold hover:bg-[#20BA5A] shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-3"
             >
-              💬 Décrire mon besoin
+              <span className="text-2xl">💬</span>
+              <span>Décrire mon besoin</span>
             </button>
             <p className="text-sm text-gray-500">
               Gratuit • Réponse rapide • Sans engagement
@@ -222,13 +223,13 @@ export default function HomePage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-orange-600 text-white py-4 rounded-xl font-semibold hover:bg-orange-700 disabled:opacity-50 flex items-center justify-center gap-2"
+                className="w-full bg-[#25D366] text-white py-4 rounded-xl font-bold hover:bg-[#20BA5A] disabled:opacity-50 flex items-center justify-center gap-2 shadow-md"
               >
                 {loading ? (
                   'Envoi...'
                 ) : (
                   <>
-                    <span>💬</span>
+                    <span className="text-xl">💬</span>
                     <span>Continuer sur WhatsApp</span>
                   </>
                 )}

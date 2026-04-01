@@ -123,16 +123,16 @@ export default function ClientDashboard() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-white border-b">
-        <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
+      <header className="bg-white border-b shadow-sm">
+        <div className="max-w-5xl mx-auto px-4 py-5 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
-            <img src="/wooko-logo.png" alt="Wooko" className="h-16" />
+            <img src="/wooko-logo.png" alt="Wooko" className="h-24" />
           </Link>
           <div className="flex items-center gap-4">
-            <span className="text-sm text-gray-600">{user?.name || user?.phone}</span>
+            <span className="text-sm text-gray-600 font-medium">{user?.name || user?.phone}</span>
             <button
               onClick={handleLogout}
-              className="text-sm text-red-600 hover:text-red-700"
+              className="text-sm text-red-600 hover:text-red-700 font-medium"
             >
               Déconnexion
             </button>
@@ -234,7 +234,7 @@ export default function ClientDashboard() {
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="w-full bg-orange-600 text-white py-3 rounded-xl font-semibold hover:bg-orange-700 disabled:opacity-50"
+                  className="w-full bg-[#25D366] text-white py-3 rounded-xl font-bold hover:bg-[#20BA5A] disabled:opacity-50 shadow-md"
                 >
                   {submitting ? 'Création...' : '💬 Créer et envoyer'}
                 </button>
