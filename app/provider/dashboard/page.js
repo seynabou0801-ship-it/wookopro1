@@ -69,23 +69,35 @@ export default function ProviderDashboard() {
     }
   }
 
-  const respondToLead = async (requestId, response) => {
+  const respondToLead = async (matchId, response) => {
     if (!provider) return
+    
+    const isAccept = response.toLowerCase().includes('accept')
+    
     try {
       const res = await fetch(`/api/provider/${provider.id}/respond`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ matchId: requestId, response })
+        body: JSON.stringify({ matchId, response })
       })
+      
+      const data = await res.json()
+      
       if (res.ok) {
+        alert(isAccept ? '✅ Demande acceptée avec succès !' : '✅ Demande refusée.')
+        
         // Refresh dashboard
         const dashRes = await fetch(`/api/provider/dashboard/${provider.id}`)
         if (dashRes.ok) {
           setDashboard(await dashRes.json())
         }
+      } else {
+        // Afficher l'erreur
+        alert('❌ Erreur : ' + (data.error || 'Impossible de traiter la demande'))
       }
     } catch (error) {
       console.error('Error:', error)
+      alert('❌ Erreur de connexion. Veuillez réessayer.')
     }
   }
 
@@ -212,13 +224,13 @@ export default function ProviderDashboard() {
                       match.request?.status === 'VALIDEE_PAR_ADMIN' ? (
                         <div className="flex gap-2 ml-4">
                           <button
-                            onClick={() => respondToLead(match.requestId, 'accept')}
+                            onClick={() => respondToLead(match.id, 'accept')}
                             className="px-4 py-2 bg-orange-600 text-white rounded-lg text-sm font-medium hover:bg-orange-700"
                           >
                             ✓ Accepter
                           </button>
                           <button
-                            onClick={() => respondToLead(match.requestId, 'decline')}
+                            onClick={() => respondToLead(match.id, 'decline')}
                             className="px-4 py-2 bg-white border border-red-300 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50"
                           >
                             ✗ Refuser
