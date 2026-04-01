@@ -919,12 +919,15 @@ async function handleRoute(request, { params }) {
       // MASQUER le clientPhone si la demande n'est pas validée OU si le match n'est pas ACCEPTED
       const enrichedMatches = matches.map(m => {
         const request = requestMap[m.requestId]
-        if (request && (request.status !== 'VALIDEE_PAR_ADMIN' || m.status !== 'ACCEPTED')) {
+        const validStatuses = ['VALIDEE_PAR_ADMIN', 'ASSIGNED', 'SENT', 'MATCHING']
+        const isRequestValid = request && validStatuses.includes(request.status)
+        
+        if (!isRequestValid || m.status !== 'ACCEPTED') {
           // Masquer le numéro du client si demande pas validée OU si match pas accepté
-          const { clientPhone, ...requestWithoutPhone } = request
+          const { clientPhone, ...requestWithoutPhone } = request || {}
           return {
             ...m,
-            request: { ...requestWithoutPhone, clientPhone: null }
+            request: request ? { ...requestWithoutPhone, clientPhone: null } : null
           }
         }
         return {
