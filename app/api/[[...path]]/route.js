@@ -653,11 +653,13 @@ async function handleRoute(request, { params }) {
       
       const providers = await findBestProviders(db, parsed)
       
+      // NE PAS faire le matching automatiquement - attendre validation admin
+      // Les providers seront matchés lors de la validation admin
       if (providers.length > 0) {
-        await persistMatches(db, serviceRequest.id, providers)
+        // Juste compter les providers potentiels, ne pas créer les matches
         await db.collection('service_requests').updateOne(
           { id: serviceRequest.id },
-          { $set: { status: 'MATCHING', matchedCount: providers.length } }
+          { $set: { potentialMatchCount: providers.length } }
         )
       }
       
@@ -665,7 +667,7 @@ async function handleRoute(request, { params }) {
         success: true,
         leadId: lead.id,
         requestId: serviceRequest.id,
-        matchedProviders: providers.length
+        potentialProviders: providers.length
       }))
     }
 
