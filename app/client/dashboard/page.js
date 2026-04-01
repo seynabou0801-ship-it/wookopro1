@@ -11,6 +11,12 @@ export default function ClientDashboard() {
   const [user, setUser] = useState(null)
   const [requests, setRequests] = useState([])
   const [loading, setLoading] = useState(true)
+  const [showNewRequestForm, setShowNewRequestForm] = useState(false)
+  const [formData, setFormData] = useState({
+    serviceCategory: '',
+    description: ''
+  })
+  const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
     const storedUser = localStorage.getItem('wooleen_user')
@@ -39,6 +45,54 @@ export default function ClientDashboard() {
       console.error('Error fetching requests:', error)
     }
     setLoading(false)
+  }
+
+  const handleCreateRequest = async (e) => {
+    e.preventDefault()
+    if (!formData.serviceCategory || !formData.description) {
+      alert('Veuillez remplir tous les champs')
+      return
+    }
+
+    setSubmitting(true)
+
+    try {
+      // Créer la demande en base
+      const res = await fetch('/api/client/requests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clientId: user.id,
+          clientPhone: user.phone,
+          serviceCategory: formData.serviceCategory,
+          description: formData.description,
+          canal: 'whatsapp'
+        })
+      })
+
+      if (res.ok) {
+        const data = await res.json()
+        
+        // Rafraîchir la liste des demandes
+        await fetchRequests(user.id)
+        
+        // Réinitialiser le formulaire
+        setFormData({ serviceCategory: '', description: '' })
+        setShowNewRequestForm(false)
+        
+        // Ouvrir WhatsApp avec message prérempli
+        const message = `Bonjour Wooleen,\n\nJ'ai créé une demande de ${formData.serviceCategory}.\n\n${formData.description}\n\nMerci !`
+        openWhatsApp(phone, message)
+      } else {
+        const error = await res.json()
+        alert(error.error || 'Erreur lors de la création de la demande')
+      }
+    } catch (error) {
+      console.error('Error:', error)
+      alert('Erreur de connexion')
+    }
+
+    setSubmitting(false)
   }
 
   const handleLogout = () => {
@@ -117,14 +171,82 @@ export default function ClientDashboard() {
         {/* CTA WhatsApp */}
         <div className="bg-green-50 border border-green-200 rounded-xl p-6 mb-8">
           <h2 className="text-lg font-semibold text-green-800">Nouvelle demande ?</h2>
-          <p className="text-green-700 mt-1">Décrivez votre besoin sur WhatsApp</p>
+          <p className="text-green-700 mt-1">Créez une demande et nous contacterons les prestataires</p>
           <button
-            onClick={() => openWhatsApp(phone, "Bonjour Wooleen")}
+            onClick={() => setShowNewRequestForm(true)}
             className="mt-4 bg-green-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-green-700"
           >
-            💬 Envoyer sur WhatsApp
+            ➕ Créer une demande
           </button>
         </div>
+
+        {/* New Request Form Modal */}
+        {showNewRequestForm && (
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowNewRequestForm(false)}>
+            <div className="bg-white rounded-2xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+              <div className="p-6 border-b flex items-center justify-between">
+                <h2 className="text-xl font-bold">Nouvelle Demande</h2>
+                <button
+                  onClick={() => setShowNewRequestForm(false)}
+                  className="text-gray-400 hover:text-gray-600 text-2xl"
+                >
+                  ×
+                </button>
+              </div>
+
+              <form onSubmit={handleCreateRequest} className="p-6 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Type de service *
+                  </label>
+                  <select
+                    value={formData.serviceCategory}
+                    onChange={(e) => setFormData({ ...formData, serviceCategory: e.target.value })}
+                    className="w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500"
+                    required
+                  >
+                    <option value="">Sélectionner...</option>
+                    <option value="plombier">Plomberie</option>
+                    <option value="electricien">Électricité</option>
+                    <option value="climatiseur">Climatisation</option>
+                    <option value="menuisier">Menuiserie</option>
+                    <option value="peintre">Peinture</option>
+                    <option value="serrurier">Serrurerie</option>
+                    <option value="nettoyage">Nettoyage</option>
+                    <option value="mecanicien">Mécanique</option>
+                    <option value="autre">Autre</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Description de votre besoin *
+                  </label>
+                  <textarea
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    placeholder="Décrivez votre problème ou besoin..."
+                    rows={4}
+                    className="w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 resize-none"
+                    required
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="w-full bg-green-600 text-white py-3 rounded-xl font-semibold hover:bg-green-700 disabled:opacity-50"
+                >
+                  {submitting ? 'Création...' : '💬 Créer et envoyer'}
+                </button>
+
+                <p className="text-xs text-gray-500 text-center">
+                  Votre demande sera créée et les prestataires seront notifiés automatiquement
+                </p>
+              </form>
+            </div>
+          </div>
+        )}
 
         {/* Requests List */}
         <div className="bg-white rounded-xl shadow-sm">

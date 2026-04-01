@@ -833,6 +833,63 @@ async function handleRoute(request, { params }) {
       }))
     }
 
+    // ============ CLIENT REQUESTS ============
+    if (route === '/client/requests' && method === 'POST') {
+      const body = await request.json()
+      const { clientId, clientPhone, serviceCategory, description, canal } = body
+      
+      if (!clientId || !clientPhone || !serviceCategory || !description) {
+        return handleCORS(NextResponse.json({ error: 'Tous les champs sont requis' }, { status: 400 }))
+      }
+      
+      // Créer la service_request
+      const serviceRequest = {
+        id: uuidv4(),
+        clientId,
+        clientPhone,
+        rawMessage: description,
+        normalizedText: description,
+        serviceCategory,
+        city: '', // Sera extrait par l'IA plus tard si besoin
+        zone: '',
+        urgency: 'normale',
+        status: 'MATCHING',
+        source: canal || 'whatsapp',
+        canal: canal || 'whatsapp',
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }
+      
+      await db.collection('service_requests').insertOne(serviceRequest)
+      
+      // Trouver et notifier les prestataires
+      const parsed = {
+        service_category: serviceCategory,
+        city: '',
+        zone: '',
+        urgency: 'normale',
+        short_summary: description
+      }
+      
+      const providers = await findBestProviders(db, parsed)
+      
+      if (providers.length > 0) {
+        await persistMatches(db, serviceRequest.id, providers)
+        await notifyProviders(db, providers, parsed, serviceRequest.id)
+        
+        await db.collection('service_requests').updateOne(
+          { id: serviceRequest.id },
+          { $set: { matchedCount: providers.length } }
+        )
+      }
+      
+      return handleCORS(NextResponse.json({
+        success: true,
+        requestId: serviceRequest.id,
+        matchedProviders: providers.length
+      }))
+    }
+
     // ============ PROVIDER DASHBOARD ============
     const providerDashMatch = route.match(/^\/provider\/dashboard\/([a-zA-Z0-9-]+)$/)
     if (providerDashMatch && method === 'GET') {
@@ -857,10 +914,22 @@ async function handleRoute(request, { params }) {
       const requestMap = {}
       requests.forEach(r => { requestMap[r.id] = r })
       
-      const enrichedMatches = matches.map(m => ({
-        ...m,
-        request: requestMap[m.requestId] || null
-      }))
+      // MASQUER le clientPhone si le match n'est pas ACCEPTED
+      const enrichedMatches = matches.map(m => {
+        const request = requestMap[m.requestId]
+        if (request && m.status !== 'ACCEPTED') {
+          // Masquer le numéro du client si pas encore accepté
+          const { clientPhone, ...requestWithoutPhone } = request
+          return {
+            ...m,
+            request: { ...requestWithoutPhone, clientPhone: null }
+          }
+        }
+        return {
+          ...m,
+          request: request || null
+        }
+      })
       
       const stats = {
         totalLeads: matches.length,
@@ -906,11 +975,11 @@ async function handleRoute(request, { params }) {
         return handleCORS(NextResponse.json({ error: 'matchId and response required' }, { status: 400 }))
       }
       
-      const isAccept = resp.toLowerCase() === 'accept' || resp.toLowerCase() === 'oui'
+      const isAccept = resp.toLowerCase() === 'accept' || resp.toLowerCase() === 'accepted' || resp.toLowerCase() === 'oui'
       const newStatus = isAccept ? 'ACCEPTED' : 'DECLINED'
       
       const match = await db.collection('request_matches').findOne({ 
-        requestId: matchId, 
+        id: matchId, 
         providerId 
       })
       
@@ -919,16 +988,16 @@ async function handleRoute(request, { params }) {
       }
       
       await db.collection('request_matches').updateOne(
-        { requestId: matchId, providerId },
+        { id: matchId, providerId },
         { $set: { status: newStatus, respondedAt: new Date(), updatedAt: new Date() } }
       )
       
       const provider = await db.collection('provider_profiles').findOne({ id: providerId })
-      const serviceRequest = await db.collection('service_requests').findOne({ id: matchId })
+      const serviceRequest = await db.collection('service_requests').findOne({ id: match.requestId })
       
       if (isAccept && serviceRequest) {
         await db.collection('service_requests').updateOne(
-          { id: matchId },
+          { id: match.requestId },
           { $set: { status: 'ASSIGNED', assignedProviderId: providerId, updatedAt: new Date() } }
         )
         
