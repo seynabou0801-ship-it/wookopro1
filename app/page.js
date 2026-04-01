@@ -33,7 +33,7 @@ export default function HomePage() {
   })
 
   const handleQuickWhatsApp = () => {
-    openWhatsApp(phone, "Bonjour Wooleen, j'ai besoin d'un prestataire.")
+    openWhatsApp(phone, "Bonjour Wooko, j'ai besoin d'un prestataire.")
   }
 
   const handleSubmitLead = async (e) => {
@@ -55,7 +55,7 @@ export default function HomePage() {
 
       // Construire le message WhatsApp prérempli
       const category = SERVICE_CATEGORIES.find(c => c.value === formData.serviceCategory)?.label || formData.serviceCategory
-      const message = `Bonjour Wooleen,\n\nJe cherche un prestataire.\n\n` +
+      const message = `Bonjour Wooko,\n\nJe cherche un prestataire.\n\n` +
         `📋 Service : ${category}\n` +
         `📍 Ville : ${formData.city}\n` +
         `📞 Téléphone : ${formData.phone}\n` +
@@ -71,7 +71,7 @@ export default function HomePage() {
     } catch (error) {
       console.error('Error:', error)
       // En cas d'erreur, ouvrir quand même WhatsApp
-      openWhatsApp(phone, "Bonjour Wooleen, j'ai besoin d'un prestataire.")
+      openWhatsApp(phone, "Bonjour Wooko, j'ai besoin d'un prestataire.")
     }
 
     setLoading(false)
@@ -82,8 +82,8 @@ export default function HomePage() {
       {/* Header */}
       <header className="border-b sticky top-0 bg-white z-40">
         <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
-          <Link href="/" className="text-xl font-bold text-gray-900">
-            Wooleen
+          <Link href="/" className="flex items-center gap-3">
+            <img src="/wooko-logo.png" alt="Wooko" className="h-10 sm:h-12" />
           </Link>
           
           <div className="flex items-center gap-2 sm:gap-3">
@@ -298,7 +298,7 @@ export default function HomePage() {
       <div className="bg-gray-900 text-white py-12">
         <div className="max-w-4xl mx-auto px-4 text-center">
           <h2 className="text-2xl font-bold mb-3">Vous êtes prestataire ?</h2>
-          <p className="text-gray-400 mb-6">Rejoignez Wooleen et recevez des demandes de clients dans votre zone</p>
+          <p className="text-gray-400 mb-6">Rejoignez Wooko et recevez des demandes de clients dans votre zone</p>
           <Link
             href="/provider/login"
             className="inline-block bg-white text-gray-900 px-6 py-3 rounded-xl font-semibold hover:bg-gray-100"
@@ -312,7 +312,7 @@ export default function HomePage() {
       <footer className="border-t py-8">
         <div className="max-w-5xl mx-auto px-4">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <p className="text-sm text-gray-500">© 2025 Wooleen - Marketplace de services</p>
+            <p className="text-sm text-gray-500">© 2025 Wooko - Marketplace de services</p>
             <div className="flex items-center gap-4 text-sm text-gray-500">
               <Link href="/provider/login" className="hover:text-gray-700">Prestataires</Link>
               <Link href="/login" className="hover:text-gray-700">Connexion</Link>

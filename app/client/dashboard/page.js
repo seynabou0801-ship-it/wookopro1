@@ -81,7 +81,7 @@ export default function ClientDashboard() {
         setShowNewRequestForm(false)
         
         // Ouvrir WhatsApp avec message prérempli
-        const message = `Bonjour Wooleen,\n\nJ'ai créé une demande de ${formData.serviceCategory}.\n\n${formData.description}\n\nMerci !`
+        const message = `Bonjour Wooko,\n\nJ'ai créé une demande de ${formData.serviceCategory}.\n\n${formData.description}\n\nMerci !`
         openWhatsApp(phone, message)
       } else {
         const error = await res.json()
@@ -125,10 +125,9 @@ export default function ClientDashboard() {
       {/* Header */}
       <header className="bg-white border-b">
         <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-bold text-gray-900">Wooleen</h1>
-            <p className="text-sm text-gray-500">Espace Client</p>
-          </div>
+          <Link href="/" className="flex items-center gap-2">
+            <img src="/wooko-logo.png" alt="Wooko" className="h-10" />
+          </Link>
           <div className="flex items-center gap-4">
             <span className="text-sm text-gray-600">{user?.name || user?.phone}</span>
             <button

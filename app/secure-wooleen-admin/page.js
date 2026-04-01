@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 
 export default function SecureAdminDashboard() {
   const router = useRouter()
@@ -89,10 +90,9 @@ export default function SecureAdminDashboard() {
       {/* Header */}
       <header className="bg-white border-b">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-bold text-gray-900">Wooleen Admin</h1>
-            <p className="text-sm text-gray-500">Tableau de bord</p>
-          </div>
+          <Link href="/">
+            <img src="/wooko-logo.png" alt="Wooko Admin" className="h-12" />
+          </Link>
           <div className="flex items-center gap-4">
             <button
               onClick={seedDatabase}
@@ -477,7 +477,7 @@ export default function SecureAdminDashboard() {
                   <span className="text-2xl">✓</span>
                   <div>
                     <p className="font-semibold text-blue-900">Prestataire vérifié</p>
-                    <p className="text-sm text-blue-700">Ce prestataire a été vérifié par l'équipe Wooleen</p>
+                    <p className="text-sm text-blue-700">Ce prestataire a été vérifié par l'équipe Wooko</p>
                   </div>
                 </div>
               )}

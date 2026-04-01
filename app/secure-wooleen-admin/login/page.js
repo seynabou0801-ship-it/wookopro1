@@ -51,7 +51,7 @@ export default function AdminLoginPage() {
       <header className="border-b border-gray-800">
         <div className="max-w-5xl mx-auto px-4 py-4">
           <Link href="/" className="text-xl font-bold text-white">
-            Wooleen
+            Wooko
           </Link>
         </div>
       </header>
