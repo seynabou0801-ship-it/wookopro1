@@ -51,7 +51,11 @@ export default function LoginPage() {
       <div className="max-w-md w-full">
         <div className="text-center mb-8">
           <Link href="/">
-            <img src="/wooko-logo.png" alt="Wooko" className="h-20 mx-auto mb-4" />
+            <img 
+              src="/wooko-logo.png" 
+              alt="Wooko" 
+              className="h-[80px] sm:h-[120px] w-auto mx-auto mb-6 object-contain" 
+            />
           </Link>
           <h1 className="text-2xl font-bold text-gray-900">Connexion</h1>
           <p className="text-gray-600 mt-2">Accédez à votre espace client</p>

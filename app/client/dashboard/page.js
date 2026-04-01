@@ -124,19 +124,19 @@ export default function ClientDashboard() {
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <header className="bg-white border-b shadow-md">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 sm:py-5 flex items-center justify-between">
-          <Link href="/">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between">
+          <Link href="/" className="flex-shrink-0">
             <img 
               src="/wooko-logo.png" 
               alt="Wooko" 
-              className="h-10 sm:h-14 w-auto object-contain" 
+              className="h-[66px] sm:h-[100px] w-auto object-contain" 
             />
           </Link>
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-gray-600 font-medium">{user?.name || user?.phone}</span>
+          <div className="flex items-center gap-3 ml-4">
+            <span className="text-xs sm:text-sm text-gray-600 font-medium truncate max-w-[120px] sm:max-w-none">{user?.name || user?.phone}</span>
             <button
               onClick={handleLogout}
-              className="text-sm text-red-600 hover:text-red-700 font-medium px-3 py-2"
+              className="text-xs sm:text-sm text-red-600 hover:text-red-700 font-medium px-2 sm:px-3 py-2 whitespace-nowrap"
             >
               Déconnexion
             </button>
