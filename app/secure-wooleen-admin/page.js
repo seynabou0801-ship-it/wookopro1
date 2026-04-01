@@ -761,7 +761,7 @@ export default function SecureAdminDashboard() {
                       disabled={actionLoading}
                       className="flex-1 bg-orange-600 text-white py-3 rounded-xl font-semibold hover:bg-orange-700 disabled:opacity-50"
                     >
-                      {actionLoading ? 'En cours...' : '✓ VALIDER'}
+                      {actionLoading ? 'En cours...' : '✓ ACCEPTER'}
                     </button>
                     <button
                       onClick={() => handleRejectRequest(selectedRequest.id)}
