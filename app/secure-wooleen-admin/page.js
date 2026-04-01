@@ -355,15 +355,36 @@ export default function SecureAdminDashboard() {
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        <button
-                          onClick={() => {
-                            setSelectedRequest(r)
-                            setShowRequestModal(true)
-                          }}
-                          className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-                        >
-                          👁️ Détails
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => {
+                              setSelectedRequest(r)
+                              setShowRequestModal(true)
+                            }}
+                            className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                          >
+                            👁️ Détails
+                          </button>
+                          
+                          {r.status === 'EN_ATTENTE_VALIDATION_ADMIN' && (
+                            <>
+                              <button
+                                onClick={() => handleValidateRequest(r.id)}
+                                disabled={actionLoading}
+                                className="px-2 py-1 bg-green-600 text-white rounded text-xs font-medium hover:bg-green-700 disabled:opacity-50"
+                              >
+                                ✓
+                              </button>
+                              <button
+                                onClick={() => handleRejectRequest(r.id)}
+                                disabled={actionLoading}
+                                className="px-2 py-1 bg-red-600 text-white rounded text-xs font-medium hover:bg-red-700 disabled:opacity-50"
+                              >
+                                ✗
+                              </button>
+                            </>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}
