@@ -13,6 +13,8 @@ export default function SecureAdminDashboard() {
   const [loading, setLoading] = useState(true)
   const [selectedProvider, setSelectedProvider] = useState(null)
   const [showProviderModal, setShowProviderModal] = useState(false)
+  const [selectedRequest, setSelectedRequest] = useState(null)
+  const [showRequestModal, setShowRequestModal] = useState(false)
 
   useEffect(() => {
     const storedUser = localStorage.getItem('wooleen_user')
@@ -274,10 +276,12 @@ export default function SecureAdminDashboard() {
                   <tr>
                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Service</th>
                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Description</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Client WhatsApp</th>
                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Localisation</th>
                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Urgence</th>
                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Matchs</th>
                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Statut</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
@@ -287,6 +291,9 @@ export default function SecureAdminDashboard() {
                       <td className="px-4 py-3 text-gray-600 text-sm max-w-xs truncate">
                         {r.normalizedText || r.rawMessage}
                       </td>
+                      <td className="px-4 py-3 text-gray-600 font-mono text-sm">
+                        {r.clientPhone || <span className="text-gray-400 italic">Non renseigné</span>}
+                      </td>
                       <td className="px-4 py-3 text-gray-600">{r.zone || r.city}</td>
                       <td className="px-4 py-3 text-gray-600 capitalize">{r.urgency}</td>
                       <td className="px-4 py-3 text-gray-600">{r.matches?.length || 0}</td>
@@ -294,6 +301,17 @@ export default function SecureAdminDashboard() {
                         <span className={`px-2 py-0.5 rounded-full text-xs ${getStatusColor(r.status)}`}>
                           {r.status}
                         </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <button
+                          onClick={() => {
+                            setSelectedRequest(r)
+                            setShowRequestModal(true)
+                          }}
+                          className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                        >
+                          👁️ Détails
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -469,6 +487,201 @@ export default function SecureAdminDashboard() {
             <div className="p-6 border-t bg-gray-50">
               <button
                 onClick={() => setShowProviderModal(false)}
+                className="w-full bg-gray-900 text-white py-3 rounded-xl font-semibold hover:bg-gray-800"
+              >
+                Fermer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Request Details Modal */}
+      {showRequestModal && selectedRequest && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowRequestModal(false)}>
+          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            {/* Modal Header */}
+            <div className="p-6 border-b flex items-center justify-between sticky top-0 bg-white">
+              <h2 className="text-xl font-bold text-gray-900">Détails de la Demande</h2>
+              <button
+                onClick={() => setShowRequestModal(false)}
+                className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6 space-y-6">
+              {/* Informations du service */}
+              <div>
+                <h3 className="text-sm font-semibold text-gray-500 uppercase mb-3">Service Demandé</h3>
+                <div className="bg-gray-50 rounded-xl p-4 space-y-3">
+                  <div className="flex items-start gap-3">
+                    <span className="text-2xl">🔧</span>
+                    <div className="flex-1">
+                      <p className="text-sm text-gray-500">Catégorie</p>
+                      <p className="font-semibold text-gray-900 capitalize">{selectedRequest.serviceCategory}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-start gap-3">
+                    <span className="text-2xl">📝</span>
+                    <div className="flex-1">
+                      <p className="text-sm text-gray-500">Description</p>
+                      <p className="text-gray-900">{selectedRequest.normalizedText || selectedRequest.rawMessage || 'Aucune description'}</p>
+                    </div>
+                  </div>
+
+                  {selectedRequest.rawMessage && selectedRequest.normalizedText && (
+                    <div className="flex items-start gap-3">
+                      <span className="text-2xl">💬</span>
+                      <div className="flex-1">
+                        <p className="text-sm text-gray-500">Message original</p>
+                        <p className="text-gray-700 text-sm italic">{selectedRequest.rawMessage}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Informations client */}
+              <div>
+                <h3 className="text-sm font-semibold text-gray-500 uppercase mb-3">Informations Client</h3>
+                <div className="bg-blue-50 rounded-xl p-4 space-y-3">
+                  <div className="flex items-start gap-3">
+                    <span className="text-2xl">📱</span>
+                    <div className="flex-1">
+                      <p className="text-sm text-gray-500">Téléphone WhatsApp</p>
+                      {selectedRequest.clientPhone ? (
+                        <p className="font-semibold text-blue-900 font-mono text-lg">{selectedRequest.clientPhone}</p>
+                      ) : (
+                        <p className="text-gray-400 italic">Non renseigné</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3">
+                    <span className="text-2xl">📡</span>
+                    <div className="flex-1">
+                      <p className="text-sm text-gray-500">Source</p>
+                      <p className="text-blue-900 capitalize">{selectedRequest.source || 'whatsapp'}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Localisation */}
+              <div>
+                <h3 className="text-sm font-semibold text-gray-500 uppercase mb-3">Localisation</h3>
+                <div className="bg-green-50 rounded-xl p-4 space-y-3">
+                  <div className="flex items-start gap-3">
+                    <span className="text-2xl">🌍</span>
+                    <div className="flex-1">
+                      <p className="text-sm text-gray-500">Ville</p>
+                      <p className="font-semibold text-green-900">{selectedRequest.city || 'Non spécifiée'}</p>
+                    </div>
+                  </div>
+
+                  {selectedRequest.zone && (
+                    <div className="flex items-start gap-3">
+                      <span className="text-2xl">📍</span>
+                      <div className="flex-1">
+                        <p className="text-sm text-gray-500">Zone</p>
+                        <p className="font-semibold text-green-900">{selectedRequest.zone}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Statut & Urgence */}
+              <div>
+                <h3 className="text-sm font-semibold text-gray-500 uppercase mb-3">Statut & Priorité</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-orange-50 rounded-xl p-4">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-xl">⚡</span>
+                      <p className="text-sm text-gray-500">Urgence</p>
+                    </div>
+                    <p className="text-lg font-bold text-orange-900 capitalize">{selectedRequest.urgency || 'normale'}</p>
+                  </div>
+
+                  <div className="bg-purple-50 rounded-xl p-4">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-xl">📊</span>
+                      <p className="text-sm text-gray-500">Statut</p>
+                    </div>
+                    <span className={`inline-block px-3 py-1 rounded-full text-sm font-semibold ${getStatusColor(selectedRequest.status)}`}>
+                      {selectedRequest.status}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Matches */}
+              <div>
+                <h3 className="text-sm font-semibold text-gray-500 uppercase mb-3">Prestataires Contactés</h3>
+                <div className="bg-indigo-50 rounded-xl p-4">
+                  <div className="flex items-center gap-3 mb-3">
+                    <span className="text-2xl">🤝</span>
+                    <div>
+                      <p className="text-sm text-gray-500">Nombre de matches</p>
+                      <p className="text-2xl font-bold text-indigo-900">{selectedRequest.matches?.length || 0}</p>
+                    </div>
+                  </div>
+                  
+                  {selectedRequest.matches?.length > 0 && (
+                    <div className="space-y-2 mt-4">
+                      <p className="text-xs font-medium text-gray-500 uppercase">Liste des prestataires :</p>
+                      {selectedRequest.matches.map((match, idx) => (
+                        <div key={idx} className="bg-white rounded-lg p-3 flex items-center justify-between">
+                          <div>
+                            <p className="font-medium text-gray-900">{match.providerName || `Provider ${idx + 1}`}</p>
+                            <p className="text-xs text-gray-500">Score: {match.score} • {match.reason}</p>
+                          </div>
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            match.status === 'ACCEPTED' ? 'bg-green-100 text-green-800' :
+                            match.status === 'DECLINED' ? 'bg-red-100 text-red-800' :
+                            'bg-yellow-100 text-yellow-800'
+                          }`}>
+                            {match.status}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Métadonnées */}
+              <div>
+                <h3 className="text-sm font-semibold text-gray-500 uppercase mb-3">Informations Système</h3>
+                <div className="bg-gray-50 rounded-xl p-4 space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">ID Demande:</span>
+                    <span className="font-mono text-xs text-gray-700">{selectedRequest.id?.substring(0, 8)}...</span>
+                  </div>
+                  {selectedRequest.aiSource && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Source IA:</span>
+                      <span className="text-gray-900 capitalize">{selectedRequest.aiSource}</span>
+                    </div>
+                  )}
+                  {selectedRequest.createdAt && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Créée le:</span>
+                      <span className="text-gray-900">{new Date(selectedRequest.createdAt).toLocaleString('fr-FR')}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-6 border-t bg-gray-50">
+              <button
+                onClick={() => setShowRequestModal(false)}
                 className="w-full bg-gray-900 text-white py-3 rounded-xl font-semibold hover:bg-gray-800"
               >
                 Fermer
