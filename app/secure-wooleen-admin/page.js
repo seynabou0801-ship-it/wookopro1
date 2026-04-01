@@ -11,6 +11,8 @@ export default function SecureAdminDashboard() {
   const [requests, setRequests] = useState([])
   const [activeTab, setActiveTab] = useState('overview')
   const [loading, setLoading] = useState(true)
+  const [selectedProvider, setSelectedProvider] = useState(null)
+  const [showProviderModal, setShowProviderModal] = useState(false)
 
   useEffect(() => {
     const storedUser = localStorage.getItem('wooleen_user')
@@ -226,6 +228,7 @@ export default function SecureAdminDashboard() {
                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Zones</th>
                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Note</th>
                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Statut</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
@@ -242,6 +245,17 @@ export default function SecureAdminDashboard() {
                         }`}>
                           {p.isAvailable ? 'Actif' : 'Inactif'}
                         </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <button
+                          onClick={() => {
+                            setSelectedProvider(p)
+                            setShowProviderModal(true)
+                          }}
+                          className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                        >
+                          👁️ Détails
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -289,6 +303,180 @@ export default function SecureAdminDashboard() {
           </div>
         )}
       </main>
+
+      {/* Provider Details Modal */}
+      {showProviderModal && selectedProvider && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowProviderModal(false)}>
+          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            {/* Modal Header */}
+            <div className="p-6 border-b flex items-center justify-between sticky top-0 bg-white">
+              <h2 className="text-xl font-bold text-gray-900">Détails du Prestataire</h2>
+              <button
+                onClick={() => setShowProviderModal(false)}
+                className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6 space-y-6">
+              {/* Informations générales */}
+              <div>
+                <h3 className="text-sm font-semibold text-gray-500 uppercase mb-3">Informations Générales</h3>
+                <div className="bg-gray-50 rounded-xl p-4 space-y-3">
+                  <div className="flex items-start gap-3">
+                    <span className="text-2xl">🏢</span>
+                    <div className="flex-1">
+                      <p className="text-sm text-gray-500">Nom commercial</p>
+                      <p className="font-semibold text-gray-900">{selectedProvider.businessName}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-start gap-3">
+                    <span className="text-2xl">🔧</span>
+                    <div className="flex-1">
+                      <p className="text-sm text-gray-500">Catégorie</p>
+                      <p className="font-semibold text-gray-900 capitalize">{selectedProvider.serviceCategory}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3">
+                    <span className="text-2xl">📝</span>
+                    <div className="flex-1">
+                      <p className="text-sm text-gray-500">Description</p>
+                      <p className="text-gray-900">{selectedProvider.description || 'Aucune description'}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Coordonnées */}
+              <div>
+                <h3 className="text-sm font-semibold text-gray-500 uppercase mb-3">Coordonnées</h3>
+                <div className="bg-blue-50 rounded-xl p-4 space-y-3">
+                  <div className="flex items-start gap-3">
+                    <span className="text-2xl">📱</span>
+                    <div className="flex-1">
+                      <p className="text-sm text-gray-500">Téléphone WhatsApp</p>
+                      <p className="font-semibold text-blue-900">{selectedProvider.whatsappNumber || 'Non renseigné'}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3">
+                    <span className="text-2xl">📧</span>
+                    <div className="flex-1">
+                      <p className="text-sm text-gray-500">Email</p>
+                      <p className="font-semibold text-blue-900">{selectedProvider.email || 'Non renseigné'}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3">
+                    <span className="text-2xl">📍</span>
+                    <div className="flex-1">
+                      <p className="text-sm text-gray-500">Adresse</p>
+                      <p className="font-semibold text-blue-900">{selectedProvider.address || 'Non renseignée'}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Localisation */}
+              <div>
+                <h3 className="text-sm font-semibold text-gray-500 uppercase mb-3">Localisation & Zones</h3>
+                <div className="bg-green-50 rounded-xl p-4 space-y-3">
+                  <div className="flex items-start gap-3">
+                    <span className="text-2xl">🌍</span>
+                    <div className="flex-1">
+                      <p className="text-sm text-gray-500">Ville principale</p>
+                      <p className="font-semibold text-green-900">{selectedProvider.city}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3">
+                    <span className="text-2xl">📍</span>
+                    <div className="flex-1">
+                      <p className="text-sm text-gray-500">Zones couvertes</p>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {selectedProvider.zones?.length > 0 ? (
+                          selectedProvider.zones.map((zone, idx) => (
+                            <span key={idx} className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs">
+                              {zone}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-gray-500 text-sm">Aucune zone définie</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Performance */}
+              <div>
+                <h3 className="text-sm font-semibold text-gray-500 uppercase mb-3">Performance & Statut</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-purple-50 rounded-xl p-4">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-xl">⭐</span>
+                      <p className="text-sm text-gray-500">Note moyenne</p>
+                    </div>
+                    <p className="text-2xl font-bold text-purple-900">{selectedProvider.rating?.toFixed(1) || '0.0'}</p>
+                  </div>
+
+                  <div className="bg-orange-50 rounded-xl p-4">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-xl">📊</span>
+                      <p className="text-sm text-gray-500">Taux de réponse</p>
+                    </div>
+                    <p className="text-2xl font-bold text-orange-900">{selectedProvider.responseRate || 0}%</p>
+                  </div>
+
+                  <div className="bg-indigo-50 rounded-xl p-4">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-xl">💎</span>
+                      <p className="text-sm text-gray-500">Abonnement</p>
+                    </div>
+                    <p className="text-lg font-bold text-indigo-900 capitalize">{selectedProvider.tier || 'free'}</p>
+                  </div>
+
+                  <div className="bg-emerald-50 rounded-xl p-4">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-xl">{selectedProvider.isAvailable ? '✅' : '🚫'}</span>
+                      <p className="text-sm text-gray-500">Disponibilité</p>
+                    </div>
+                    <p className="text-lg font-bold text-emerald-900">
+                      {selectedProvider.isAvailable ? 'Actif' : 'Inactif'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Vérification */}
+              {selectedProvider.isVerified && (
+                <div className="bg-blue-100 border border-blue-200 rounded-xl p-4 flex items-center gap-3">
+                  <span className="text-2xl">✓</span>
+                  <div>
+                    <p className="font-semibold text-blue-900">Prestataire vérifié</p>
+                    <p className="text-sm text-blue-700">Ce prestataire a été vérifié par l'équipe Wooleen</p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-6 border-t bg-gray-50">
+              <button
+                onClick={() => setShowProviderModal(false)}
+                className="w-full bg-gray-900 text-white py-3 rounded-xl font-semibold hover:bg-gray-800"
+              >
+                Fermer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

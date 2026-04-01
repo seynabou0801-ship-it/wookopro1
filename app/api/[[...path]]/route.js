@@ -246,7 +246,7 @@ async function sendWhatsAppMessage(to, text, db = null) {
     text,
     status: 'sent',
     timestamp: new Date(),
-    mocked: !process.env.WHATSAPP_TOKEN
+    mocked: false
   }
   
   whatsappMessages.push(message)
@@ -259,43 +259,75 @@ async function sendWhatsAppMessage(to, text, db = null) {
     }
   }
   
-  if (process.env.WHATSAPP_TOKEN && process.env.WHATSAPP_PHONE_NUMBER_ID) {
+  // REAL WhatsApp Cloud API
+  if (process.env.WHATSAPP_ACCESS_TOKEN && process.env.WHATSAPP_PHONE_NUMBER_ID) {
     try {
+      const cleanPhone = to.replace(/[^\d]/g, '')
+      
+      console.log(`[WhatsApp] Envoi vers ${to} (${cleanPhone})`)
+      
       const response = await fetch(
-        `https://graph.facebook.com/v23.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`,
+        `https://graph.facebook.com/v21.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`,
         {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${process.env.WHATSAPP_TOKEN}`,
+            'Authorization': `Bearer ${process.env.WHATSAPP_ACCESS_TOKEN}`,
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
             messaging_product: 'whatsapp',
             recipient_type: 'individual',
-            to: to.replace(/[^\d]/g, ''),
+            to: cleanPhone,
             type: 'text',
-            text: { preview_url: false, body: text }
+            text: { 
+              preview_url: false, 
+              body: text 
+            }
           })
         }
       )
       
       if (response.ok) {
         const data = await response.json()
-        message.mocked = false
         message.waMessageId = data.messages?.[0]?.id
-        console.log(`[WhatsApp REAL] Envoyé à ${to}`)
+        console.log(`[WhatsApp SUCCESS] Message envoyé à ${to} - ID: ${message.waMessageId}`)
+        
+        if (db && message.waMessageId) {
+          await db.collection('whatsapp_messages').updateOne(
+            { id: message.id },
+            { $set: { waMessageId: message.waMessageId } }
+          )
+        }
+        
         return data
       } else {
-        const error = await response.text()
-        console.error('[WhatsApp ERROR]', error)
+        const errorData = await response.json()
+        console.error('[WhatsApp ERROR]', response.status, errorData)
+        message.status = 'failed'
+        message.error = errorData
+        
+        if (db) {
+          await db.collection('whatsapp_messages').updateOne(
+            { id: message.id },
+            { $set: { status: 'failed', error: errorData } }
+          )
+        }
       }
     } catch (error) {
-      console.error('[WhatsApp ERROR]', error.message)
+      console.error('[WhatsApp EXCEPTION]', error.message)
+      message.status = 'failed'
+      message.error = error.message
     }
+  } else {
+    console.warn('[WhatsApp] Variables manquantes: WHATSAPP_ACCESS_TOKEN ou WHATSAPP_PHONE_NUMBER_ID')
   }
   
-  console.log(`[WhatsApp MOCK] Envoyé à ${to}: ${text.substring(0, 50)}...`)
-  return { messaging_product: 'whatsapp', contacts: [{ wa_id: to }], messages: [{ id: message.id }] }
+  return { 
+    messaging_product: 'whatsapp', 
+    contacts: [{ wa_id: to }], 
+    messages: [{ id: message.id }],
+    mocked: !process.env.WHATSAPP_ACCESS_TOKEN
+  }
 }
 
 // ============ Request Service Functions ============
@@ -687,7 +719,7 @@ async function handleRoute(request, { params }) {
 
     if (route === '/auth/provider/register' && method === 'POST') {
       const body = await request.json()
-      const { phone, password, businessName, serviceCategory, city } = body
+      const { phone, password, businessName, serviceCategory, city, email, address } = body
       
       if (!phone || !password || !businessName || !serviceCategory || !city) {
         return handleCORS(NextResponse.json({ error: 'Tous les champs sont requis' }, { status: 400 }))
@@ -727,6 +759,8 @@ async function handleRoute(request, { params }) {
         isVerified: false,
         tier: 'free', // For monetization: free, pro, premium
         whatsappNumber: phone,
+        email: email || '',
+        address: address || '',
         description: `${serviceCategory} à ${city}`,
         createdAt: new Date(),
         updatedAt: new Date()
@@ -1246,7 +1280,7 @@ async function handleRoute(request, { params }) {
         conversions,
         conversionRate: matches > 0 ? Math.round((conversions / matches) * 100) : 0,
         aiStatus: process.env.OPENAI_API_KEY ? 'OpenAI GPT-4o-mini' : 'Local parsing',
-        whatsappStatus: process.env.WHATSAPP_TOKEN ? 'Real WhatsApp' : 'Mocked'
+        whatsappStatus: process.env.WHATSAPP_ACCESS_TOKEN ? 'Real WhatsApp Cloud API' : 'Mocked'
       }))
     }
 
@@ -1283,11 +1317,11 @@ async function handleRoute(request, { params }) {
       }
 
       const providerData = [
-        { name: 'Mamadou Plomberie', phone: '+221700000101', category: 'plombier', city: 'Dakar', zones: ['Ouakam', 'Mermoz', 'Yoff'], rating: 4.7, tier: 'premium' },
-        { name: 'Samba Électricité', phone: '+221700000102', category: 'electricien', city: 'Dakar', zones: ['Pikine', 'Guédiawaye', 'Parcelles'], rating: 4.4, tier: 'pro' },
-        { name: 'Thiès Froid Service', phone: '+221700000103', category: 'climatiseur', city: 'Thiès', zones: ['Thiès Nord', 'Thiès Sud'], rating: 4.8, tier: 'premium' },
-        { name: 'Ibrahima Menuiserie', phone: '+221700000104', category: 'menuisier', city: 'Dakar', zones: ['Médina', 'Plateau', 'Fann'], rating: 4.6, tier: 'free' },
-        { name: 'Fatou Nettoyage Pro', phone: '+221700000105', category: 'nettoyage', city: 'Dakar', zones: ['Almadies', 'Ngor', 'Yoff'], rating: 4.9, tier: 'pro' }
+        { name: 'Mamadou Plomberie', phone: '+221700000101', email: 'mamadou.plomberie@wooleen.sn', address: '15 Rue de Ouakam, Dakar', category: 'plombier', city: 'Dakar', zones: ['Ouakam', 'Mermoz', 'Yoff'], rating: 4.7, tier: 'premium' },
+        { name: 'Samba Électricité', phone: '+221700000102', email: 'samba.elec@wooleen.sn', address: '42 Avenue Pikine, Dakar', category: 'electricien', city: 'Dakar', zones: ['Pikine', 'Guédiawaye', 'Parcelles'], rating: 4.4, tier: 'pro' },
+        { name: 'Thiès Froid Service', phone: '+221700000103', email: 'thies.froid@wooleen.sn', address: '8 Boulevard Thiès Nord, Thiès', category: 'climatiseur', city: 'Thiès', zones: ['Thiès Nord', 'Thiès Sud'], rating: 4.8, tier: 'premium' },
+        { name: 'Ibrahima Menuiserie', phone: '+221700000104', email: 'ibrahima.menu@wooleen.sn', address: '23 Rue Médina, Dakar', category: 'menuisier', city: 'Dakar', zones: ['Médina', 'Plateau', 'Fann'], rating: 4.6, tier: 'free' },
+        { name: 'Fatou Nettoyage Pro', phone: '+221700000105', email: 'fatou.nettoyage@wooleen.sn', address: '10 Avenue Almadies, Dakar', category: 'nettoyage', city: 'Dakar', zones: ['Almadies', 'Ngor', 'Yoff'], rating: 4.9, tier: 'pro' }
       ]
 
       for (const item of providerData) {
@@ -1324,6 +1358,8 @@ async function handleRoute(request, { params }) {
               isVerified: true,
               tier: item.tier,
               whatsappNumber: item.phone,
+              email: item.email,
+              address: item.address,
               description: `${item.category} professionnel à ${item.city}`,
               createdAt: new Date(),
               updatedAt: new Date()
