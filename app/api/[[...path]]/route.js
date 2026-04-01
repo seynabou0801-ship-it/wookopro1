@@ -356,7 +356,7 @@ async function createServiceRequestFromParsed(db, phone, rawMessage, parsed) {
     city: parsed.city,
     zone: parsed.zone,
     urgency: parsed.urgency,
-    status: 'MATCHING',
+    status: 'EN_ATTENTE_VALIDATION_ADMIN',
     source: 'whatsapp',
     aiSource: parsed.ai_source || 'local',
     createdAt: new Date(),
@@ -633,7 +633,7 @@ async function handleRoute(request, { params }) {
         city: city || '',
         zone: '',
         urgency: 'normale',
-        status: 'PENDING',
+        status: 'EN_ATTENTE_VALIDATION_ADMIN',
         source: source || 'homepage_form',
         leadId: lead.id,
         createdAt: new Date(),
@@ -853,7 +853,7 @@ async function handleRoute(request, { params }) {
         city: '', // Sera extrait par l'IA plus tard si besoin
         zone: '',
         urgency: 'normale',
-        status: 'MATCHING',
+        status: 'EN_ATTENTE_VALIDATION_ADMIN',
         source: canal || 'whatsapp',
         canal: canal || 'whatsapp',
         createdAt: new Date(),
@@ -914,11 +914,11 @@ async function handleRoute(request, { params }) {
       const requestMap = {}
       requests.forEach(r => { requestMap[r.id] = r })
       
-      // MASQUER le clientPhone si le match n'est pas ACCEPTED
+      // MASQUER le clientPhone si la demande n'est pas validée OU si le match n'est pas ACCEPTED
       const enrichedMatches = matches.map(m => {
         const request = requestMap[m.requestId]
-        if (request && m.status !== 'ACCEPTED') {
-          // Masquer le numéro du client si pas encore accepté
+        if (request && (request.status !== 'VALIDEE_PAR_ADMIN' || m.status !== 'ACCEPTED')) {
+          // Masquer le numéro du client si demande pas validée OU si match pas accepté
           const { clientPhone, ...requestWithoutPhone } = request
           return {
             ...m,
@@ -987,13 +987,26 @@ async function handleRoute(request, { params }) {
         return handleCORS(NextResponse.json({ error: 'Match not found' }, { status: 404 }))
       }
       
+      // SÉCURITÉ : Vérifier que la demande est validée par l'admin
+      const serviceRequest = await db.collection('service_requests').findOne({ id: match.requestId })
+      
+      if (!serviceRequest) {
+        return handleCORS(NextResponse.json({ error: 'Service request not found' }, { status: 404 }))
+      }
+      
+      if (serviceRequest.status !== 'VALIDEE_PAR_ADMIN' && serviceRequest.status !== 'ASSIGNED') {
+        return handleCORS(NextResponse.json({ 
+          error: 'Cette demande n\'a pas encore été validée par l\'admin',
+          status: serviceRequest.status
+        }, { status: 403 }))
+      }
+      
       await db.collection('request_matches').updateOne(
         { id: matchId, providerId },
         { $set: { status: newStatus, respondedAt: new Date(), updatedAt: new Date() } }
       )
       
       const provider = await db.collection('provider_profiles').findOne({ id: providerId })
-      const serviceRequest = await db.collection('service_requests').findOne({ id: match.requestId })
       
       if (isAccept && serviceRequest) {
         await db.collection('service_requests').updateOne(
@@ -1323,6 +1336,75 @@ async function handleRoute(request, { params }) {
       await notifyProviders(db, providers, parsed, requestId)
 
       return handleCORS(NextResponse.json({ ok: true, matched: providers.length }))
+    }
+
+    // ============ ADMIN ACTIONS ON REQUESTS ============
+    const adminValidateMatch = route.match(/^\/admin\/requests\/([a-zA-Z0-9-]+)\/validate$/)
+    if (adminValidateMatch && method === 'POST') {
+      const requestId = adminValidateMatch[1]
+      
+      const serviceRequest = await db.collection('service_requests').findOne({ id: requestId })
+      if (!serviceRequest) {
+        return handleCORS(NextResponse.json({ error: 'Request not found' }, { status: 404 }))
+      }
+      
+      // Mettre à jour le statut
+      await db.collection('service_requests').updateOne(
+        { id: requestId },
+        { $set: { status: 'VALIDEE_PAR_ADMIN', validatedAt: new Date(), updatedAt: new Date() } }
+      )
+      
+      // Lancer le matching maintenant que c'est validé
+      const parsed = {
+        service_category: serviceRequest.serviceCategory,
+        city: serviceRequest.city,
+        zone: serviceRequest.zone,
+        urgency: serviceRequest.urgency,
+        short_summary: serviceRequest.normalizedText
+      }
+      
+      const providers = await findBestProviders(db, parsed)
+      
+      if (providers.length > 0) {
+        await persistMatches(db, requestId, providers)
+        await notifyProviders(db, providers, parsed, requestId)
+      }
+      
+      return handleCORS(NextResponse.json({ 
+        success: true, 
+        status: 'VALIDEE_PAR_ADMIN',
+        matchedProviders: providers.length
+      }))
+    }
+
+    const adminRejectMatch = route.match(/^\/admin\/requests\/([a-zA-Z0-9-]+)\/reject$/)
+    if (adminRejectMatch && method === 'POST') {
+      const requestId = adminRejectMatch[1]
+      
+      const serviceRequest = await db.collection('service_requests').findOne({ id: requestId })
+      if (!serviceRequest) {
+        return handleCORS(NextResponse.json({ error: 'Request not found' }, { status: 404 }))
+      }
+      
+      // Mettre à jour le statut
+      await db.collection('service_requests').updateOne(
+        { id: requestId },
+        { $set: { status: 'REJETEE_PAR_ADMIN', rejectedAt: new Date(), updatedAt: new Date() } }
+      )
+      
+      // Optionnel : notifier le client
+      if (serviceRequest.clientPhone) {
+        await sendWhatsAppMessage(
+          serviceRequest.clientPhone,
+          `Désolé, votre demande de ${serviceRequest.serviceCategory} n'a pas pu être traitée.`,
+          db
+        )
+      }
+      
+      return handleCORS(NextResponse.json({ 
+        success: true, 
+        status: 'REJETEE_PAR_ADMIN'
+      }))
     }
 
     // ============ ADMIN STATS ============

@@ -16,6 +16,7 @@ export default function SecureAdminDashboard() {
   const [showProviderModal, setShowProviderModal] = useState(false)
   const [selectedRequest, setSelectedRequest] = useState(null)
   const [showRequestModal, setShowRequestModal] = useState(false)
+  const [actionLoading, setActionLoading] = useState(false)
 
   useEffect(() => {
     const storedUser = localStorage.getItem('wooleen_user')
@@ -69,12 +70,63 @@ export default function SecureAdminDashboard() {
   const getStatusColor = (status) => {
     const colors = {
       PENDING: 'bg-yellow-100 text-yellow-800',
+      EN_ATTENTE_VALIDATION_ADMIN: 'bg-orange-100 text-orange-800',
+      VALIDEE_PAR_ADMIN: 'bg-blue-100 text-blue-800',
+      REJETEE_PAR_ADMIN: 'bg-red-100 text-red-800',
       MATCHING: 'bg-blue-100 text-blue-800',
       ASSIGNED: 'bg-green-100 text-green-800',
       COMPLETED: 'bg-emerald-100 text-emerald-800',
       CANCELLED: 'bg-red-100 text-red-800'
     }
     return colors[status] || 'bg-gray-100 text-gray-800'
+  }
+
+  const handleValidateRequest = async (requestId) => {
+    if (!confirm('Valider cette demande ?')) return
+    
+    setActionLoading(true)
+    try {
+      const res = await fetch(`/api/admin/requests/${requestId}/validate`, {
+        method: 'POST'
+      })
+      
+      if (res.ok) {
+        alert('Demande validée ! Les prestataires ont été notifiés.')
+        await fetchData()
+        setShowRequestModal(false)
+      } else {
+        const error = await res.json()
+        alert(error.error || 'Erreur lors de la validation')
+      }
+    } catch (error) {
+      console.error('Error:', error)
+      alert('Erreur de connexion')
+    }
+    setActionLoading(false)
+  }
+
+  const handleRejectRequest = async (requestId) => {
+    if (!confirm('Rejeter cette demande ? Le client sera notifié.')) return
+    
+    setActionLoading(true)
+    try {
+      const res = await fetch(`/api/admin/requests/${requestId}/reject`, {
+        method: 'POST'
+      })
+      
+      if (res.ok) {
+        alert('Demande rejetée.')
+        await fetchData()
+        setShowRequestModal(false)
+      } else {
+        const error = await res.json()
+        alert(error.error || 'Erreur lors du rejet')
+      }
+    } catch (error) {
+      console.error('Error:', error)
+      alert('Erreur de connexion')
+    }
+    setActionLoading(false)
   }
 
   if (loading) {
@@ -680,12 +732,46 @@ export default function SecureAdminDashboard() {
 
             {/* Modal Footer */}
             <div className="p-6 border-t bg-gray-50">
-              <button
-                onClick={() => setShowRequestModal(false)}
-                className="w-full bg-gray-900 text-white py-3 rounded-xl font-semibold hover:bg-gray-800"
-              >
-                Fermer
-              </button>
+              {selectedRequest.status === 'EN_ATTENTE_VALIDATION_ADMIN' ? (
+                <div className="space-y-3">
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => handleValidateRequest(selectedRequest.id)}
+                      disabled={actionLoading}
+                      className="flex-1 bg-green-600 text-white py-3 rounded-xl font-semibold hover:bg-green-700 disabled:opacity-50"
+                    >
+                      {actionLoading ? 'En cours...' : '✓ VALIDER'}
+                    </button>
+                    <button
+                      onClick={() => handleRejectRequest(selectedRequest.id)}
+                      disabled={actionLoading}
+                      className="flex-1 bg-red-600 text-white py-3 rounded-xl font-semibold hover:bg-red-700 disabled:opacity-50"
+                    >
+                      {actionLoading ? 'En cours...' : '✗ REJETER'}
+                    </button>
+                  </div>
+                  <button
+                    onClick={() => setShowRequestModal(false)}
+                    className="w-full bg-gray-200 text-gray-700 py-3 rounded-xl font-semibold hover:bg-gray-300"
+                  >
+                    Fermer
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <div className="text-sm text-center text-gray-600 mb-2">
+                    Statut: <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(selectedRequest.status)}`}>
+                      {selectedRequest.status}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => setShowRequestModal(false)}
+                    className="w-full bg-gray-900 text-white py-3 rounded-xl font-semibold hover:bg-gray-800"
+                  >
+                    Fermer
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>

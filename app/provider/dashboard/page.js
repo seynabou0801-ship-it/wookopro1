@@ -209,20 +209,26 @@ export default function ProviderDashboard() {
                     </div>
                     
                     {match.status === 'SENT' && (
-                      <div className="flex gap-2 ml-4">
-                        <button
-                          onClick={() => respondToLead(match.requestId, 'accept')}
-                          className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700"
-                        >
-                          ✓ Accepter
-                        </button>
-                        <button
-                          onClick={() => respondToLead(match.requestId, 'decline')}
-                          className="px-4 py-2 bg-white border border-red-300 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50"
-                        >
-                          ✗ Refuser
-                        </button>
-                      </div>
+                      match.request?.status === 'VALIDEE_PAR_ADMIN' ? (
+                        <div className="flex gap-2 ml-4">
+                          <button
+                            onClick={() => respondToLead(match.requestId, 'accept')}
+                            className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700"
+                          >
+                            ✓ Accepter
+                          </button>
+                          <button
+                            onClick={() => respondToLead(match.requestId, 'decline')}
+                            className="px-4 py-2 bg-white border border-red-300 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50"
+                          >
+                            ✗ Refuser
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="ml-4 px-4 py-2 bg-orange-50 border border-orange-200 rounded-lg text-sm text-orange-700">
+                          ⏳ En attente de validation admin
+                        </div>
+                      )
                     )}
                   </div>
                   
