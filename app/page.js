@@ -189,26 +189,17 @@ export default function HomePage() {
             {/* Right - Visual with professional images */}
             <div className="relative hidden lg:block">
               <div className="relative h-[500px]">
-                {/* Main image - Technicien moderne */}
-                <div className="absolute top-0 right-0 w-80 h-80 rounded-3xl overflow-hidden shadow-2xl border-4 border-white transform hover:scale-105 transition-transform">
+                {/* Image composite des professionnels */}
+                <div className="absolute inset-0 rounded-3xl overflow-hidden shadow-2xl border-4 border-white transform hover:scale-[1.02] transition-transform">
                   <img 
-                    src="https://images.pexels.com/photos/3825580/pexels-photo-3825580.jpeg" 
-                    alt="Technicien professionnel africain en action"
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-                
-                {/* Secondary image - Professionnel avec équipement */}
-                <div className="absolute bottom-0 left-0 w-64 h-64 rounded-3xl overflow-hidden shadow-2xl border-4 border-white transform hover:scale-105 transition-transform">
-                  <img 
-                    src="https://images.pexels.com/photos/33630755/pexels-photo-33630755.jpeg" 
-                    alt="Professionnel africain qualifié"
-                    className="w-full h-full object-cover"
+                    src="/wooko-professionals.png" 
+                    alt="Professionnels africains - Plombier, Électricien, Technicien, Menuisier, Peintre, Serrurier"
+                    className="w-full h-full object-cover object-center"
                   />
                 </div>
                 
                 {/* Floating stats card */}
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-2xl shadow-2xl p-6 border border-gray-100 z-10 hover:shadow-3xl transition-shadow">
+                <div className="absolute bottom-6 right-6 bg-white rounded-2xl shadow-2xl p-6 border border-gray-100 z-10 hover:shadow-3xl transition-shadow">
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 bg-[#25D366]/10 rounded-xl flex items-center justify-center">
                       <Users className="w-6 h-6 text-[#25D366]" />
