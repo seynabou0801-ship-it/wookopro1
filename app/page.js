@@ -3,18 +3,19 @@
 import { useState, useEffect } from 'react'
 import Link from "next/link"
 import { openWhatsApp, getDefaultWhatsAppNumber } from "@/lib/whatsapp"
+import { Wrench, Zap, Wind, Sparkles, Home, Phone, CheckCircle2, Clock, Shield, Users, Hammer } from 'lucide-react'
 
 // Catégories de services
 const SERVICE_CATEGORIES = [
-  { value: 'plombier', label: 'Plomberie' },
-  { value: 'electricien', label: 'Électricité' },
-  { value: 'climatiseur', label: 'Climatisation' },
-  { value: 'menuisier', label: 'Menuiserie' },
-  { value: 'peintre', label: 'Peinture' },
-  { value: 'serrurier', label: 'Serrurerie' },
-  { value: 'nettoyage', label: 'Nettoyage' },
-  { value: 'mecanicien', label: 'Mécanique auto' },
-  { value: 'autre', label: 'Autre service' }
+  { value: 'plombier', label: 'Plomberie', icon: Wrench },
+  { value: 'electricien', label: 'Électricité', icon: Zap },
+  { value: 'climatiseur', label: 'Climatisation', icon: Wind },
+  { value: 'menuisier', label: 'Menuiserie', icon: Hammer },
+  { value: 'peintre', label: 'Peinture', icon: Sparkles },
+  { value: 'serrurier', label: 'Serrurerie', icon: Home },
+  { value: 'nettoyage', label: 'Nettoyage', icon: Sparkles },
+  { value: 'mecanicien', label: 'Mécanique auto', icon: Wrench },
+  { value: 'autre', label: 'Autre service', icon: Hammer }
 ]
 
 const CITIES = [
@@ -87,76 +88,141 @@ export default function HomePage() {
   }
 
   return (
-    <main className="min-h-screen bg-white">
-      {/* Header Dynamique */}
-      <header className={`border-b sticky top-0 bg-white z-40 shadow-md transition-all duration-300 ${
-        isScrolled ? 'h-[48px] sm:h-[72px]' : 'h-[100px] sm:h-[160px]'
+    <main className="min-h-screen bg-gradient-to-b from-white via-gray-50 to-white">
+      {/* Header Premium */}
+      <header className={`border-b sticky top-0 bg-white/95 backdrop-blur-sm z-40 transition-all duration-300 ${
+        isScrolled ? 'shadow-md h-[60px] sm:h-[80px]' : 'shadow-sm h-[80px] sm:h-[120px]'
       }`}>
-        <div className={`max-w-6xl mx-auto px-4 sm:px-6 h-full flex items-center justify-between transition-all duration-300`}>
+        <div className="max-w-7xl mx-auto px-6 sm:px-8 h-full flex items-center justify-between">
           <Link href="/" className="flex items-center flex-shrink-0">
             <img 
               src="/wooko-logo.png" 
               alt="Wooko - Besoin d'un service ?" 
               className={`w-auto object-contain transition-all duration-300 ${
-                isScrolled ? 'h-[36px] sm:h-[48px]' : 'h-[66px] sm:h-[100px]'
+                isScrolled ? 'h-[40px] sm:h-[50px]' : 'h-[50px] sm:h-[80px]'
               }`}
             />
           </Link>
           
-          <div className="flex items-center gap-2 sm:gap-4 ml-4">
+          <div className="flex items-center gap-3 sm:gap-6">
             <Link
               href="/login"
-              className="text-xs sm:text-base text-gray-700 hover:text-orange-600 px-2 sm:px-3 py-2 font-medium transition-colors whitespace-nowrap"
+              className="text-sm sm:text-base text-gray-700 hover:text-[#FF7A00] px-3 py-2 font-medium transition-colors"
             >
               Connexion
             </Link>
 
             <Link
               href="/provider/login"
-              className="hidden md:inline-block text-sm sm:text-base text-gray-700 hover:text-orange-600 px-2 sm:px-3 py-2 font-medium transition-colors whitespace-nowrap"
+              className="hidden md:inline-block text-sm sm:text-base text-gray-700 hover:text-[#FF7A00] px-3 py-2 font-medium transition-colors"
             >
               Prestataire
             </Link>
 
             <button
               onClick={handleQuickWhatsApp}
-              className="bg-[#25D366] text-white px-4 sm:px-5 py-2.5 sm:py-3 rounded-2xl font-bold hover:bg-[#20BA5A] flex items-center gap-2 sm:gap-3 shadow-lg hover:shadow-xl transition-all"
+              className="bg-[#25D366] hover:bg-[#20BA5A] text-white px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl font-semibold flex items-center gap-2 shadow-lg hover:shadow-xl transition-all"
             >
               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
               </svg>
-              <span>WhatsApp</span>
+              <span className="hidden sm:inline">WhatsApp</span>
             </button>
           </div>
         </div>
       </header>
 
-      {/* Hero */}
-      <div className="px-4 py-12 sm:py-20">
-        <div className="max-w-2xl mx-auto text-center">
-          <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 leading-tight">
-            Trouvez un prestataire qualifié en quelques minutes
-          </h1>
+      {/* Hero Section Premium */}
+      <section className="relative overflow-hidden">
+        {/* Background gradient */}
+        <div className="absolute inset-0 bg-gradient-to-br from-[#FF7A00]/5 via-transparent to-blue-500/5 pointer-events-none"></div>
+        
+        <div className="max-w-7xl mx-auto px-6 sm:px-8 py-16 sm:py-24">
+          <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+            {/* Left - Content */}
+            <div className="space-y-8">
+              <div className="space-y-6">
+                <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-gray-900 leading-tight">
+                  Trouvez un prestataire qualifié en{' '}
+                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#FF7A00] to-orange-600">
+                    quelques minutes
+                  </span>
+                </h1>
+                
+                <p className="text-lg sm:text-xl text-gray-600 leading-relaxed">
+                  Des professionnels fiables, disponibles près de chez vous. Simple, rapide et sans engagement.
+                </p>
+              </div>
 
-          <p className="mt-4 text-gray-600 text-base sm:text-lg">
-            Plombier, électricien, climatisation... Décrivez votre besoin et recevez des réponses rapidement.
-          </p>
+              {/* CTA Button */}
+              <div className="space-y-4">
+                <button
+                  onClick={() => setShowForm(true)}
+                  className="group w-full sm:w-auto bg-[#25D366] hover:bg-[#20BA5A] text-white px-8 py-5 rounded-2xl text-lg font-bold shadow-xl hover:shadow-2xl transition-all flex items-center justify-center gap-3"
+                >
+                  <span className="text-2xl">💬</span>
+                  <span>Décrire mon besoin</span>
+                  <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+                
+                {/* Trust badges */}
+                <div className="flex flex-wrap items-center gap-4 sm:gap-6 text-sm text-gray-600">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-5 h-5 text-[#25D366]" />
+                    <span>Réponse rapide</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Shield className="w-5 h-5 text-[#FF7A00]" />
+                    <span>Prestataires vérifiés</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-5 h-5 text-blue-600" />
+                    <span>Service gratuit</span>
+                  </div>
+                </div>
+              </div>
+            </div>
 
-          {/* CTA Principal */}
-          <div className="mt-8 space-y-3">
-            <button
-              onClick={() => setShowForm(true)}
-              className="w-full sm:w-auto bg-[#25D366] text-white px-8 py-4 rounded-xl text-lg font-bold hover:bg-[#20BA5A] shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-3"
-            >
-              <span className="text-2xl">💬</span>
-              <span>Décrire mon besoin</span>
-            </button>
-            <p className="text-sm text-gray-500">
-              Gratuit • Réponse rapide • Sans engagement
-            </p>
+            {/* Right - Visual with professional images */}
+            <div className="relative hidden lg:block">
+              <div className="relative h-[500px]">
+                {/* Main image */}
+                <div className="absolute top-0 right-0 w-80 h-80 rounded-3xl overflow-hidden shadow-2xl border-4 border-white">
+                  <img 
+                    src="https://images.unsplash.com/photo-1621905252472-943afaa20e20" 
+                    alt="Professionnel africain qualifié"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                
+                {/* Secondary image */}
+                <div className="absolute bottom-0 left-0 w-64 h-64 rounded-3xl overflow-hidden shadow-2xl border-4 border-white">
+                  <img 
+                    src="https://images.pexels.com/photos/10682438/pexels-photo-10682438.jpeg" 
+                    alt="Technicien professionnel"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                
+                {/* Floating stats card */}
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-2xl shadow-2xl p-6 border border-gray-100 z-10">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-[#25D366]/10 rounded-xl flex items-center justify-center">
+                      <Users className="w-6 h-6 text-[#25D366]" />
+                    </div>
+                    <div>
+                      <p className="text-2xl font-bold text-gray-900">500+</p>
+                      <p className="text-sm text-gray-600">Prestataires actifs</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
+      </section>
 
       {/* Lead Capture Form Modal */}
       {showForm && (
@@ -262,80 +328,298 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* Trust Indicators */}
-      <div className="bg-gray-50 py-8">
-        <div className="max-w-4xl mx-auto px-4">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-            <div className="p-4">
-              <p className="text-2xl font-bold text-orange-600">500+</p>
-              <p className="text-sm text-gray-600">Prestataires vérifiés</p>
+      {/* Stats Section Premium */}
+      <section className="bg-white border-y py-16 sm:py-20">
+        <div className="max-w-7xl mx-auto px-6 sm:px-8">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
+            <div className="text-center space-y-2">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-[#FF7A00]/10 mb-4">
+                <Users className="w-8 h-8 text-[#FF7A00]" />
+              </div>
+              <p className="text-4xl font-bold bg-gradient-to-r from-[#FF7A00] to-orange-600 bg-clip-text text-transparent">2000+</p>
+              <p className="text-sm font-medium text-gray-600">Demandes traitées</p>
             </div>
-            <div className="p-4">
-              <p className="text-2xl font-bold text-orange-600">15 min</p>
-              <p className="text-sm text-gray-600">Temps de réponse moyen</p>
+            <div className="text-center space-y-2">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-[#25D366]/10 mb-4">
+                <Shield className="w-8 h-8 text-[#25D366]" />
+              </div>
+              <p className="text-4xl font-bold bg-gradient-to-r from-[#25D366] to-green-600 bg-clip-text text-transparent">500+</p>
+              <p className="text-sm font-medium text-gray-600">Prestataires actifs</p>
             </div>
-            <div className="p-4">
-              <p className="text-2xl font-bold text-orange-600">4.8/5</p>
-              <p className="text-sm text-gray-600">Satisfaction client</p>
+            <div className="text-center space-y-2">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-blue-500/10 mb-4">
+                <Clock className="w-8 h-8 text-blue-600" />
+              </div>
+              <p className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-blue-500 bg-clip-text text-transparent">7j/7</p>
+              <p className="text-sm font-medium text-gray-600">Disponibilité</p>
             </div>
-            <div className="p-4">
-              <p className="text-2xl font-bold text-orange-600">100%</p>
-              <p className="text-sm text-gray-600">Gratuit pour vous</p>
+            <div className="text-center space-y-2">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-purple-500/10 mb-4">
+                <CheckCircle2 className="w-8 h-8 text-purple-600" />
+              </div>
+              <p className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-purple-500 bg-clip-text text-transparent">4.8/5</p>
+              <p className="text-sm font-medium text-gray-600">Satisfaction client</p>
             </div>
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* Features */}
-      <div className="max-w-4xl mx-auto px-4 py-12">
-        <h2 className="text-2xl font-bold text-center mb-8">Comment ça marche ?</h2>
-        <div className="grid md:grid-cols-3 gap-6">
-          <div className="text-center p-4">
-            <div className="w-14 h-14 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <span className="text-2xl">1️⃣</span>
-            </div>
-            <h3 className="font-semibold text-gray-900 mb-2">Décrivez votre besoin</h3>
-            <p className="text-sm text-gray-600">Remplissez le formulaire rapide ou envoyez directement un message WhatsApp</p>
+      {/* Comment ça marche Section */}
+      <section className="py-16 sm:py-24 bg-gradient-to-b from-white to-gray-50">
+        <div className="max-w-7xl mx-auto px-6 sm:px-8">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
+              Comment ça marche ?
+            </h2>
+            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+              Trois étapes simples pour trouver le prestataire idéal
+            </p>
           </div>
-          <div className="text-center p-4">
-            <div className="w-14 h-14 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <span className="text-2xl">2️⃣</span>
+          
+          <div className="grid md:grid-cols-3 gap-8 lg:gap-12">
+            <div className="relative group">
+              <div className="bg-white rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all border border-gray-100">
+                <div className="w-16 h-16 bg-gradient-to-br from-[#FF7A00] to-orange-600 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                  <span className="text-3xl font-bold text-white">1</span>
+                </div>
+                <h3 className="text-xl font-bold text-gray-900 mb-3">Décrivez votre besoin</h3>
+                <p className="text-gray-600 leading-relaxed">
+                  Remplissez le formulaire rapide en quelques secondes ou contactez-nous directement sur WhatsApp.
+                </p>
+              </div>
             </div>
-            <h3 className="font-semibold text-gray-900 mb-2">Recevez des réponses</h3>
-            <p className="text-sm text-gray-600">Des prestataires qualifiés de votre zone vous contactent rapidement</p>
-          </div>
-          <div className="text-center p-4">
-            <div className="w-14 h-14 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <span className="text-2xl">3️⃣</span>
+
+            <div className="relative group">
+              <div className="bg-white rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all border border-gray-100">
+                <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-blue-500 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                  <span className="text-3xl font-bold text-white">2</span>
+                </div>
+                <h3 className="text-xl font-bold text-gray-900 mb-3">Nous trouvons les prestataires</h3>
+                <p className="text-gray-600 leading-relaxed">
+                  Notre algorithme sélectionne les meilleurs professionnels de votre zone, disponibles et qualifiés.
+                </p>
+              </div>
             </div>
-            <h3 className="font-semibold text-gray-900 mb-2">Choisissez le meilleur</h3>
-            <p className="text-sm text-gray-600">Comparez les offres et choisissez le prestataire qui vous convient</p>
+
+            <div className="relative group">
+              <div className="bg-white rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all border border-gray-100">
+                <div className="w-16 h-16 bg-gradient-to-br from-[#25D366] to-green-600 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                  <span className="text-3xl font-bold text-white">3</span>
+                </div>
+                <h3 className="text-xl font-bold text-gray-900 mb-3">Recevez des réponses</h3>
+                <p className="text-gray-600 leading-relaxed">
+                  Les prestataires intéressés vous contactent rapidement sur WhatsApp. Comparez et choisissez !
+                </p>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* Provider CTA */}
-      <div className="bg-gray-900 text-white py-12">
-        <div className="max-w-4xl mx-auto px-4 text-center">
-          <h2 className="text-2xl font-bold mb-3">Vous êtes prestataire ?</h2>
-          <p className="text-gray-400 mb-6">Rejoignez Wooko et recevez des demandes de clients dans votre zone</p>
-          <Link
-            href="/provider/login"
-            className="inline-block bg-white text-gray-900 px-6 py-3 rounded-xl font-semibold hover:bg-gray-100"
+      {/* Services Populaires Section */}
+      <section className="py-16 sm:py-24 bg-white">
+        <div className="max-w-7xl mx-auto px-6 sm:px-8">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
+              Services populaires
+            </h2>
+            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+              Trouvez rapidement le professionnel dont vous avez besoin
+            </p>
+          </div>
+          
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
+            {SERVICE_CATEGORIES.slice(0, 8).map((service) => {
+              const Icon = service.icon
+              return (
+                <button
+                  key={service.value}
+                  onClick={() => {
+                    setFormData({ ...formData, serviceCategory: service.value })
+                    setShowForm(true)
+                  }}
+                  className="group bg-gray-50 hover:bg-gradient-to-br hover:from-[#FF7A00]/10 hover:to-orange-100/50 rounded-2xl p-6 transition-all hover:shadow-lg border border-transparent hover:border-[#FF7A00]/20"
+                >
+                  <div className="flex flex-col items-center text-center space-y-3">
+                    <div className="w-14 h-14 bg-white rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform shadow-sm">
+                      <Icon className="w-7 h-7 text-[#FF7A00]" />
+                    </div>
+                    <span className="font-semibold text-gray-900 text-sm sm:text-base">{service.label}</span>
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      </section>
+
+      {/* Section Confiance */}
+      <section className="py-16 sm:py-24 bg-gradient-to-b from-gray-50 to-white">
+        <div className="max-w-7xl mx-auto px-6 sm:px-8">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
+              Pourquoi choisir Wooko ?
+            </h2>
+            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+              Une plateforme de confiance pour tous vos besoins de services
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+            <div className="flex flex-col items-center text-center space-y-4">
+              <div className="w-16 h-16 bg-gradient-to-br from-[#25D366] to-green-600 rounded-2xl flex items-center justify-center shadow-lg">
+                <Shield className="w-8 h-8 text-white" />
+              </div>
+              <h3 className="text-xl font-bold text-gray-900">Prestataires vérifiés</h3>
+              <p className="text-gray-600">
+                Tous nos professionnels sont vérifiés et évalués par la communauté
+              </p>
+            </div>
+
+            <div className="flex flex-col items-center text-center space-y-4">
+              <div className="w-16 h-16 bg-gradient-to-br from-[#FF7A00] to-orange-600 rounded-2xl flex items-center justify-center shadow-lg">
+                <Clock className="w-8 h-8 text-white" />
+              </div>
+              <h3 className="text-xl font-bold text-gray-900">Intervention rapide</h3>
+              <p className="text-gray-600">
+                Des réponses en quelques minutes, disponibles 7 jours sur 7
+              </p>
+            </div>
+
+            <div className="flex flex-col items-center text-center space-y-4">
+              <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-blue-500 rounded-2xl flex items-center justify-center shadow-lg">
+                <Phone className="w-8 h-8 text-white" />
+              </div>
+              <h3 className="text-xl font-bold text-gray-900">Support WhatsApp</h3>
+              <p className="text-gray-600">
+                Communication simple et directe via WhatsApp avec les prestataires
+              </p>
+            </div>
+
+            <div className="flex flex-col items-center text-center space-y-4">
+              <div className="w-16 h-16 bg-gradient-to-br from-purple-600 to-purple-500 rounded-2xl flex items-center justify-center shadow-lg">
+                <CheckCircle2 className="w-8 h-8 text-white" />
+              </div>
+              <h3 className="text-xl font-bold text-gray-900">Sans engagement</h3>
+              <p className="text-gray-600">
+                Gratuit pour vous, comparez les offres et choisissez librement
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* CTA Final WhatsApp */}
+      <section className="py-16 sm:py-20 bg-gradient-to-br from-[#25D366] to-green-600 text-white">
+        <div className="max-w-4xl mx-auto px-6 sm:px-8 text-center">
+          <h2 className="text-3xl sm:text-4xl font-bold mb-4">
+            Besoin d'une réponse rapide ?
+          </h2>
+          <p className="text-xl text-white/90 mb-8">
+            Contactez-nous directement sur WhatsApp et recevez une assistance immédiate
+          </p>
+          <button
+            onClick={handleQuickWhatsApp}
+            className="inline-flex items-center gap-3 bg-white text-[#25D366] px-8 py-4 rounded-2xl text-lg font-bold shadow-2xl hover:scale-105 transition-transform"
           >
-            Devenir prestataire →
-          </Link>
+            <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+            </svg>
+            <span>Ouvrir WhatsApp</span>
+          </button>
         </div>
-      </div>
+      </section>
 
-      {/* Footer */}
-      <footer className="border-t py-8">
-        <div className="max-w-5xl mx-auto px-4">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <p className="text-sm text-gray-500">© 2025 Wooko - Marketplace de services</p>
-            <div className="flex items-center gap-4 text-sm text-gray-500">
-              <Link href="/provider/login" className="hover:text-gray-700">Prestataires</Link>
-              <Link href="/login" className="hover:text-gray-700">Connexion</Link>
+      {/* Provider CTA Section */}
+      <section className="py-16 sm:py-20 bg-gray-900 text-white">
+        <div className="max-w-7xl mx-auto px-6 sm:px-8">
+          <div className="flex flex-col lg:flex-row items-center justify-between gap-12">
+            <div className="flex-1 text-center lg:text-left">
+              <h2 className="text-3xl sm:text-4xl font-bold mb-4">
+                Vous êtes prestataire ?
+              </h2>
+              <p className="text-xl text-gray-300 leading-relaxed">
+                Rejoignez Wooko et recevez des demandes de clients qualifiés dans votre zone. 
+                Développez votre activité facilement et gratuitement.
+              </p>
+            </div>
+            <div className="flex-shrink-0">
+              <Link
+                href="/provider/login"
+                className="inline-flex items-center gap-3 bg-white text-gray-900 px-8 py-4 rounded-2xl text-lg font-bold hover:bg-gray-100 shadow-2xl transition-all"
+              >
+                <span>Devenir prestataire</span>
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Footer Premium */}
+      <footer className="bg-white border-t py-12">
+        <div className="max-w-7xl mx-auto px-6 sm:px-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
+            {/* Logo & Description */}
+            <div className="space-y-4">
+              <img src="/wooko-logo.png" alt="Wooko" className="h-12 w-auto" />
+              <p className="text-gray-600 text-sm">
+                La marketplace n°1 des services au Sénégal. Connectez-vous aux meilleurs professionnels près de chez vous.
+              </p>
+            </div>
+
+            {/* Links Clients */}
+            <div>
+              <h3 className="font-bold text-gray-900 mb-4">Pour les clients</h3>
+              <ul className="space-y-2 text-sm">
+                <li>
+                  <button onClick={() => setShowForm(true)} className="text-gray-600 hover:text-[#FF7A00] transition-colors">
+                    Trouver un prestataire
+                  </button>
+                </li>
+                <li>
+                  <Link href="/login" className="text-gray-600 hover:text-[#FF7A00] transition-colors">
+                    Connexion
+                  </Link>
+                </li>
+              </ul>
+            </div>
+
+            {/* Links Providers */}
+            <div>
+              <h3 className="font-bold text-gray-900 mb-4">Pour les prestataires</h3>
+              <ul className="space-y-2 text-sm">
+                <li>
+                  <Link href="/provider/login" className="text-gray-600 hover:text-[#FF7A00] transition-colors">
+                    Devenir prestataire
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/provider/login" className="text-gray-600 hover:text-[#FF7A00] transition-colors">
+                    Connexion prestataire
+                  </Link>
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          {/* Bottom Bar */}
+          <div className="pt-8 border-t flex flex-col sm:flex-row items-center justify-between gap-4">
+            <p className="text-sm text-gray-500">
+              © 2025 Wooko - Marketplace de services au Sénégal. Tous droits réservés.
+            </p>
+            <div className="flex items-center gap-6">
+              <button 
+                onClick={handleQuickWhatsApp}
+                className="text-sm text-[#25D366] hover:text-[#20BA5A] font-medium transition-colors flex items-center gap-2"
+              >
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+                </svg>
+                Support WhatsApp
+              </button>
             </div>
           </div>
         </div>
