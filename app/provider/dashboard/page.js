@@ -113,43 +113,28 @@ export default function ProviderDashboard() {
     }
   }
 
-  // ⚡ NOUVEAU : Fonction pour traiter le paiement
-  const processPayment = async () => {
+  // ⚡ Fonction pour confirmer le paiement manuel
+  const confirmManualPayment = async () => {
     if (!selectedMatch || !provider) return
     
     setPaymentProcessing(true)
     
     try {
-      // Étape 1 : Paiement
-      const paymentRes = await fetch('/api/provider/payment/process', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          matchId: selectedMatch,
-          providerId: provider.id,
-          amount: 500
-        })
-      })
-      
-      const paymentData = await paymentRes.json()
-      
-      if (!paymentRes.ok) {
-        alert('❌ Paiement échoué : ' + (paymentData.error || 'Erreur inconnue'))
-        setPaymentProcessing(false)
-        return
-      }
-      
-      // Étape 2 : Accepter la demande après paiement réussi
+      // Envoyer la confirmation avec flag paymentConfirmed
       const res = await fetch(`/api/provider/${provider.id}/respond`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ matchId: selectedMatch, response: 'ACCEPTED' })
+        body: JSON.stringify({ 
+          matchId: selectedMatch, 
+          response: 'ACCEPTED',
+          paymentConfirmed: true  // Indique que le prestataire a confirmé le paiement
+        })
       })
       
       const data = await res.json()
       
       if (res.ok) {
-        alert('✅ Paiement effectué ! Demande acceptée avec succès !')
+        alert('✅ Paiement enregistré ! Votre demande est en attente de vérification. Vous serez notifié une fois validée.')
         setShowPaymentModal(false)
         setSelectedMatch(null)
         
@@ -159,7 +144,7 @@ export default function ProviderDashboard() {
           setDashboard(await dashRes.json())
         }
       } else {
-        alert('❌ Erreur lors de l\'acceptation : ' + (data.error || 'Impossible de traiter la demande'))
+        alert('❌ Erreur : ' + (data.error || data.message || 'Impossible de traiter la demande'))
       }
     } catch (error) {
       console.error('Error:', error)
@@ -173,9 +158,20 @@ export default function ProviderDashboard() {
     const colors = {
       SENT: 'bg-blue-100 text-blue-800',
       ACCEPTED: 'bg-orange-100 text-orange-800',
-      DECLINED: 'bg-red-100 text-red-800'
+      DECLINED: 'bg-red-100 text-red-800',
+      PAYMENT_PENDING: 'bg-yellow-100 text-yellow-800'  // Nouveau statut
     }
     return colors[status] || 'bg-gray-100 text-gray-800'
+  }
+
+  const getStatusLabel = (status) => {
+    const labels = {
+      SENT: 'Envoyé',
+      ACCEPTED: 'Accepté',
+      DECLINED: 'Refusé',
+      PAYMENT_PENDING: 'Paiement en attente'  // Nouveau label
+    }
+    return labels[status] || status
   }
 
   if (loading) {
@@ -275,7 +271,7 @@ export default function ProviderDashboard() {
                           {match.request?.serviceCategory}
                         </h3>
                         <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(match.status)}`}>
-                          {match.status}
+                          {getStatusLabel(match.status)}
                         </span>
                       </div>
                       <p className="text-sm text-gray-600 mt-1">
@@ -312,6 +308,19 @@ export default function ProviderDashboard() {
                     )}
                   </div>
                   
+                  {/* Message pour paiement en attente */}
+                  {match.status === 'PAYMENT_PENDING' && (
+                    <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                      <p className="text-sm text-yellow-800 font-medium">
+                        ⏳ Paiement en cours de vérification (24-48h)
+                      </p>
+                      <p className="text-xs text-yellow-700 mt-1">
+                        Les coordonnées seront débloquées après validation
+                      </p>
+                    </div>
+                  )}
+                  
+                  {/* Coordonnées visibles uniquement si ACCEPTÉ */}
                   {match.status === 'ACCEPTED' && match.request?.clientPhone && (
                     <div className="mt-3 p-3 bg-orange-50 rounded-lg">
                       <p className="text-sm text-orange-800">📞 Contact client: {match.request.clientPhone}</p>
@@ -324,32 +333,38 @@ export default function ProviderDashboard() {
         </div>
       </main>
 
-      {/* ⚡ MODAL DE PAIEMENT */}
+      {/* ⚡ MODAL DE PAIEMENT MANUEL */}
       {showPaymentModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
-            <h3 className="text-2xl font-bold text-gray-900 mb-4">💳 Paiement requis</h3>
+            <h3 className="text-2xl font-bold text-gray-900 mb-4">💰 Paiement requis</h3>
             
-            <div className="bg-orange-50 border-2 border-orange-200 rounded-xl p-4 mb-6">
-              <p className="text-gray-800 text-lg mb-2">
-                Pour voir les coordonnées du client :
+            <div className="bg-orange-50 border-2 border-orange-200 rounded-xl p-5 mb-6">
+              <p className="text-gray-800 text-lg font-semibold mb-3">
+                Envoyez 500 FCFA via :
               </p>
-              <p className="text-4xl font-bold text-orange-600">500 FCFA</p>
+              
+              <div className="space-y-3 mb-4">
+                <div className="flex items-center gap-3 bg-white p-3 rounded-lg">
+                  <span className="text-2xl">📱</span>
+                  <div>
+                    <p className="text-sm text-gray-600">Wave / Orange Money</p>
+                    <p className="text-xl font-bold text-gray-900">77 338 90 95</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-orange-100 rounded-lg p-3">
+                <p className="text-sm text-orange-900 font-medium">
+                  ⚠️ Important : Conservez votre preuve de paiement
+                </p>
+              </div>
             </div>
 
-            <div className="space-y-3 mb-6">
-              <div className="flex items-start gap-2 text-sm text-gray-600">
-                <span className="text-green-600 font-bold">✓</span>
-                <span>Accès immédiat aux coordonnées complètes du client</span>
-              </div>
-              <div className="flex items-start gap-2 text-sm text-gray-600">
-                <span className="text-green-600 font-bold">✓</span>
-                <span>Paiement sécurisé et instantané</span>
-              </div>
-              <div className="flex items-start gap-2 text-sm text-gray-600">
-                <span className="text-green-600 font-bold">✓</span>
-                <span>Sans engagement ni abonnement</span>
-              </div>
+            <div className="space-y-2 mb-6 text-sm text-gray-600">
+              <p>• Après paiement, cliquez sur "J'ai payé"</p>
+              <p>• Votre demande sera vérifiée sous 24h</p>
+              <p>• Les coordonnées seront débloquées après validation</p>
             </div>
 
             <div className="flex gap-3">
@@ -364,16 +379,16 @@ export default function ProviderDashboard() {
                 Annuler
               </button>
               <button
-                onClick={processPayment}
+                onClick={confirmManualPayment}
                 disabled={paymentProcessing}
                 className="flex-1 px-6 py-3 bg-green-600 text-white rounded-xl font-bold hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl transition-all"
               >
-                {paymentProcessing ? '⏳ Traitement...' : '💳 Payer maintenant'}
+                {paymentProcessing ? '⏳ Envoi...' : '✅ J\'ai payé'}
               </button>
             </div>
 
             <p className="text-xs text-gray-500 text-center mt-4">
-              🔒 Paiement sécurisé • Mode simulation activé pour le MVP
+              Paiement manuel • Vérification sous 24h
             </p>
           </div>
         </div>
