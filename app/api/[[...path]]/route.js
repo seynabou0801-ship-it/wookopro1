@@ -1005,6 +1005,23 @@ async function handleRoute(request, { params }) {
           status: serviceRequest.status
         }, { status: 403 }))
       }
+
+      // ⚡ NOUVEAU : Vérifier le paiement AVANT d'accepter
+      if (isAccept) {
+        const payment = await db.collection('match_payments').findOne({ 
+          matchId,
+          providerId,
+          status: 'COMPLETED'
+        })
+        
+        if (!payment) {
+          return handleCORS(NextResponse.json({ 
+            error: 'PAYMENT_REQUIRED',
+            message: 'Vous devez payer 500 FCFA pour accéder aux coordonnées du client',
+            amount: 500
+          }, { status: 402 }))
+        }
+      }
       
       await db.collection('request_matches').updateOne(
         { id: matchId, providerId },
@@ -1530,6 +1547,64 @@ async function handleRoute(request, { params }) {
         message: 'Base de données initialisée',
         seededProviders: providerData.length,
         defaultPassword: 'wooleen2025'
+      }))
+    }
+
+    // ⚡ NOUVEAU : Endpoint de paiement (SIMULÉ pour MVP)
+    const paymentMatch = route.match(/^\/provider\/payment\/process$/)
+    if (paymentMatch && method === 'POST') {
+      const body = await request.json()
+      const { matchId, providerId, amount } = body
+      
+      if (!matchId || !providerId || !amount) {
+        return handleCORS(NextResponse.json({ error: 'matchId, providerId, and amount required' }, { status: 400 }))
+      }
+
+      // Vérifier si le match existe
+      const match = await db.collection('request_matches').findOne({ 
+        id: matchId, 
+        providerId 
+      })
+      
+      if (!match) {
+        return handleCORS(NextResponse.json({ error: 'Match not found' }, { status: 404 }))
+      }
+
+      // Vérifier si déjà payé
+      const existingPayment = await db.collection('match_payments').findOne({ 
+        matchId,
+        providerId
+      })
+
+      if (existingPayment && existingPayment.status === 'COMPLETED') {
+        return handleCORS(NextResponse.json({ 
+          success: true,
+          message: 'Paiement déjà effectué',
+          payment: existingPayment
+        }))
+      }
+
+      // ⚡ PAIEMENT SIMULÉ (à remplacer par Wave/Orange Money en production)
+      const paymentId = uuidv4()
+      const payment = {
+        id: paymentId,
+        matchId,
+        providerId,
+        amount: parseInt(amount),
+        currency: 'FCFA',
+        status: 'COMPLETED', // Simulé : automatiquement validé
+        paymentMethod: 'SIMULATED', // À remplacer par WAVE, ORANGE_MONEY, etc.
+        transactionId: `SIM_${Date.now()}`,
+        createdAt: new Date(),
+        completedAt: new Date()
+      }
+
+      await db.collection('match_payments').insertOne(payment)
+
+      return handleCORS(NextResponse.json({ 
+        success: true,
+        message: 'Paiement effectué avec succès',
+        payment
       }))
     }
 

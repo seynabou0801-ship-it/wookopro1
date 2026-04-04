@@ -9,6 +9,11 @@ export default function ProviderDashboard() {
   const [provider, setProvider] = useState(null)
   const [dashboard, setDashboard] = useState(null)
   const [loading, setLoading] = useState(true)
+  
+  // ⚡ NOUVEAU : States pour le modal de paiement
+  const [showPaymentModal, setShowPaymentModal] = useState(false)
+  const [selectedMatch, setSelectedMatch] = useState(null)
+  const [paymentProcessing, setPaymentProcessing] = useState(false)
 
   useEffect(() => {
     const storedUser = localStorage.getItem('wooleen_user')
@@ -74,6 +79,14 @@ export default function ProviderDashboard() {
     
     const isAccept = response.toLowerCase().includes('accept')
     
+    // ⚡ NOUVEAU : Si c'est une acceptation, montrer le modal de paiement d'abord
+    if (isAccept) {
+      setSelectedMatch(matchId)
+      setShowPaymentModal(true)
+      return
+    }
+    
+    // Pour les refus, procéder normalement
     try {
       const res = await fetch(`/api/provider/${provider.id}/respond`, {
         method: 'POST',
@@ -84,7 +97,7 @@ export default function ProviderDashboard() {
       const data = await res.json()
       
       if (res.ok) {
-        alert(isAccept ? '✅ Demande acceptée avec succès !' : '✅ Demande refusée.')
+        alert('✅ Demande refusée.')
         
         // Refresh dashboard
         const dashRes = await fetch(`/api/provider/dashboard/${provider.id}`)
@@ -92,13 +105,68 @@ export default function ProviderDashboard() {
           setDashboard(await dashRes.json())
         }
       } else {
-        // Afficher l'erreur
         alert('❌ Erreur : ' + (data.error || 'Impossible de traiter la demande'))
       }
     } catch (error) {
       console.error('Error:', error)
       alert('❌ Erreur de connexion. Veuillez réessayer.')
     }
+  }
+
+  // ⚡ NOUVEAU : Fonction pour traiter le paiement
+  const processPayment = async () => {
+    if (!selectedMatch || !provider) return
+    
+    setPaymentProcessing(true)
+    
+    try {
+      // Étape 1 : Paiement
+      const paymentRes = await fetch('/api/provider/payment/process', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          matchId: selectedMatch,
+          providerId: provider.id,
+          amount: 500
+        })
+      })
+      
+      const paymentData = await paymentRes.json()
+      
+      if (!paymentRes.ok) {
+        alert('❌ Paiement échoué : ' + (paymentData.error || 'Erreur inconnue'))
+        setPaymentProcessing(false)
+        return
+      }
+      
+      // Étape 2 : Accepter la demande après paiement réussi
+      const res = await fetch(`/api/provider/${provider.id}/respond`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ matchId: selectedMatch, response: 'ACCEPTED' })
+      })
+      
+      const data = await res.json()
+      
+      if (res.ok) {
+        alert('✅ Paiement effectué ! Demande acceptée avec succès !')
+        setShowPaymentModal(false)
+        setSelectedMatch(null)
+        
+        // Refresh dashboard
+        const dashRes = await fetch(`/api/provider/dashboard/${provider.id}`)
+        if (dashRes.ok) {
+          setDashboard(await dashRes.json())
+        }
+      } else {
+        alert('❌ Erreur lors de l\'acceptation : ' + (data.error || 'Impossible de traiter la demande'))
+      }
+    } catch (error) {
+      console.error('Error:', error)
+      alert('❌ Erreur de connexion. Veuillez réessayer.')
+    }
+    
+    setPaymentProcessing(false)
   }
 
   const getStatusColor = (status) => {
@@ -255,6 +323,61 @@ export default function ProviderDashboard() {
           )}
         </div>
       </main>
+
+      {/* ⚡ MODAL DE PAIEMENT */}
+      {showPaymentModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+            <h3 className="text-2xl font-bold text-gray-900 mb-4">💳 Paiement requis</h3>
+            
+            <div className="bg-orange-50 border-2 border-orange-200 rounded-xl p-4 mb-6">
+              <p className="text-gray-800 text-lg mb-2">
+                Pour voir les coordonnées du client :
+              </p>
+              <p className="text-4xl font-bold text-orange-600">500 FCFA</p>
+            </div>
+
+            <div className="space-y-3 mb-6">
+              <div className="flex items-start gap-2 text-sm text-gray-600">
+                <span className="text-green-600 font-bold">✓</span>
+                <span>Accès immédiat aux coordonnées complètes du client</span>
+              </div>
+              <div className="flex items-start gap-2 text-sm text-gray-600">
+                <span className="text-green-600 font-bold">✓</span>
+                <span>Paiement sécurisé et instantané</span>
+              </div>
+              <div className="flex items-start gap-2 text-sm text-gray-600">
+                <span className="text-green-600 font-bold">✓</span>
+                <span>Sans engagement ni abonnement</span>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowPaymentModal(false)
+                  setSelectedMatch(null)
+                }}
+                disabled={paymentProcessing}
+                className="flex-1 px-6 py-3 bg-gray-200 text-gray-700 rounded-xl font-semibold hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={processPayment}
+                disabled={paymentProcessing}
+                className="flex-1 px-6 py-3 bg-green-600 text-white rounded-xl font-bold hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl transition-all"
+              >
+                {paymentProcessing ? '⏳ Traitement...' : '💳 Payer maintenant'}
+              </button>
+            </div>
+
+            <p className="text-xs text-gray-500 text-center mt-4">
+              🔒 Paiement sécurisé • Mode simulation activé pour le MVP
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
