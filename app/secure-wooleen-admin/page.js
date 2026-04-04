@@ -17,6 +17,9 @@ export default function SecureAdminDashboard() {
   const [selectedRequest, setSelectedRequest] = useState(null)
   const [showRequestModal, setShowRequestModal] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
+  
+  // ⚡ NOUVEAU : State pour les paiements en attente
+  const [pendingPayments, setPendingPayments] = useState([])
 
   useEffect(() => {
     const storedUser = localStorage.getItem('wooleen_user')
@@ -35,15 +38,17 @@ export default function SecureAdminDashboard() {
 
   const fetchData = async () => {
     try {
-      const [statsRes, providersRes, requestsRes] = await Promise.all([
+      const [statsRes, providersRes, requestsRes, paymentsRes] = await Promise.all([
         fetch('/api/admin/stats'),
         fetch('/api/providers'),
-        fetch('/api/requests')
+        fetch('/api/requests'),
+        fetch('/api/admin/payments/pending')  // ⚡ NOUVEAU
       ])
       
       if (statsRes.ok) setStats(await statsRes.json())
       if (providersRes.ok) setProviders(await providersRes.json())
       if (requestsRes.ok) setRequests(await requestsRes.json())
+      if (paymentsRes.ok) setPendingPayments(await paymentsRes.json())  // ⚡ NOUVEAU
     } catch (error) {
       console.error('Error:', error)
     }
@@ -121,6 +126,30 @@ export default function SecureAdminDashboard() {
       } else {
         const error = await res.json()
         alert(error.error || 'Erreur lors du rejet')
+      }
+    } catch (error) {
+      console.error('Error:', error)
+      alert('Erreur de connexion')
+    }
+    setActionLoading(false)
+  }
+
+  // ⚡ NOUVEAU : Valider un paiement manuel
+  const handleValidatePayment = async (paymentId) => {
+    if (!confirm('Confirmer la validation de ce paiement ?')) return
+    
+    setActionLoading(true)
+    try {
+      const res = await fetch(`/api/admin/payment/${paymentId}/validate`, {
+        method: 'POST'
+      })
+      
+      if (res.ok) {
+        alert('✅ Paiement validé ! Les coordonnées ont été débloquées pour le prestataire.')
+        await fetchData()
+      } else {
+        const error = await res.json()
+        alert(error.error || 'Erreur lors de la validation')
       }
     } catch (error) {
       console.error('Error:', error)
@@ -207,7 +236,7 @@ export default function SecureAdminDashboard() {
 
         {/* Tabs */}
         <div className="flex gap-2 mb-6">
-          {['overview', 'providers', 'requests'].map((tab) => (
+          {['overview', 'providers', 'requests', 'payments'].map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -220,6 +249,7 @@ export default function SecureAdminDashboard() {
               {tab === 'overview' && 'Vue d\'ensemble'}
               {tab === 'providers' && `Prestataires (${providers.length})`}
               {tab === 'requests' && `Demandes (${requests.length})`}
+              {tab === 'payments' && `Paiements en attente (${pendingPayments.length})`}
             </button>
           ))}
         </div>
@@ -391,6 +421,74 @@ export default function SecureAdminDashboard() {
                 </tbody>
               </table>
             </div>
+          </div>
+        )}
+
+        {/* ⚡ Payments Tab - NOUVEAU */}
+        {activeTab === 'payments' && (
+          <div className="bg-white rounded-xl shadow-sm">
+            <div className="p-4 border-b">
+              <h3 className="font-semibold text-gray-900">Paiements en attente de validation</h3>
+              <p className="text-sm text-gray-500 mt-1">Validez les paiements manuels effectués par les prestataires</p>
+            </div>
+
+            {pendingPayments.length === 0 ? (
+              <div className="p-8 text-center text-gray-500">
+                <p>✅ Aucun paiement en attente</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Prestataire</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Service demandé</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Montant</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Date</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {pendingPayments.map((payment) => (
+                      <tr key={payment.id} className="hover:bg-gray-50">
+                        <td className="px-4 py-3">
+                          <div>
+                            <p className="font-medium text-gray-900">{payment.provider?.businessName || 'N/A'}</p>
+                            <p className="text-sm text-gray-500">{payment.provider?.whatsappNumber || 'N/A'}</p>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div>
+                            <p className="font-medium text-gray-900 capitalize">{payment.request?.serviceCategory || 'N/A'}</p>
+                            <p className="text-sm text-gray-500 truncate max-w-xs">{payment.request?.normalizedText || payment.request?.rawMessage || 'N/A'}</p>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="font-bold text-orange-600">{payment.amount} {payment.currency}</span>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-600">
+                          {new Date(payment.confirmedByProviderAt || payment.createdAt).toLocaleDateString('fr-FR', {
+                            day: '2-digit',
+                            month: 'short',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </td>
+                        <td className="px-4 py-3">
+                          <button
+                            onClick={() => handleValidatePayment(payment.id)}
+                            disabled={actionLoading}
+                            className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {actionLoading ? '⏳' : '✅ Valider paiement'}
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         )}
       </main>

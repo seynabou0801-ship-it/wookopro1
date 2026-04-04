@@ -1586,6 +1586,87 @@ async function handleRoute(request, { params }) {
       }))
     }
 
+    // ⚡ ADMIN : Liste des paiements en attente
+    const pendingPaymentsMatch = route.match(/^\/admin\/payments\/pending$/)
+    if (pendingPaymentsMatch && method === 'GET') {
+      const pendingPayments = await db.collection('match_payments')
+        .find({ status: 'PENDING' })
+        .sort({ createdAt: -1 })
+        .toArray()
+
+      // Enrichir avec les infos du match et du provider
+      const enriched = await Promise.all(pendingPayments.map(async (payment) => {
+        const match = await db.collection('request_matches').findOne({ id: payment.matchId })
+        const provider = await db.collection('provider_profiles').findOne({ id: payment.providerId })
+        const request = match ? await db.collection('service_requests').findOne({ id: match.requestId }) : null
+        
+        return {
+          ...payment,
+          match,
+          provider,
+          request
+        }
+      }))
+
+      return handleCORS(NextResponse.json(enriched))
+    }
+
+    // ⚡ ADMIN : Valider un paiement
+    const validatePaymentMatch = route.match(/^\/admin\/payment\/([a-zA-Z0-9-]+)\/validate$/)
+    if (validatePaymentMatch && method === 'POST') {
+      const paymentId = validatePaymentMatch[1]
+      
+      const payment = await db.collection('match_payments').findOne({ id: paymentId })
+      
+      if (!payment) {
+        return handleCORS(NextResponse.json({ error: 'Payment not found' }, { status: 404 }))
+      }
+
+      // Marquer le paiement comme vérifié
+      await db.collection('match_payments').updateOne(
+        { id: paymentId },
+        { 
+          $set: { 
+            status: 'VERIFIED',
+            verifiedByAdminAt: new Date(),
+            updatedAt: new Date()
+          } 
+        }
+      )
+
+      // Changer le statut du match de PAYMENT_PENDING à ACCEPTED
+      await db.collection('request_matches').updateOne(
+        { id: payment.matchId },
+        { 
+          $set: { 
+            status: 'ACCEPTED',
+            paymentStatus: 'VERIFIED',
+            updatedAt: new Date()
+          } 
+        }
+      )
+
+      // Marquer la demande comme ASSIGNED
+      const match = await db.collection('request_matches').findOne({ id: payment.matchId })
+      if (match) {
+        await db.collection('service_requests').updateOne(
+          { id: match.requestId },
+          { 
+            $set: { 
+              status: 'ASSIGNED',
+              assignedProviderId: payment.providerId,
+              updatedAt: new Date()
+            } 
+          }
+        )
+      }
+
+      return handleCORS(NextResponse.json({ 
+        success: true,
+        message: 'Paiement validé avec succès'
+      }))
+    }
+
     return handleCORS(NextResponse.json({ error: `Route ${route} not found` }, { status: 404 }))
 
   } catch (error) {
