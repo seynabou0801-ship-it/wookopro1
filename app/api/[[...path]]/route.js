@@ -688,6 +688,29 @@ async function handleRoute(request, { params }) {
       if (!user) {
         return handleCORS(NextResponse.json({ error: 'Prestataire non trouvé' }, { status: 401 }))
       }
+
+      // ⚡ NOUVEAU : Vérifier le statut du compte AVANT validation mot de passe
+      if (user.status === 'EN_ATTENTE') {
+        return handleCORS(NextResponse.json({ 
+          error: 'COMPTE_EN_ATTENTE',
+          message: 'Votre compte est en attente de validation par l\'administrateur. Vous recevrez une notification par WhatsApp une fois votre compte activé.'
+        }, { status: 403 }))
+      }
+
+      if (user.status === 'REJETE') {
+        return handleCORS(NextResponse.json({ 
+          error: 'COMPTE_REJETE',
+          message: 'Votre demande d\'inscription a été refusée. Contactez l\'administrateur pour plus d\'informations.'
+        }, { status: 403 }))
+      }
+
+      // Seuls les comptes VALIDES peuvent se connecter
+      if (user.status !== 'VALIDE') {
+        return handleCORS(NextResponse.json({ 
+          error: 'COMPTE_INACTIF',
+          message: 'Votre compte n\'est pas actif. Contactez l\'administrateur.'
+        }, { status: 403 }))
+      }
       
       if (user.passwordHash) {
         const validPassword = await bcrypt.compare(password, user.passwordHash)
@@ -743,6 +766,7 @@ async function handleRoute(request, { params }) {
         role: 'PROVIDER',
         passwordHash,
         city,
+        status: 'EN_ATTENTE', // ⚡ NOUVEAU : Statut en attente de validation admin
         createdAt: new Date(),
         updatedAt: new Date()
       }
@@ -757,9 +781,10 @@ async function handleRoute(request, { params }) {
         zones: [],
         rating: 0,
         responseRate: 0,
-        isAvailable: true,
+        isAvailable: false, // ⚡ MODIFIÉ : Désactivé par défaut
         isVerified: false,
-        tier: 'free', // For monetization: free, pro, premium
+        status: 'EN_ATTENTE', // ⚡ NOUVEAU : Statut en attente
+        tier: 'free',
         whatsappNumber: phone,
         email: email || '',
         address: address || '',
@@ -769,20 +794,11 @@ async function handleRoute(request, { params }) {
       }
       await db.collection('provider_profiles').insertOne(provider)
       
-      const token = Buffer.from(`${user.id}:${user.role}:${Date.now()}`).toString('base64')
-      
+      // ⚡ NE PAS créer de token ni permettre auto-login
       return handleCORS(NextResponse.json({
         success: true,
-        token,
-        user: { id: user.id, name: user.name, phone: user.phone, role: user.role },
-        provider: {
-          id: provider.id,
-          businessName: provider.businessName,
-          serviceCategory: provider.serviceCategory,
-          city: provider.city,
-          isAvailable: provider.isAvailable,
-          tier: provider.tier
-        }
+        message: 'Votre demande d\'inscription a été envoyée. Vous serez notifié par WhatsApp une fois votre compte validé par l\'administrateur.',
+        status: 'EN_ATTENTE'
       }))
     }
 
@@ -1664,6 +1680,113 @@ async function handleRoute(request, { params }) {
       return handleCORS(NextResponse.json({ 
         success: true,
         message: 'Paiement validé avec succès'
+      }))
+    }
+
+    // ⚡ ADMIN : Liste des inscriptions en attente
+    const pendingProvidersMatch = route.match(/^\/admin\/providers\/pending$/)
+    if (pendingProvidersMatch && method === 'GET') {
+      const pendingUsers = await db.collection('users')
+        .find({ role: 'PROVIDER', status: 'EN_ATTENTE' })
+        .sort({ createdAt: -1 })
+        .toArray()
+
+      // Enrichir avec les profils
+      const enriched = await Promise.all(pendingUsers.map(async (user) => {
+        const provider = await db.collection('provider_profiles').findOne({ userId: user.id })
+        return {
+          ...user,
+          provider
+        }
+      }))
+
+      return handleCORS(NextResponse.json(enriched))
+    }
+
+    // ⚡ ADMIN : Valider une inscription prestataire
+    const validateProviderMatch = route.match(/^\/admin\/provider\/([a-zA-Z0-9-]+)\/validate$/)
+    if (validateProviderMatch && method === 'POST') {
+      const userId = validateProviderMatch[1]
+      
+      const user = await db.collection('users').findOne({ id: userId, role: 'PROVIDER' })
+      
+      if (!user) {
+        return handleCORS(NextResponse.json({ error: 'Prestataire non trouvé' }, { status: 404 }))
+      }
+
+      // Changer le statut à VALIDE
+      await db.collection('users').updateOne(
+        { id: userId },
+        { 
+          $set: { 
+            status: 'VALIDE',
+            validatedAt: new Date(),
+            updatedAt: new Date()
+          } 
+        }
+      )
+
+      // Activer le profil prestataire
+      await db.collection('provider_profiles').updateOne(
+        { userId },
+        { 
+          $set: { 
+            status: 'VALIDE',
+            isAvailable: true,
+            isVerified: true,
+            updatedAt: new Date()
+          } 
+        }
+      )
+
+      // TODO: Envoyer notification WhatsApp au prestataire
+
+      return handleCORS(NextResponse.json({ 
+        success: true,
+        message: 'Prestataire validé avec succès'
+      }))
+    }
+
+    // ⚡ ADMIN : Rejeter une inscription prestataire
+    const rejectProviderMatch = route.match(/^\/admin\/provider\/([a-zA-Z0-9-]+)\/reject$/)
+    if (rejectProviderMatch && method === 'POST') {
+      const userId = rejectProviderMatch[1]
+      
+      const user = await db.collection('users').findOne({ id: userId, role: 'PROVIDER' })
+      
+      if (!user) {
+        return handleCORS(NextResponse.json({ error: 'Prestataire non trouvé' }, { status: 404 }))
+      }
+
+      // Changer le statut à REJETE
+      await db.collection('users').updateOne(
+        { id: userId },
+        { 
+          $set: { 
+            status: 'REJETE',
+            rejectedAt: new Date(),
+            updatedAt: new Date()
+          } 
+        }
+      )
+
+      // Désactiver le profil prestataire
+      await db.collection('provider_profiles').updateOne(
+        { userId },
+        { 
+          $set: { 
+            status: 'REJETE',
+            isAvailable: false,
+            updatedAt: new Date()
+          } 
+        }
+      )
+
+      // TODO: Envoyer notification WhatsApp au prestataire
+
+      return handleCORS(NextResponse.json({ 
+        success: true,
+        message: 'Prestataire rejeté'
       }))
     }
 

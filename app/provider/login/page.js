@@ -49,7 +49,16 @@ export default function ProviderAuthPage() {
         localStorage.setItem('wooleen_user', JSON.stringify(data.user))
         router.push('/provider/dashboard')
       } else {
-        alert('❌ ' + (data.error || 'Erreur de connexion'))
+        // Gérer les différents types d'erreurs
+        if (data.error === 'COMPTE_EN_ATTENTE') {
+          alert('⏳ Compte en attente de validation\n\n' + data.message)
+        } else if (data.error === 'COMPTE_REJETE') {
+          alert('❌ Compte refusé\n\n' + data.message)
+        } else if (data.error === 'COMPTE_INACTIF') {
+          alert('❌ Compte inactif\n\n' + data.message)
+        } else {
+          alert('❌ ' + (data.message || data.error || 'Erreur de connexion'))
+        }
       }
     } catch (error) {
       console.error('Error:', error)

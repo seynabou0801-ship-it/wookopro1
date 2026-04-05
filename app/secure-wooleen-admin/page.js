@@ -20,6 +20,9 @@ export default function SecureAdminDashboard() {
   
   // ⚡ NOUVEAU : State pour les paiements en attente
   const [pendingPayments, setPendingPayments] = useState([])
+  
+  // ⚡ NOUVEAU : State pour les inscriptions en attente
+  const [pendingProviders, setPendingProviders] = useState([])
 
   useEffect(() => {
     const storedUser = localStorage.getItem('wooleen_user')
@@ -38,17 +41,19 @@ export default function SecureAdminDashboard() {
 
   const fetchData = async () => {
     try {
-      const [statsRes, providersRes, requestsRes, paymentsRes] = await Promise.all([
+      const [statsRes, providersRes, requestsRes, paymentsRes, pendingRes] = await Promise.all([
         fetch('/api/admin/stats'),
         fetch('/api/providers'),
         fetch('/api/requests'),
-        fetch('/api/admin/payments/pending')  // ⚡ NOUVEAU
+        fetch('/api/admin/payments/pending'),  
+        fetch('/api/admin/providers/pending')  // ⚡ NOUVEAU
       ])
       
       if (statsRes.ok) setStats(await statsRes.json())
       if (providersRes.ok) setProviders(await providersRes.json())
       if (requestsRes.ok) setRequests(await requestsRes.json())
-      if (paymentsRes.ok) setPendingPayments(await paymentsRes.json())  // ⚡ NOUVEAU
+      if (paymentsRes.ok) setPendingPayments(await paymentsRes.json())
+      if (pendingRes.ok) setPendingProviders(await pendingRes.json())  // ⚡ NOUVEAU
     } catch (error) {
       console.error('Error:', error)
     }
@@ -158,6 +163,54 @@ export default function SecureAdminDashboard() {
     setActionLoading(false)
   }
 
+  // ⚡ NOUVEAU : Valider une inscription prestataire
+  const handleValidateProvider = async (userId) => {
+    if (!confirm('Valider cette inscription prestataire ?')) return
+    
+    setActionLoading(true)
+    try {
+      const res = await fetch(`/api/admin/provider/${userId}/validate`, {
+        method: 'POST'
+      })
+      
+      if (res.ok) {
+        alert('✅ Prestataire validé ! Le compte est maintenant actif.')
+        await fetchData()
+      } else {
+        const error = await res.json()
+        alert(error.error || 'Erreur lors de la validation')
+      }
+    } catch (error) {
+      console.error('Error:', error)
+      alert('Erreur de connexion')
+    }
+    setActionLoading(false)
+  }
+
+  // ⚡ NOUVEAU : Rejeter une inscription prestataire
+  const handleRejectProvider = async (userId) => {
+    if (!confirm('Rejeter cette inscription prestataire ? Cette action est irréversible.')) return
+    
+    setActionLoading(true)
+    try {
+      const res = await fetch(`/api/admin/provider/${userId}/reject`, {
+        method: 'POST'
+      })
+      
+      if (res.ok) {
+        alert('✅ Prestataire rejeté.')
+        await fetchData()
+      } else {
+        const error = await res.json()
+        alert(error.error || 'Erreur lors du rejet')
+      }
+    } catch (error) {
+      console.error('Error:', error)
+      alert('Erreur de connexion')
+    }
+    setActionLoading(false)
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -236,7 +289,7 @@ export default function SecureAdminDashboard() {
 
         {/* Tabs */}
         <div className="flex gap-2 mb-6">
-          {['overview', 'providers', 'requests', 'payments'].map((tab) => (
+          {['overview', 'providers', 'requests', 'inscriptions', 'payments'].map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -249,6 +302,7 @@ export default function SecureAdminDashboard() {
               {tab === 'overview' && 'Vue d\'ensemble'}
               {tab === 'providers' && `Prestataires (${providers.length})`}
               {tab === 'requests' && `Demandes (${requests.length})`}
+              {tab === 'inscriptions' && `Inscriptions en attente (${pendingProviders.length})`}
               {tab === 'payments' && `Paiements en attente (${pendingPayments.length})`}
             </button>
           ))}
@@ -421,6 +475,82 @@ export default function SecureAdminDashboard() {
                 </tbody>
               </table>
             </div>
+          </div>
+        )}
+
+        {/* ⚡ Inscriptions Tab - NOUVEAU */}
+        {activeTab === 'inscriptions' && (
+          <div className="bg-white rounded-xl shadow-sm">
+            <div className="p-4 border-b">
+              <h3 className="font-semibold text-gray-900">Inscriptions prestataires en attente</h3>
+              <p className="text-sm text-gray-500 mt-1">Validez ou rejetez les demandes d'inscription</p>
+            </div>
+
+            {pendingProviders.length === 0 ? (
+              <div className="p-8 text-center text-gray-500">
+                <p>✅ Aucune inscription en attente</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Prestataire</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Service</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Ville</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Date demande</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {pendingProviders.map((user) => (
+                      <tr key={user.id} className="hover:bg-gray-50">
+                        <td className="px-4 py-3">
+                          <div>
+                            <p className="font-medium text-gray-900">{user.provider?.businessName || user.name || 'N/A'}</p>
+                            <p className="text-sm text-gray-500">{user.phone}</p>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-medium capitalize">
+                            {user.provider?.serviceCategory || 'N/A'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-600">
+                          {user.city || user.provider?.city || 'N/A'}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-600">
+                          {new Date(user.createdAt).toLocaleDateString('fr-FR', {
+                            day: '2-digit',
+                            month: 'short',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => handleValidateProvider(user.id)}
+                              disabled={actionLoading}
+                              className="px-3 py-1.5 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              ✅ Valider
+                            </button>
+                            <button
+                              onClick={() => handleRejectProvider(user.id)}
+                              disabled={actionLoading}
+                              className="px-3 py-1.5 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              ❌ Rejeter
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         )}
 
