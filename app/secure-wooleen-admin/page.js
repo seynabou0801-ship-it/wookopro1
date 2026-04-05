@@ -225,7 +225,7 @@ export default function SecureAdminDashboard() {
       <header className="bg-white border-b">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
           <Link href="/">
-            <img src="/wooko-logo.png" alt="Wooko Admin" className="h-24" />
+            <img src="/wookopro-logo.png" alt="WookoPRO Admin" className="h-24" />
           </Link>
           <div className="flex items-center gap-4">
             <button
@@ -778,7 +778,7 @@ export default function SecureAdminDashboard() {
                   <span className="text-2xl">✓</span>
                   <div>
                     <p className="font-semibold text-blue-900">Prestataire vérifié</p>
-                    <p className="text-sm text-blue-700">Ce prestataire a été vérifié par l'équipe Wooko</p>
+                    <p className="text-sm text-blue-700">Ce prestataire a été vérifié par l'équipe WookoPRO</p>
                   </div>
                 </div>
               )}

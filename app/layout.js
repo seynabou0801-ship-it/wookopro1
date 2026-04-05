@@ -1,7 +1,7 @@
 import './globals.css'
 
 export const metadata = {
-  title: 'Wooko - Marketplace de Services au Sénégal',
+  title: 'WookoPRO - Marketplace de Services au Sénégal',
   description: 'Plateforme WhatsApp-first qui connecte clients et prestataires au Sénégal',
 }
 

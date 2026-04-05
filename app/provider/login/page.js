@@ -125,7 +125,7 @@ export default function ProviderAuthPage() {
           {/* Header */}
           <div className="bg-gradient-to-r from-[#FF7A00] to-orange-500 px-6 py-8 text-center text-white">
             <h1 className="text-3xl font-bold mb-2">🏢 Espace Prestataire</h1>
-            <p className="text-sm opacity-95">Rejoignez Wooko et développez votre activité</p>
+            <p className="text-sm opacity-95">Rejoignez WookoPRO et développez votre activité</p>
           </div>
 
           {/* Tabs */}

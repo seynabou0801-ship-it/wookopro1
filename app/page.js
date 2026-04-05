@@ -67,7 +67,7 @@ export default function HomePage() {
 
       // Construire le message WhatsApp prérempli
       const category = SERVICE_CATEGORIES.find(c => c.value === formData.serviceCategory)?.label || formData.serviceCategory
-      const message = `Bonjour Wooko,\n\nJe cherche un prestataire.\n\n` +
+      const message = `Bonjour WookoPRO,\n\nJe cherche un prestataire.\n\n` +
         `📋 Service : ${category}\n` +
         `📍 Ville : ${formData.city}\n` +
         `📞 Téléphone : ${formData.phone}\n` +
@@ -83,7 +83,7 @@ export default function HomePage() {
     } catch (error) {
       console.error('Error:', error)
       // En cas d'erreur, ouvrir quand même WhatsApp
-      openWhatsApp(phone, "Bonjour Wooko, j'ai besoin d'un prestataire.")
+      openWhatsApp(phone, "Bonjour WookoPRO, j'ai besoin d'un prestataire.")
     }
 
     setLoading(false)
@@ -98,8 +98,8 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto px-6 sm:px-8 h-full flex items-center justify-between">
           <Link href="/" className="flex items-center flex-shrink-0 py-3">
             <img 
-              src="/wooko-logo.png" 
-              alt="Wooko.sn - Marketplace de services" 
+              src="/wookopro-logo.png" 
+              alt="WookoPRO - Marketplace de services" 
               className={`w-auto object-contain transition-all duration-300 ${
                 isScrolled ? 'h-[60px] sm:h-[70px]' : 'h-[70px] sm:h-[100px]'
               }`}
@@ -452,7 +452,7 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto px-6 sm:px-8">
           <div className="text-center mb-16">
             <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
-              Pourquoi choisir Wooko ?
+              Pourquoi choisir WookoPRO ?
             </h2>
             <p className="text-lg text-gray-600 max-w-2xl mx-auto">
               Une plateforme de confiance pour tous vos besoins de services
@@ -533,7 +533,7 @@ export default function HomePage() {
                 Vous êtes prestataire ?
               </h2>
               <p className="text-xl text-gray-300 leading-relaxed">
-                Rejoignez Wooko et recevez des demandes de clients qualifiés dans votre zone. 
+                Rejoignez WookoPRO et recevez des demandes de clients qualifiés dans votre zone. 
                 Développez votre activité facilement et gratuitement.
               </p>
             </div>
@@ -558,7 +558,7 @@ export default function HomePage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
             {/* Logo & Description */}
             <div className="space-y-4">
-              <img src="/wooko-logo.png" alt="Wooko" className="h-12 w-auto" />
+              <img src="/wookopro-logo.png" alt="WookoPRO" className="h-12 w-auto" />
               <p className="text-gray-600 text-sm">
                 La marketplace n°1 des services au Sénégal. Connectez-vous aux meilleurs professionnels près de chez vous.
               </p>
@@ -602,7 +602,7 @@ export default function HomePage() {
           {/* Bottom Bar */}
           <div className="pt-8 border-t flex flex-col sm:flex-row items-center justify-between gap-4">
             <p className="text-sm text-gray-500">
-              © 2025 Wooko - Marketplace de services au Sénégal. Tous droits réservés.
+              © 2025 WookoPRO - Marketplace de services au Sénégal. Tous droits réservés.
             </p>
             <div className="flex items-center gap-6">
               <button 
