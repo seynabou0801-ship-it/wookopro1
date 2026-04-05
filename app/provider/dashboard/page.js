@@ -252,7 +252,7 @@ export default function ProviderDashboard() {
         <div className="bg-white rounded-xl shadow-sm">
           <div className="p-4 border-b">
             <h2 className="text-lg font-semibold">Mes demandes</h2>
-            <p className="text-sm text-gray-500">Répondez OUI pour accepter ou NON pour refuser</p>
+            <p className="text-sm text-gray-500">Gérez vos demandes de services</p>
           </div>
           
           {!dashboard?.matches?.length ? (
