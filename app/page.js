@@ -193,6 +193,9 @@ export default function HomePage() {
                     alt="Professionnels africains - Plombier, Électricien, Technicien, Menuisier, Peintre, Serrurier"
                     className="w-full h-full object-cover object-center"
                   />
+                  
+                  {/* Masquer le bloc logo central de l'image */}
+                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[280px] h-[140px] bg-gradient-to-br from-gray-50/95 to-white/95 backdrop-blur-sm rounded-2xl"></div>
                 </div>
                 
                 {/* Floating stats card */}
