@@ -104,13 +104,6 @@ export default function HomePage() {
           
           <div className="flex items-center gap-2 sm:gap-8 ml-4 sm:ml-6">
             <Link
-              href="/login"
-              className="text-xs sm:text-base text-gray-700 hover:text-[#FF7A00] font-medium transition-colors"
-            >
-              Connexion
-            </Link>
-
-            <Link
               href="/provider/login"
               className="text-xs sm:text-base text-gray-700 hover:text-[#FF7A00] font-medium transition-colors"
             >
