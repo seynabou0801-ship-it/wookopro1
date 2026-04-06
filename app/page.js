@@ -193,18 +193,6 @@ export default function HomePage() {
                     alt="Professionnels africains - Plombier, Électricien, Technicien, Menuisier, Peintre, Serrurier"
                     className="w-full h-full object-cover object-center"
                   />
-                  
-                  {/* Overlay pour remplacer "Wooko.sn" par "WookoPRO" dans l'image centrale */}
-                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-2xl shadow-xl px-6 py-5 flex flex-col items-center justify-center z-20">
-                    <img 
-                      src="/wookopro-logo.png" 
-                      alt="WookoPRO" 
-                      className="h-16 w-auto mb-2"
-                    />
-                    <p className="text-sm text-gray-600 font-medium">
-                      Besoin d'un service ? <span className="text-[#FF7A00] font-bold">WookoPRO !</span>
-                    </p>
-                  </div>
                 </div>
                 
                 {/* Floating stats card */}
