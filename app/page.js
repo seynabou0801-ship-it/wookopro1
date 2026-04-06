@@ -67,12 +67,7 @@ export default function HomePage() {
 
       // Construire le message WhatsApp prérempli
       const category = SERVICE_CATEGORIES.find(c => c.value === formData.serviceCategory)?.label || formData.serviceCategory
-      const message = `Bonjour WookoPRO,\n\nJe cherche un prestataire.\n\n` +
-        `📋 Service : ${category}\n` +
-        `📍 Ville : ${formData.city}\n` +
-        `📞 Téléphone : ${formData.phone}\n` +
-        (formData.description ? `📝 Détails : ${formData.description}\n` : '') +
-        `\nMerci !`
+      const message = `Bonjour 👋 Je cherche un ${category} à ${formData.city}. Pouvez-vous m'aider ?`
 
       // Ouvrir WhatsApp avec le message prérempli
       openWhatsApp(phone, message)
@@ -235,7 +230,7 @@ export default function HomePage() {
         <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
           <div className="bg-white w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl max-h-[90vh] overflow-y-auto">
             <div className="p-4 border-b flex items-center justify-between sticky top-0 bg-white">
-              <h2 className="text-lg font-semibold">Décrivez votre besoin</h2>
+              <h2 className="text-lg font-semibold">Trouvez un pro en 2 minutes ⚡</h2>
               <button
                 onClick={() => setShowForm(false)}
                 className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
@@ -296,20 +291,6 @@ export default function HomePage() {
                 />
               </div>
 
-              {/* Description (optionnel) */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Détails supplémentaires <span className="text-gray-400">(optionnel)</span>
-                </label>
-                <textarea
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="Décrivez votre problème ou besoin..."
-                  rows={3}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 resize-none"
-                />
-              </div>
-
               {/* Submit */}
               <button
                 type="submit"
@@ -320,14 +301,13 @@ export default function HomePage() {
                   'Envoi...'
                 ) : (
                   <>
-                    <span className="text-xl">💬</span>
-                    <span>Continuer sur WhatsApp</span>
+                    <span>Trouver un pro maintenant ⚡</span>
                   </>
                 )}
               </button>
 
-              <p className="text-xs text-gray-500 text-center">
-                Vos informations sont enregistrées pour faciliter la mise en relation.
+              <p className="text-xs text-gray-600 text-center font-medium">
+                Réponse rapide • Gratuit • Sans engagement
               </p>
             </form>
           </div>

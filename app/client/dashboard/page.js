@@ -14,7 +14,7 @@ export default function ClientDashboard() {
   const [showNewRequestForm, setShowNewRequestForm] = useState(false)
   const [formData, setFormData] = useState({
     serviceCategory: '',
-    description: ''
+    city: ''
   })
   const [submitting, setSubmitting] = useState(false)
 
@@ -49,7 +49,7 @@ export default function ClientDashboard() {
 
   const handleCreateRequest = async (e) => {
     e.preventDefault()
-    if (!formData.serviceCategory || !formData.description) {
+    if (!formData.serviceCategory || !formData.city) {
       alert('Veuillez remplir tous les champs')
       return
     }
@@ -65,7 +65,8 @@ export default function ClientDashboard() {
           clientId: user.id,
           clientPhone: user.phone,
           serviceCategory: formData.serviceCategory,
-          description: formData.description,
+          city: formData.city,
+          description: `Recherche de ${formData.serviceCategory} à ${formData.city}`,
           canal: 'whatsapp'
         })
       })
@@ -77,11 +78,11 @@ export default function ClientDashboard() {
         await fetchRequests(user.id)
         
         // Réinitialiser le formulaire
-        setFormData({ serviceCategory: '', description: '' })
+        setFormData({ serviceCategory: '', city: '' })
         setShowNewRequestForm(false)
         
         // Ouvrir WhatsApp avec message prérempli
-        const message = `Bonjour WookoPRO,\n\nJ'ai créé une demande de ${formData.serviceCategory}.\n\n${formData.description}\n\nMerci !`
+        const message = `Bonjour 👋 Je cherche un ${formData.serviceCategory} à ${formData.city}. Pouvez-vous m'aider ?`
         openWhatsApp(phone, message)
       } else {
         const error = await res.json()
@@ -188,7 +189,7 @@ export default function ClientDashboard() {
           <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowNewRequestForm(false)}>
             <div className="bg-white rounded-2xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
               <div className="p-6 border-b flex items-center justify-between">
-                <h2 className="text-xl font-bold">Nouvelle Demande</h2>
+                <h2 className="text-xl font-bold">Trouvez un pro en 2 minutes ⚡</h2>
                 <button
                   onClick={() => setShowNewRequestForm(false)}
                   className="text-gray-400 hover:text-gray-600 text-2xl"
@@ -200,7 +201,7 @@ export default function ClientDashboard() {
               <form onSubmit={handleCreateRequest} className="p-6 space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Type de service *
+                    Quel service recherchez-vous ? *
                   </label>
                   <select
                     value={formData.serviceCategory}
@@ -208,7 +209,7 @@ export default function ClientDashboard() {
                     className="w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500"
                     required
                   >
-                    <option value="">Sélectionner...</option>
+                    <option value="">Sélectionner un service</option>
                     <option value="plombier">Plomberie</option>
                     <option value="electricien">Électricité</option>
                     <option value="climatiseur">Climatisation</option>
@@ -223,28 +224,37 @@ export default function ClientDashboard() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Description de votre besoin *
+                    Ville *
                   </label>
-                  <textarea
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    placeholder="Décrivez votre problème ou besoin..."
-                    rows={4}
-                    className="w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 resize-none"
+                  <select
+                    value={formData.city}
+                    onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                    className="w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500"
                     required
-                  />
+                  >
+                    <option value="">Sélectionner une ville</option>
+                    <option value="Dakar">Dakar</option>
+                    <option value="Thiès">Thiès</option>
+                    <option value="Saint-Louis">Saint-Louis</option>
+                    <option value="Kaolack">Kaolack</option>
+                    <option value="Ziguinchor">Ziguinchor</option>
+                    <option value="Touba">Touba</option>
+                    <option value="Mbour">Mbour</option>
+                    <option value="Rufisque">Rufisque</option>
+                    <option value="Autre">Autre</option>
+                  </select>
                 </div>
 
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="w-full bg-[#25D366] text-white py-3 rounded-xl font-bold hover:bg-[#20BA5A] disabled:opacity-50 shadow-md"
+                  className="w-full bg-[#25D366] text-white py-4 rounded-xl font-bold hover:bg-[#20BA5A] disabled:opacity-50 shadow-md"
                 >
-                  {submitting ? 'Création...' : '💬 Créer et envoyer'}
+                  {submitting ? 'Envoi...' : 'Trouver un pro maintenant ⚡'}
                 </button>
 
-                <p className="text-xs text-gray-500 text-center">
-                  Votre demande sera créée et les prestataires seront notifiés automatiquement
+                <p className="text-xs text-gray-600 text-center font-medium">
+                  Réponse rapide • Gratuit • Sans engagement
                 </p>
               </form>
             </div>
