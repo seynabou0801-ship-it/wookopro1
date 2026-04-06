@@ -107,7 +107,7 @@ export default function HomePage() {
               href="/provider/login"
               className="text-xs sm:text-base text-gray-700 hover:text-[#FF7A00] font-medium transition-colors"
             >
-              Prestataire
+              Espace prestataire
             </Link>
 
             <button
