@@ -159,7 +159,7 @@ export default function HomePage() {
                   className="group w-full sm:w-auto bg-[#25D366] hover:bg-[#20BA5A] text-white px-8 py-5 rounded-2xl text-lg font-bold shadow-xl hover:shadow-2xl transition-all flex items-center justify-center gap-3"
                 >
                   <span className="text-2xl">💬</span>
-                  <span>Décrire mon besoin</span>
+                  <span>Trouvez un pro en 2 minutes ⚡</span>
                   <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                   </svg>
