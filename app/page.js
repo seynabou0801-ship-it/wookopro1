@@ -308,7 +308,7 @@ export default function HomePage() {
                 <Users className="w-8 h-8 text-[#FF7A00]" />
               </div>
               <p className="text-4xl font-bold bg-gradient-to-r from-[#FF7A00] to-orange-600 bg-clip-text text-transparent">⚡</p>
-              <p className="text-sm font-medium text-gray-600">Réponse en moins de 5 minutes</p>
+              <p className="text-sm font-medium text-gray-600">Réponse rapide</p>
             </div>
             <div className="text-center space-y-2">
               <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-[#25D366]/10 mb-4">
