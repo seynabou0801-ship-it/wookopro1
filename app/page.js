@@ -92,12 +92,17 @@ export default function HomePage() {
       }`}>
         <div className="max-w-7xl mx-auto px-6 sm:px-8 h-full flex items-center justify-between">
           <Link href="/" className="flex flex-col flex-shrink-0 py-3">
-            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">WOOKOPRO</h1>
-            <p className="text-[10px] sm:text-xs text-gray-600 max-w-[200px] sm:max-w-xs leading-tight">
+            <h1 className="text-xl sm:text-2xl font-bold">
+              <span className="text-[#0B2A4A]">WOOKO</span><span className="text-[#FF6A00]">PRO</span>
+            </h1>
+            <p className="text-[10px] sm:text-xs text-[#0B2A4A] max-w-[200px] sm:max-w-xs leading-tight">
               La première plateforme de services 100% WhatsApp au Sénégal
             </p>
-            <p className="text-[10px] sm:text-xs text-[#FF7A00] font-semibold mt-0.5">
-              Besoin d'un pro ? WookoPRO !
+            <p className="text-[10px] sm:text-xs text-[#0B2A4A] font-semibold mt-0.5">
+              Besoin d'un pro ?
+            </p>
+            <p className="text-[10px] sm:text-xs font-bold">
+              <span className="text-[#0B2A4A]">Wooko</span><span className="text-[#FF6A00]">PRO !</span>
             </p>
           </Link>
           
@@ -530,12 +535,17 @@ export default function HomePage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
             {/* Logo & Description */}
             <div className="space-y-4">
-              <h2 className="text-2xl font-bold text-gray-900">WOOKOPRO</h2>
-              <p className="text-gray-600 text-sm leading-relaxed">
+              <h2 className="text-2xl font-bold">
+                <span className="text-[#0B2A4A]">WOOKO</span><span className="text-[#FF6A00]">PRO</span>
+              </h2>
+              <p className="text-[#0B2A4A] text-sm leading-relaxed">
                 La première plateforme de services 100% WhatsApp au Sénégal
               </p>
-              <p className="text-[#FF7A00] text-sm font-semibold">
-                Besoin d'un pro ? WookoPRO !
+              <p className="text-[#0B2A4A] text-sm font-semibold">
+                Besoin d'un pro ?
+              </p>
+              <p className="text-sm font-bold">
+                <span className="text-[#0B2A4A]">Wooko</span><span className="text-[#FF6A00]">PRO !</span>
               </p>
             </div>
 

@@ -225,12 +225,17 @@ export default function SecureAdminDashboard() {
       <header className="bg-white border-b">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
           <Link href="/" className="flex flex-col">
-            <h1 className="text-2xl font-bold text-gray-900">WOOKOPRO</h1>
-            <p className="text-xs text-gray-600 max-w-xs leading-tight">
+            <h1 className="text-2xl font-bold">
+              <span className="text-[#0B2A4A]">WOOKO</span><span className="text-[#FF6A00]">PRO</span>
+            </h1>
+            <p className="text-xs text-[#0B2A4A] max-w-xs leading-tight">
               La première plateforme de services 100% WhatsApp au Sénégal
             </p>
-            <p className="text-xs text-[#FF7A00] font-semibold">
-              Besoin d'un pro ? WookoPRO !
+            <p className="text-xs text-[#0B2A4A] font-semibold">
+              Besoin d'un pro ?
+            </p>
+            <p className="text-xs font-bold">
+              <span className="text-[#0B2A4A]">Wooko</span><span className="text-[#FF6A00]">PRO !</span>
             </p>
           </Link>
           <div className="flex items-center gap-4">
