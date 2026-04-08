@@ -307,29 +307,29 @@ export default function HomePage() {
               <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-[#FF7A00]/10 mb-4">
                 <Users className="w-8 h-8 text-[#FF7A00]" />
               </div>
-              <p className="text-4xl font-bold bg-gradient-to-r from-[#FF7A00] to-orange-600 bg-clip-text text-transparent">2000+</p>
-              <p className="text-sm font-medium text-gray-600">Demandes traitées</p>
+              <p className="text-4xl font-bold bg-gradient-to-r from-[#FF7A00] to-orange-600 bg-clip-text text-transparent">⚡</p>
+              <p className="text-sm font-medium text-gray-600">Réponse en moins de 5 minutes</p>
             </div>
             <div className="text-center space-y-2">
               <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-[#25D366]/10 mb-4">
                 <Shield className="w-8 h-8 text-[#25D366]" />
               </div>
-              <p className="text-4xl font-bold bg-gradient-to-r from-[#25D366] to-green-600 bg-clip-text text-transparent">500+</p>
-              <p className="text-sm font-medium text-gray-600">Prestataires actifs</p>
+              <p className="text-4xl font-bold bg-gradient-to-r from-[#25D366] to-green-600 bg-clip-text text-transparent">👷‍♂️</p>
+              <p className="text-sm font-medium text-gray-600">Des pros vérifiés</p>
             </div>
             <div className="text-center space-y-2">
               <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-blue-500/10 mb-4">
                 <Clock className="w-8 h-8 text-blue-600" />
               </div>
-              <p className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-blue-500 bg-clip-text text-transparent">7j/7</p>
-              <p className="text-sm font-medium text-gray-600">Disponibilité</p>
+              <p className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-blue-500 bg-clip-text text-transparent">🕒</p>
+              <p className="text-sm font-medium text-gray-600">Disponible 7j/7</p>
             </div>
             <div className="text-center space-y-2">
               <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-purple-500/10 mb-4">
                 <CheckCircle2 className="w-8 h-8 text-purple-600" />
               </div>
-              <p className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-purple-500 bg-clip-text text-transparent">4.8/5</p>
-              <p className="text-sm font-medium text-gray-600">Satisfaction client</p>
+              <p className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-purple-500 bg-clip-text text-transparent">💬</p>
+              <p className="text-sm font-medium text-gray-600">100% WhatsApp</p>
             </div>
           </div>
         </div>
