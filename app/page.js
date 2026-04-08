@@ -311,10 +311,10 @@ export default function HomePage() {
               <p className="text-sm font-medium text-gray-600">Réponse rapide</p>
             </div>
             <div className="text-center space-y-2">
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-[#25D366]/10 mb-4">
-                <Shield className="w-8 h-8 text-[#25D366]" />
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-purple-500/10 mb-4">
+                <Shield className="w-8 h-8 text-purple-600" />
               </div>
-              <p className="text-4xl font-bold bg-gradient-to-r from-[#25D366] to-green-600 bg-clip-text text-transparent">👷‍♂️</p>
+              <p className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-purple-500 bg-clip-text text-transparent">👷‍♂️</p>
               <p className="text-sm font-medium text-gray-600">Des pros vérifiés</p>
             </div>
             <div className="text-center space-y-2">
@@ -325,10 +325,10 @@ export default function HomePage() {
               <p className="text-sm font-medium text-gray-600">Disponible 7j/7</p>
             </div>
             <div className="text-center space-y-2">
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-purple-500/10 mb-4">
-                <CheckCircle2 className="w-8 h-8 text-purple-600" />
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-[#25D366]/10 mb-4">
+                <CheckCircle2 className="w-8 h-8 text-[#25D366]" />
               </div>
-              <p className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-purple-500 bg-clip-text text-transparent">💬</p>
+              <p className="text-4xl font-bold bg-gradient-to-r from-[#25D366] to-green-600 bg-clip-text text-transparent">💬</p>
               <p className="text-sm font-medium text-gray-600">100% WhatsApp</p>
             </div>
           </div>
