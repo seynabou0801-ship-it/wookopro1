@@ -531,9 +531,12 @@ export default function HomePage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
             {/* Logo & Description */}
             <div className="space-y-4">
-              <img src="/wookopro-logo.png" alt="WookoPRO" className="h-12 w-auto" />
-              <p className="text-gray-600 text-sm">
-                La marketplace n°1 des services au Sénégal. Connectez-vous aux meilleurs professionnels près de chez vous.
+              <h2 className="text-2xl font-bold text-gray-900">WOOKOPRO</h2>
+              <p className="text-gray-600 text-sm leading-relaxed">
+                La première plateforme de services 100% WhatsApp au Sénégal
+              </p>
+              <p className="text-[#FF7A00] text-sm font-semibold">
+                Besoin d'un pro ? WookoPRO !
               </p>
             </div>
 
