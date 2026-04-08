@@ -91,15 +91,14 @@ export default function HomePage() {
         isScrolled ? 'shadow-lg h-[80px] sm:h-[100px]' : 'shadow-sm h-[100px] sm:h-[140px]'
       }`}>
         <div className="max-w-7xl mx-auto px-6 sm:px-8 h-full flex items-center justify-between">
-          <Link href="/" className="flex items-center flex-shrink-0 py-3">
-            <img 
-              src="/wookopro-logo.png" 
-              alt="WookoPRO - Marketplace de services" 
-              className={`w-auto object-contain transition-all duration-300 ${
-                isScrolled ? 'h-[60px] sm:h-[70px]' : 'h-[70px] sm:h-[100px]'
-              }`}
-              style={{ imageRendering: '-webkit-optimize-contrast', imageRendering: 'crisp-edges' }}
-            />
+          <Link href="/" className="flex flex-col flex-shrink-0 py-3">
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">WOOKOPRO</h1>
+            <p className="text-[10px] sm:text-xs text-gray-600 max-w-[200px] sm:max-w-xs leading-tight">
+              La première plateforme de services 100% WhatsApp au Sénégal
+            </p>
+            <p className="text-[10px] sm:text-xs text-[#FF7A00] font-semibold mt-0.5">
+              Besoin d'un pro ? WookoPRO !
+            </p>
           </Link>
           
           <div className="flex items-center gap-2 sm:gap-8 ml-4 sm:ml-6">
@@ -428,7 +427,7 @@ export default function HomePage() {
               Pourquoi choisir WookoPRO ?
             </h2>
             <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-              Une plateforme de confiance pour tous vos besoins de services
+              La première plateforme de services 100% WhatsApp au Sénégal
             </p>
           </div>
 

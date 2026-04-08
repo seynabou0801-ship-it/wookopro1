@@ -126,12 +126,14 @@ export default function ClientDashboard() {
       {/* Header */}
       <header className="bg-white border-b shadow-md">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between">
-          <Link href="/" className="flex-shrink-0">
-            <img 
-              src="/wookopro-logo.png" 
-              alt="WookoPRO" 
-              className="h-[66px] sm:h-[100px] w-auto object-contain" 
-            />
+          <Link href="/" className="flex-shrink-0 flex flex-col">
+            <h1 className="text-lg sm:text-xl font-bold text-gray-900">WOOKOPRO</h1>
+            <p className="text-[9px] sm:text-[10px] text-gray-600 max-w-[180px] sm:max-w-xs leading-tight">
+              La première plateforme de services 100% WhatsApp au Sénégal
+            </p>
+            <p className="text-[9px] sm:text-[10px] text-[#FF7A00] font-semibold">
+              Besoin d'un pro ? WookoPRO !
+            </p>
           </Link>
           <div className="flex items-center gap-3 ml-4">
             <span className="text-xs sm:text-sm text-gray-600 font-medium truncate max-w-[120px] sm:max-w-none">{user?.name || user?.phone}</span>

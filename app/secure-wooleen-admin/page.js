@@ -224,8 +224,14 @@ export default function SecureAdminDashboard() {
       {/* Header */}
       <header className="bg-white border-b">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-          <Link href="/">
-            <img src="/wookopro-logo.png" alt="WookoPRO Admin" className="h-24" />
+          <Link href="/" className="flex flex-col">
+            <h1 className="text-2xl font-bold text-gray-900">WOOKOPRO</h1>
+            <p className="text-xs text-gray-600 max-w-xs leading-tight">
+              La première plateforme de services 100% WhatsApp au Sénégal
+            </p>
+            <p className="text-xs text-[#FF7A00] font-semibold">
+              Besoin d'un pro ? WookoPRO !
+            </p>
           </Link>
           <div className="flex items-center gap-4">
             <button
