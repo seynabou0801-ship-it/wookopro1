@@ -155,7 +155,7 @@ async function findEligibleProviders(db, request) {
 
   // Récupérer tous les prestataires avec profil
   const providers = await db.collection('provider_profiles').find({
-    category: request.category,
+    serviceCategory: request.category,
     isAvailable: true
   }).toArray()
 

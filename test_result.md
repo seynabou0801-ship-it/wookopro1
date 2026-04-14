@@ -874,3 +874,35 @@ agent_communication:
       Le système est propre. Si besoin de nettoyer à nouveau, il faudrait soit:
       - Créer de nouvelles données de test avec les anciens statuts
       - Ou élargir les critères de nettoyage pour inclure d'autres statuts
+  - agent: "testing"
+    message: |
+      🔧 BUG CRITIQUE IDENTIFIÉ ET CORRIGÉ - DIAGNOSTIC CHEIKH MÉCANICIEN
+      
+      ✅ PROBLÈME RÉSOLU:
+      Le prestataire "Cheikh Mécanicien" ne recevait pas de demandes à cause d'un bug dans la fonction findEligibleProviders().
+      
+      🐛 BUG IDENTIFIÉ (ligne 158 de route.js):
+      - La requête cherchait: category: request.category
+      - Mais les profils prestataires utilisent: serviceCategory
+      - Résultat: Aucun prestataire trouvé lors du matching
+      
+      🔧 CORRECTION APPLIQUÉE:
+      - Changé "category" en "serviceCategory" dans la requête MongoDB
+      - Ligne 158: serviceCategory: request.category
+      
+      ✅ VALIDATION DE LA CORRECTION:
+      - Test avant correction: 0 provider matché
+      - Test après correction: 1 provider matché (Cheikh Mécanicien)
+      - Cheikh reçoit maintenant les demandes de mécanicien
+      
+      📊 DÉTAILS DU DIAGNOSTIC:
+      - Prestataire: Cheikh Mécanicien (ID: efc406c9-5bed-43a4-a417-2338c56c616e)
+      - Catégorie: mecanicien ✅
+      - Ville: Dakar ✅
+      - Disponible: true ✅
+      - Abonnement: BASIC ACTIVE (expire 14/05/2026) ✅
+      - Leads reçus après correction: 1 ✅
+      
+      🎯 IMPACT:
+      Le système de matching fonctionne maintenant correctement pour tous les prestataires.
+      Tous les prestataires avec abonnements actifs recevront les demandes correspondant à leur catégorie et zone.
