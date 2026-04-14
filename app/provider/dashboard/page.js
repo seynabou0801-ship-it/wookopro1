@@ -3,29 +3,26 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { Phone, MessageCircle, Clock, CheckCircle2, XCircle } from 'lucide-react'
 
 export default function ProviderDashboard() {
   const router = useRouter()
   const [user, setUser] = useState(null)
   const [provider, setProvider] = useState(null)
-  const [dashboard, setDashboard] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [subscription, setSubscription] = useState(null) // Nouveau
-  
-  // ⚡ NOUVEAU : States pour le modal de paiement
-  const [showPaymentModal, setShowPaymentModal] = useState(false)
-  const [selectedMatch, setSelectedMatch] = useState(null)
-  const [paymentProcessing, setPaymentProcessing] = useState(false)
+  const [subscription, setSubscription] = useState(null)
+  const [leads, setLeads] = useState([])
+  const [refreshing, setRefreshing] = useState(false)
 
   useEffect(() => {
     const storedUser = localStorage.getItem('wooleen_user')
     if (!storedUser) {
-      router.push('/login')
+      router.push('/provider/login')
       return
     }
     const userData = JSON.parse(storedUser)
     if (userData.role !== 'PROVIDER') {
-      router.push('/login')
+      router.push('/provider/login')
       return
     }
     setUser(userData)
@@ -34,20 +31,14 @@ export default function ProviderDashboard() {
 
   const fetchProviderData = async (userId) => {
     try {
-      // Get providers to find this user's provider profile
       const res = await fetch('/api/providers')
       if (res.ok) {
         const providers = await res.json()
         const myProvider = providers.find(p => p.userId === userId)
         if (myProvider) {
           setProvider(myProvider)
-          // Fetch dashboard data
-          const dashRes = await fetch(`/api/provider/dashboard/${myProvider.id}`)
-          if (dashRes.ok) {
-            setDashboard(await dashRes.json())
-          }
-          // Fetch subscription
-          fetchSubscription(userId)
+          await fetchSubscription(userId)
+          await fetchLeads(userId)
         }
       }
     } catch (error) {
@@ -68,132 +59,91 @@ export default function ProviderDashboard() {
     }
   }
 
+  const fetchLeads = async (userId) => {
+    try {
+      const res = await fetch(`/api/provider/leads?providerId=${userId}`)
+      if (res.ok) {
+        const data = await res.json()
+        setLeads(data.leads || [])
+      }
+    } catch (error) {
+      console.error('Error fetching leads:', error)
+    }
+  }
+
+  const handleContactClient = async (match) => {
+    try {
+      setRefreshing(true)
+      const res = await fetch(`/api/requests/${match.requestId}/contact`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ providerId: user.id })
+      })
+
+      if (res.ok) {
+        alert('✅ Contact confirmé !')
+        await fetchLeads(user.id)
+      }
+    } catch (error) {
+      console.error('Error:', error)
+    } finally {
+      setRefreshing(false)
+    }
+  }
+
+  const openWhatsApp = (phone, name, service) => {
+    const cleanPhone = phone.replace(/[^\d]/g, '')
+    const message = `Bonjour ${name || ''} 👋\n\nJe suis ${provider?.businessName || 'un prestataire'} sur WookoPRO.\n\nJ'ai vu votre demande de ${service}. Je peux vous aider !\n\nQuand êtes-vous disponible pour discuter ?`
+    const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`
+    window.open(whatsappUrl, '_blank')
+    handleContactClient({ requestId: phone, providerId: user?.id })
+  }
+
+  const handleCallClient = (phone) => {
+    window.location.href = `tel:${phone}`
+  }
+
   const handleLogout = () => {
     localStorage.removeItem('wooleen_token')
     localStorage.removeItem('wooleen_user')
-    router.push('/')
+    router.push('/provider/login')
   }
 
-  const toggleAvailability = async () => {
-    if (!provider) return
-    try {
-      const res = await fetch(`/api/provider/${provider.id}/availability`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ isAvailable: !provider.isAvailable })
-      })
-      if (res.ok) {
-        setProvider(prev => ({ ...prev, isAvailable: !prev.isAvailable }))
-      }
-    } catch (error) {
-      console.error('Error:', error)
-    }
+  const canViewClientPhone = () => {
+    return subscription && ['TRIAL', 'ACTIVE'].includes(subscription.status)
   }
 
-  const respondToLead = async (matchId, response) => {
-    if (!provider) return
-    
-    const isAccept = response.toLowerCase().includes('accept')
-    
-    // ⚡ NOUVEAU : Si c'est une acceptation, montrer le modal de paiement d'abord
-    if (isAccept) {
-      setSelectedMatch(matchId)
-      setShowPaymentModal(true)
-      return
+  const getStatusBadge = (status) => {
+    const badges = {
+      'SENT': { text: '🆕 Nouveau', color: 'bg-blue-100 text-blue-800' },
+      'CONTACTED': { text: '✅ Contacté', color: 'bg-green-100 text-green-800' },
+      'WON': { text: '🏆 Gagné', color: 'bg-purple-100 text-purple-800' }
     }
-    
-    // Pour les refus, procéder normalement
-    try {
-      const res = await fetch(`/api/provider/${provider.id}/respond`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ matchId, response })
-      })
-      
-      const data = await res.json()
-      
-      if (res.ok) {
-        alert('✅ Demande refusée.')
-        
-        // Refresh dashboard
-        const dashRes = await fetch(`/api/provider/dashboard/${provider.id}`)
-        if (dashRes.ok) {
-          setDashboard(await dashRes.json())
-        }
-      } else {
-        alert('❌ Erreur : ' + (data.error || 'Impossible de traiter la demande'))
-      }
-    } catch (error) {
-      console.error('Error:', error)
-      alert('❌ Erreur de connexion. Veuillez réessayer.')
-    }
+    const badge = badges[status] || { text: status, color: 'bg-gray-100 text-gray-800' }
+    return <span className={`px-2 py-1 rounded-full text-xs font-semibold ${badge.color}`}>{badge.text}</span>
   }
 
-  // ⚡ Fonction pour confirmer le paiement manuel
-  const confirmManualPayment = async () => {
-    if (!selectedMatch || !provider) return
-    
-    setPaymentProcessing(true)
-    
-    try {
-      // Envoyer la confirmation avec flag paymentConfirmed
-      const res = await fetch(`/api/provider/${provider.id}/respond`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          matchId: selectedMatch, 
-          response: 'ACCEPTED',
-          paymentConfirmed: true  // Indique que le prestataire a confirmé le paiement
-        })
-      })
-      
-      const data = await res.json()
-      
-      if (res.ok) {
-        alert('✅ Paiement enregistré ! Votre demande est en attente de vérification. Vous serez notifié une fois validée.')
-        setShowPaymentModal(false)
-        setSelectedMatch(null)
-        
-        // Refresh dashboard
-        const dashRes = await fetch(`/api/provider/dashboard/${provider.id}`)
-        if (dashRes.ok) {
-          setDashboard(await dashRes.json())
-        }
-      } else {
-        alert('❌ Erreur : ' + (data.error || data.message || 'Impossible de traiter la demande'))
-      }
-    } catch (error) {
-      console.error('Error:', error)
-      alert('❌ Erreur de connexion. Veuillez réessayer.')
-    }
-    
-    setPaymentProcessing(false)
-  }
+  const getTimeAgo = (date) => {
+    const now = new Date()
+    const then = new Date(date)
+    const diffMs = now - then
+    const diffMins = Math.floor(diffMs / 60000)
+    const diffHours = Math.floor(diffMins / 60)
+    const diffDays = Math.floor(diffHours / 24)
 
-  const getStatusColor = (status) => {
-    const colors = {
-      SENT: 'bg-blue-100 text-blue-800',
-      ACCEPTED: 'bg-orange-100 text-orange-800',
-      DECLINED: 'bg-red-100 text-red-800',
-      PAYMENT_PENDING: 'bg-yellow-100 text-yellow-800'  // Nouveau statut
-    }
-    return colors[status] || 'bg-gray-100 text-gray-800'
-  }
-
-  const getStatusLabel = (status) => {
-    const labels = {
-      SENT: 'Envoyé',
-      ACCEPTED: 'Accepté',
-      DECLINED: 'Refusé',
-      PAYMENT_PENDING: 'Paiement en attente'  // Nouveau label
-    }
-    return labels[status] || status
+    if (diffMins < 1) return 'À l\'instant'
+    if (diffMins < 60) return `Il y a ${diffMins} min`
+    if (diffHours < 24) return `Il y a ${diffHours}h`
+    return `Il y a ${diffDays}j`
   }
 
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <p className="text-gray-500">Chargement...</p>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FF6A00] mx-auto mb-4"></div>
+          <p className="text-gray-600">Chargement...</p>
+        </div>
       </div>
     )
   }
@@ -201,17 +151,19 @@ export default function ProviderDashboard() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-white border-b">
+      <header className="bg-white border-b sticky top-0 z-10">
         <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-bold text-gray-900">WookoPRO</h1>
-            <p className="text-sm text-gray-500">Espace Prestataire</p>
+            <h1 className="text-xl font-bold">
+              <span className="text-[#0B2A4A]">WOOKO</span><span className="text-[#FF6A00]">PRO</span>
+            </h1>
+            <p className="text-xs text-gray-600">Espace Prestataire</p>
           </div>
           <div className="flex items-center gap-4">
-            <span className="text-sm text-gray-600">{provider?.businessName}</span>
+            <span className="text-sm text-gray-600 hidden sm:inline">{provider?.businessName}</span>
             <button
               onClick={handleLogout}
-              className="text-sm text-red-600 hover:text-red-700"
+              className="text-sm text-red-600 hover:text-red-700 font-medium"
             >
               Déconnexion
             </button>
@@ -219,7 +171,7 @@ export default function ProviderDashboard() {
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-4 py-8">
+      <main className="max-w-5xl mx-auto px-4 py-6">
         {/* Subscription Widget */}
         {subscription ? (
           <div className={`rounded-xl border-2 p-5 mb-6 ${
@@ -249,19 +201,14 @@ export default function ProviderDashboard() {
                     Essai jusqu'au : {new Date(subscription.trialEndsAt).toLocaleDateString('fr-FR')}
                   </p>
                 )}
-                {subscription.status === 'PENDING_VALIDATION' && (
-                  <p className="text-sm text-yellow-700 mt-1">
-                    Validation sous 24h
-                  </p>
-                )}
               </div>
               <Link
                 href="/provider/subscription"
                 className="px-6 py-3 bg-[#FF6A00] text-white rounded-xl font-bold hover:bg-[#E55F00] transition-colors"
               >
-                {subscription.status === 'ACTIVE' ? 'Améliorer mon offre' : 
-                 subscription.status === 'TRIAL' ? 'Souscrire maintenant' :
-                 'Gérer mon abonnement'}
+                {subscription.status === 'ACTIVE' ? 'Améliorer' : 
+                 subscription.status === 'TRIAL' ? 'Souscrire' :
+                 'Gérer abonnement'}
               </Link>
             </div>
           </div>
@@ -270,138 +217,115 @@ export default function ProviderDashboard() {
             <div className="flex items-center justify-between flex-wrap gap-4">
               <div>
                 <h3 className="text-xl font-bold mb-1">🎁 Essayez WookoPRO gratuitement !</h3>
-                <p className="text-sm opacity-90">7 jours d'essai gratuit • Recevez plus de clients</p>
+                <p className="text-sm opacity-90">7 jours d'essai • Recevez des leads automatiquement</p>
               </div>
               <Link
                 href="/provider/subscription"
                 className="px-6 py-3 bg-white text-[#FF6A00] rounded-xl font-bold hover:bg-gray-100 transition-colors"
               >
-                Découvrir les formules
+                Découvrir
               </Link>
             </div>
           </div>
         )}
 
-        {/* Provider Info */}
-        <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
-          <div className="flex items-center justify-between">
+        {/* Leads Section */}
+        <div className="bg-white rounded-xl border shadow-sm">
+          <div className="p-6 border-b flex items-center justify-between">
             <div>
-              <h2 className="text-2xl font-bold text-gray-900">{provider?.businessName}</h2>
-              <p className="text-gray-600">{provider?.serviceCategory} • {provider?.city}</p>
-              <p className="text-sm text-gray-500 mt-1">Zones: {provider?.zones?.join(', ')}</p>
+              <h2 className="text-xl font-bold text-gray-900">Demandes Reçues</h2>
+              <p className="text-sm text-gray-600 mt-1">
+                {canViewClientPhone() 
+                  ? 'Contactez directement les clients'
+                  : '⚠️ Abonnement requis pour voir les numéros'}
+              </p>
             </div>
-            <div className="text-right">
-              <button
-                onClick={toggleAvailability}
-                className={`px-4 py-2 rounded-lg font-medium ${
-                  provider?.isAvailable
-                    ? 'bg-orange-100 text-orange-700'
-                    : 'bg-red-100 text-red-700'
-                }`}
-              >
-                {provider?.isAvailable ? '✅ Disponible' : '❌ Indisponible'}
-              </button>
-              <p className="text-sm text-gray-500 mt-2">⭐ {provider?.rating?.toFixed(1)}</p>
-            </div>
+            <button
+              onClick={() => fetchLeads(user?.id)}
+              disabled={refreshing}
+              className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 disabled:opacity-50"
+            >
+              {refreshing ? '⏳' : '🔄'} Actualiser
+            </button>
           </div>
-        </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          <div className="bg-white p-4 rounded-xl shadow-sm">
-            <p className="text-sm text-gray-500">Total leads</p>
-            <p className="text-2xl font-bold text-gray-900">{dashboard?.stats?.totalLeads || 0}</p>
-          </div>
-          <div className="bg-white p-4 rounded-xl shadow-sm">
-            <p className="text-sm text-gray-500">En attente</p>
-            <p className="text-2xl font-bold text-orange-600">{dashboard?.stats?.pending || 0}</p>
-          </div>
-          <div className="bg-white p-4 rounded-xl shadow-sm">
-            <p className="text-sm text-gray-500">Acceptés</p>
-            <p className="text-2xl font-bold text-orange-600">{dashboard?.stats?.accepted || 0}</p>
-          </div>
-          <div className="bg-white p-4 rounded-xl shadow-sm">
-            <p className="text-sm text-gray-500">Refusés</p>
-            <p className="text-2xl font-bold text-red-600">{dashboard?.stats?.declined || 0}</p>
-          </div>
-        </div>
-
-        {/* Leads List */}
-        <div className="bg-white rounded-xl shadow-sm">
-          <div className="p-4 border-b">
-            <h2 className="text-lg font-semibold">Mes demandes</h2>
-            <p className="text-sm text-gray-500">Gérez vos demandes de services</p>
-          </div>
-          
-          {!dashboard?.matches?.length ? (
-            <div className="p-8 text-center text-gray-500">
-              <p>Aucune demande pour le moment</p>
-              <p className="text-sm mt-2">Les nouvelles demandes apparaîtront ici</p>
+          {leads.length === 0 ? (
+            <div className="p-12 text-center text-gray-500">
+              <MessageCircle className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+              <p className="text-lg font-medium mb-2">Aucune demande pour le moment</p>
+              <p className="text-sm">Les clients qui cherchent vos services apparaîtront ici automatiquement.</p>
             </div>
           ) : (
             <div className="divide-y">
-              {dashboard.matches.map((match) => (
-                <div key={match.requestId} className="p-4">
-                  <div className="flex items-start justify-between">
+              {leads.map((lead) => (
+                <div key={lead.id} className="p-6 hover:bg-gray-50 transition-colors">
+                  <div className="flex items-start justify-between gap-4 mb-4">
                     <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <h3 className="font-semibold text-gray-900 capitalize">
-                          {match.request?.serviceCategory}
-                        </h3>
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(match.status)}`}>
-                          {getStatusLabel(match.status)}
-                        </span>
+                      <div className="flex items-center gap-2 mb-2">
+                        {getStatusBadge(lead.status)}
+                        <span className="text-xs text-gray-500">{getTimeAgo(lead.createdAt)}</span>
                       </div>
-                      <p className="text-sm text-gray-600 mt-1">
-                        {match.request?.normalizedText || match.request?.rawMessage}
+                      <h3 className="text-lg font-bold text-gray-900 mb-1">
+                        {lead.request?.category || 'Service'}
+                      </h3>
+                      <p className="text-sm text-gray-600 mb-2">
+                        📍 {lead.request?.city || 'Ville non spécifiée'}
                       </p>
-                      <div className="flex items-center gap-3 mt-2 text-sm text-gray-500">
-                        <span>📍 {match.request?.zone || match.request?.city}</span>
-                        <span>⚡ {match.request?.urgency}</span>
-                        <span>Score: {match.score}</span>
-                      </div>
+                      {lead.request?.description && (
+                        <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded-lg">
+                          {lead.request.description}
+                        </p>
+                      )}
                     </div>
-                    
-                    {match.status === 'SENT' && (
-                      match.request?.status === 'VALIDEE_PAR_ADMIN' ? (
-                        <div className="flex gap-2 ml-4">
-                          <button
-                            onClick={() => respondToLead(match.id, 'accept')}
-                            className="px-4 py-2 bg-orange-600 text-white rounded-lg text-sm font-medium hover:bg-orange-700"
-                          >
-                            ✓ Accepter
-                          </button>
-                          <button
-                            onClick={() => respondToLead(match.id, 'decline')}
-                            className="px-4 py-2 bg-white border border-red-300 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50"
-                          >
-                            ✗ Refuser
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="ml-4 px-4 py-2 bg-orange-50 border border-orange-200 rounded-lg text-sm text-orange-700">
-                          ⏳ En attente de validation admin
-                        </div>
-                      )
-                    )}
                   </div>
-                  
-                  {/* Message pour paiement en attente */}
-                  {match.status === 'PAYMENT_PENDING' && (
-                    <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                      <p className="text-sm text-yellow-800 font-medium">
-                        ⏳ Paiement en cours de vérification (24-48h)
-                      </p>
-                      <p className="text-xs text-yellow-700 mt-1">
-                        Les coordonnées seront débloquées après validation
-                      </p>
+
+                  {canViewClientPhone() ? (
+                    <div className="space-y-3">
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                        <p className="text-xs text-blue-700 mb-1">Contact client</p>
+                        <p className="text-lg font-bold text-blue-900">
+                          {lead.request?.clientPhone || 'Non disponible'}
+                        </p>
+                      </div>
+
+                      <div className="flex gap-3">
+                        <button
+                          onClick={() => handleCallClient(lead.request?.clientPhone)}
+                          className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+                        >
+                          <Phone className="w-5 h-5" />
+                          Appeler
+                        </button>
+                        <button
+                          onClick={() => openWhatsApp(
+                            lead.request?.clientPhone, 
+                            'Client',
+                            lead.request?.category
+                          )}
+                          className="flex-1 px-4 py-3 bg-[#25D366] text-white rounded-xl font-bold hover:bg-[#20BA5A] transition-colors flex items-center justify-center gap-2"
+                        >
+                          <MessageCircle className="w-5 h-5" />
+                          WhatsApp
+                        </button>
+                      </div>
+
+                      {lead.status === 'SENT' && (
+                        <p className="text-xs text-gray-500 text-center">
+                          ⚡ Premier qui contacte = gagne le client
+                        </p>
+                      )}
                     </div>
-                  )}
-                  
-                  {/* Coordonnées visibles uniquement si ACCEPTÉ */}
-                  {match.status === 'ACCEPTED' && match.request?.clientPhone && (
-                    <div className="mt-3 p-3 bg-orange-50 rounded-lg">
-                      <p className="text-sm text-orange-800">📞 Contact client: {match.request.clientPhone}</p>
+                  ) : (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-center">
+                      <p className="text-sm text-yellow-800 font-medium mb-2">
+                        🔒 Abonnement requis pour voir le numéro
+                      </p>
+                      <Link
+                        href="/provider/subscription"
+                        className="text-sm text-yellow-900 underline font-bold"
+                      >
+                        Activer mon abonnement →
+                      </Link>
                     </div>
                   )}
                 </div>
@@ -409,68 +333,18 @@ export default function ProviderDashboard() {
             </div>
           )}
         </div>
-      </main>
 
-      {/* ⚡ MODAL DE PAIEMENT MANUEL */}
-      {showPaymentModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
-            <h3 className="text-2xl font-bold text-gray-900 mb-4">💰 Paiement requis</h3>
-            
-            <div className="bg-orange-50 border-2 border-orange-200 rounded-xl p-5 mb-6">
-              <p className="text-gray-800 text-lg font-semibold mb-3">
-                Envoyez 500 FCFA via :
-              </p>
-              
-              <div className="space-y-3 mb-4">
-                <div className="flex items-center gap-3 bg-white p-3 rounded-lg">
-                  <span className="text-2xl">📱</span>
-                  <div>
-                    <p className="text-sm text-gray-600">Wave / Orange Money</p>
-                    <p className="text-xl font-bold text-gray-900">77 338 90 95</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-orange-100 rounded-lg p-3">
-                <p className="text-sm text-orange-900 font-medium">
-                  ⚠️ Important : Conservez votre preuve de paiement
-                </p>
-              </div>
-            </div>
-
-            <div className="space-y-2 mb-6 text-sm text-gray-600">
-              <p>• Après paiement, cliquez sur "J'ai payé"</p>
-              <p>• Votre demande sera vérifiée sous 24h</p>
-              <p>• Les coordonnées seront débloquées après validation</p>
-            </div>
-
-            <div className="flex gap-3">
-              <button
-                onClick={() => {
-                  setShowPaymentModal(false)
-                  setSelectedMatch(null)
-                }}
-                disabled={paymentProcessing}
-                className="flex-1 px-6 py-3 bg-gray-200 text-gray-700 rounded-xl font-semibold hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-              >
-                Annuler
-              </button>
-              <button
-                onClick={confirmManualPayment}
-                disabled={paymentProcessing}
-                className="flex-1 px-6 py-3 bg-green-600 text-white rounded-xl font-bold hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl transition-all"
-              >
-                {paymentProcessing ? '⏳ Envoi...' : '✅ J\'ai payé'}
-              </button>
-            </div>
-
-            <p className="text-xs text-gray-500 text-center mt-4">
-              Paiement manuel • Vérification sous 24h
-            </p>
-          </div>
+        {/* Info Box */}
+        <div className="mt-6 bg-blue-50 border border-blue-200 rounded-xl p-4">
+          <h3 className="font-bold text-blue-900 mb-2">💡 Comment ça marche ?</h3>
+          <ul className="text-sm text-blue-800 space-y-1">
+            <li>✅ Vous recevez automatiquement les demandes qui matchent votre profil</li>
+            <li>⚡ Premier arrivé, premier servi - Contactez rapidement !</li>
+            <li>📞 Appelez ou envoyez un WhatsApp au client directement</li>
+            <li>🎯 Quota : {subscription?.planDetails?.leadsPerDay === -1 ? 'Illimité' : `${subscription?.planDetails?.leadsPerDay || 5} leads/jour`}</li>
+          </ul>
         </div>
-      )}
+      </main>
     </div>
   )
 }

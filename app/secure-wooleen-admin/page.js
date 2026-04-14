@@ -365,7 +365,7 @@ export default function SecureAdminDashboard() {
 
         {/* Tabs */}
         <div className="flex gap-2 mb-6 flex-wrap">
-          {['overview', 'providers', 'requests', 'inscriptions', 'payments', 'abonnements'].map((tab) => (
+          {['overview', 'providers', 'monitoring', 'inscriptions', 'payments', 'abonnements'].map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -377,7 +377,7 @@ export default function SecureAdminDashboard() {
             >
               {tab === 'overview' && 'Vue d\'ensemble'}
               {tab === 'providers' && `Prestataires (${providers.length})`}
-              {tab === 'requests' && `Demandes (${requests.length})`}
+              {tab === 'monitoring' && `Monitoring (${requests.length})`}
               {tab === 'inscriptions' && `Inscriptions en attente (${pendingProviders.length})`}
               {tab === 'payments' && `Paiements en attente (${pendingPayments.length})`}
               {tab === 'abonnements' && `Abonnements (${subscriptions.length})`}
@@ -481,77 +481,64 @@ export default function SecureAdminDashboard() {
         )}
 
         {/* Requests Tab */}
-        {activeTab === 'requests' && (
+        {/* Monitoring Tab - Lecture seule */}
+        {activeTab === 'monitoring' && (
           <div className="bg-white rounded-xl shadow-sm">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Service</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Description</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Client WhatsApp</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Localisation</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Urgence</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Matchs</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Statut</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {requests.map((r) => (
-                    <tr key={r.id}>
-                      <td className="px-4 py-3 font-medium capitalize">{r.serviceCategory}</td>
-                      <td className="px-4 py-3 text-gray-600 text-sm max-w-xs truncate">
-                        {r.normalizedText || r.rawMessage}
-                      </td>
-                      <td className="px-4 py-3 text-gray-600 font-mono text-sm">
-                        {r.clientPhone || <span className="text-gray-400 italic">Non renseigné</span>}
-                      </td>
-                      <td className="px-4 py-3 text-gray-600">{r.zone || r.city}</td>
-                      <td className="px-4 py-3 text-gray-600 capitalize">{r.urgency}</td>
-                      <td className="px-4 py-3 text-gray-600">{r.matches?.length || 0}</td>
-                      <td className="px-4 py-3">
-                        <span className={`px-2 py-0.5 rounded-full text-xs ${getStatusColor(r.status)}`}>
-                          {r.status}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => {
-                              setSelectedRequest(r)
-                              setShowRequestModal(true)
-                            }}
-                            className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-                          >
-                            👁️ Détails
-                          </button>
-                          
-                          {r.status === 'EN_ATTENTE_VALIDATION_ADMIN' && (
-                            <>
-                              <button
-                                onClick={() => handleValidateRequest(r.id)}
-                                disabled={actionLoading}
-                                className="px-2 py-1 bg-orange-600 text-white rounded text-xs font-medium hover:bg-orange-700 disabled:opacity-50"
-                              >
-                                ✓
-                              </button>
-                              <button
-                                onClick={() => handleRejectRequest(r.id)}
-                                disabled={actionLoading}
-                                className="px-2 py-1 bg-red-600 text-white rounded text-xs font-medium hover:bg-red-700 disabled:opacity-50"
-                              >
-                                ✗
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="p-4 border-b">
+              <h3 className="font-semibold text-gray-900">📊 Monitoring des Demandes</h3>
+              <p className="text-sm text-gray-500 mt-1">
+                Vue d'ensemble en lecture seule • Dispatch automatique activé
+              </p>
             </div>
+
+            {requests.length === 0 ? (
+              <div className="p-8 text-center text-gray-500">
+                <p>Aucune demande pour le moment</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Service</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Client</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Ville</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Statut</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Dispatché à</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Date</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {requests.slice(0, 50).map((r) => (
+                      <tr key={r.id} className="hover:bg-gray-50">
+                        <td className="px-4 py-3 font-medium capitalize">{r.serviceCategory || r.category}</td>
+                        <td className="px-4 py-3 text-gray-600 font-mono text-sm">
+                          {r.clientPhone || 'N/A'}
+                        </td>
+                        <td className="px-4 py-3 text-gray-600">{r.city || r.zone}</td>
+                        <td className="px-4 py-3">
+                          <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                            r.status === 'DISPATCHED' ? 'bg-blue-100 text-blue-800' :
+                            r.status === 'IN_PROGRESS' ? 'bg-green-100 text-green-800' :
+                            r.status === 'COMPLETED' ? 'bg-gray-100 text-gray-800' :
+                            r.status === 'SUBMITTED' ? 'bg-yellow-100 text-yellow-800' :
+                            'bg-gray-100 text-gray-600'
+                          }`}>
+                            {r.status}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-600">
+                          {r.dispatchedTo?.length || 0} prestataires
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-600">
+                          {new Date(r.createdAt).toLocaleDateString('fr-FR')}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         )}
 
