@@ -301,6 +301,34 @@ export default function SecureAdminDashboard() {
     setActionLoading(false)
   }
 
+  // ⚡ NOUVEAU : Supprimer TOUTES les données de test
+  const handleDeleteAllTestData = async () => {
+    if (!confirm('⚠️⚠️ ATTENTION CRITIQUE ⚠️⚠️\n\nCette action va SUPPRIMER TOUTES les données de test :\n- TOUTES les demandes\n- TOUS les matches\n- TOUS les leads\n\nLes prestataires et abonnements seront conservés.\n\nCette action est IRRÉVERSIBLE !\n\nÊtes-vous ABSOLUMENT SÛR ?')) return
+    
+    // Double confirmation
+    if (!confirm('Dernière confirmation :\n\nSupprimer TOUTES les données de test maintenant ?')) return
+    
+    setActionLoading(true)
+    try {
+      const res = await fetch('/api/admin/delete-all-test-data', {
+        method: 'POST'
+      })
+      
+      const data = await res.json()
+      
+      if (res.ok) {
+        alert(data.message)
+        await fetchData()
+      } else {
+        alert(`❌ Erreur : ${data.error}`)
+      }
+    } catch (error) {
+      console.error('Error:', error)
+      alert('Erreur de connexion')
+    }
+    setActionLoading(false)
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -454,7 +482,7 @@ export default function SecureAdminDashboard() {
             </div>
 
             {/* Bouton nettoyage */}
-            <div className="md:col-span-2 bg-red-50 border-2 border-red-200 rounded-xl p-6">
+            <div className="bg-red-50 border-2 border-red-200 rounded-xl p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="font-bold text-red-900 mb-2">🧹 Nettoyage des anciennes données</h3>
@@ -473,6 +501,31 @@ export default function SecureAdminDashboard() {
                   className="px-6 py-3 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 disabled:opacity-50 whitespace-nowrap"
                 >
                   {actionLoading ? 'Nettoyage...' : '🧹 Nettoyer'}
+                </button>
+              </div>
+            </div>
+
+            {/* Bouton RESET COMPLET */}
+            <div className="bg-orange-50 border-2 border-orange-300 rounded-xl p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-bold text-orange-900 mb-2">⚠️ RESET COMPLET - Supprimer toutes les données de test</h3>
+                  <p className="text-sm text-orange-700 mb-2">
+                    <strong>ATTENTION :</strong> Supprime TOUTES les demandes, matches et leads.
+                  </p>
+                  <p className="text-xs text-orange-600">
+                    ✅ Conserve : Prestataires, Abonnements, Utilisateurs
+                  </p>
+                  <p className="text-xs text-orange-600">
+                    ❌ Supprime : Toutes les demandes, tous les matches, tous les leads
+                  </p>
+                </div>
+                <button
+                  onClick={handleDeleteAllTestData}
+                  disabled={actionLoading}
+                  className="px-6 py-3 bg-orange-600 text-white rounded-xl font-bold hover:bg-orange-700 disabled:opacity-50 whitespace-nowrap"
+                >
+                  {actionLoading ? 'Suppression...' : '🗑️ RESET'}
                 </button>
               </div>
             </div>

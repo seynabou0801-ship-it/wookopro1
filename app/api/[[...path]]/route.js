@@ -2430,6 +2430,42 @@ async function handleRoute(request, { params }) {
       }
     }
 
+    // 📋 POST /api/admin/delete-all-test-data - Supprimer TOUTES les données de test
+    if (route === '/admin/delete-all-test-data' && method === 'POST') {
+      try {
+        // Supprimer TOUTES les demandes
+        const requestsDeleted = await db.collection('service_requests').deleteMany({})
+        
+        // Supprimer TOUS les matches
+        const matchesDeleted = await db.collection('request_matches').deleteMany({})
+        
+        // Supprimer TOUS les leads
+        const leadsDeleted = await db.collection('leads').deleteMany({})
+        
+        // Réinitialiser compteur leads des abonnements
+        await db.collection('subscriptions').updateMany(
+          {},
+          { $set: { leadsReceivedThisMonth: 0 } }
+        )
+
+        return handleCORS(NextResponse.json({ 
+          success: true,
+          summary: {
+            requestsDeleted: requestsDeleted.deletedCount,
+            matchesDeleted: matchesDeleted.deletedCount,
+            leadsDeleted: leadsDeleted.deletedCount
+          },
+          message: `✅ Toutes les données de test supprimées !\n\nPrestataires et abonnements conservés.\n\nDétails :\n- ${requestsDeleted.deletedCount} demandes supprimées\n- ${matchesDeleted.deletedCount} matches supprimés\n- ${leadsDeleted.deletedCount} leads supprimés`
+        }))
+      } catch (error) {
+        console.error('Erreur suppression:', error)
+        return handleCORS(NextResponse.json({ 
+          error: 'Erreur lors de la suppression',
+          details: error.message
+        }, { status: 500 }))
+      }
+    }
+
     return handleCORS(NextResponse.json({ error: `Route ${route} not found` }, { status: 404 }))
 
   } catch (error) {
