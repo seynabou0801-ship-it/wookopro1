@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 
 export default function ProviderDashboard() {
   const router = useRouter()
@@ -9,6 +10,7 @@ export default function ProviderDashboard() {
   const [provider, setProvider] = useState(null)
   const [dashboard, setDashboard] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [subscription, setSubscription] = useState(null) // Nouveau
   
   // ⚡ NOUVEAU : States pour le modal de paiement
   const [showPaymentModal, setShowPaymentModal] = useState(false)
@@ -44,12 +46,26 @@ export default function ProviderDashboard() {
           if (dashRes.ok) {
             setDashboard(await dashRes.json())
           }
+          // Fetch subscription
+          fetchSubscription(userId)
         }
       }
     } catch (error) {
       console.error('Error:', error)
     }
     setLoading(false)
+  }
+
+  const fetchSubscription = async (userId) => {
+    try {
+      const res = await fetch(`/api/subscriptions/my-subscription?providerId=${userId}`)
+      if (res.ok) {
+        const data = await res.json()
+        setSubscription(data.subscription)
+      }
+    } catch (error) {
+      console.error('Error fetching subscription:', error)
+    }
   }
 
   const handleLogout = () => {
@@ -204,6 +220,68 @@ export default function ProviderDashboard() {
       </header>
 
       <main className="max-w-5xl mx-auto px-4 py-8">
+        {/* Subscription Widget */}
+        {subscription ? (
+          <div className={`rounded-xl border-2 p-5 mb-6 ${
+            subscription.status === 'ACTIVE' ? 'bg-green-50 border-green-200' :
+            subscription.status === 'TRIAL' ? 'bg-blue-50 border-blue-200' :
+            subscription.status === 'PENDING_VALIDATION' ? 'bg-yellow-50 border-yellow-200' :
+            'bg-gray-50 border-gray-200'
+          }`}>
+            <div className="flex items-center justify-between flex-wrap gap-4">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900 mb-1">
+                  {subscription.status === 'ACTIVE' && '✅ Abonnement Actif'}
+                  {subscription.status === 'TRIAL' && '🎁 Période d\'essai'}
+                  {subscription.status === 'TRIAL_EXPIRED' && '⏱️ Essai expiré'}
+                  {subscription.status === 'PENDING_VALIDATION' && '⏳ En attente de validation'}
+                  {subscription.status === 'EXPIRED' && '❌ Abonnement expiré'}
+                  {subscription.status === 'REJECTED' && '⛔ Paiement rejeté'}
+                </h3>
+                <p className="text-2xl font-bold text-[#FF6A00]">{subscription.plan}</p>
+                {subscription.status === 'ACTIVE' && subscription.expiresAt && (
+                  <p className="text-sm text-gray-600 mt-1">
+                    Expire le : {new Date(subscription.expiresAt).toLocaleDateString('fr-FR')}
+                  </p>
+                )}
+                {subscription.status === 'TRIAL' && subscription.trialEndsAt && (
+                  <p className="text-sm text-gray-600 mt-1">
+                    Essai jusqu'au : {new Date(subscription.trialEndsAt).toLocaleDateString('fr-FR')}
+                  </p>
+                )}
+                {subscription.status === 'PENDING_VALIDATION' && (
+                  <p className="text-sm text-yellow-700 mt-1">
+                    Validation sous 24h
+                  </p>
+                )}
+              </div>
+              <Link
+                href="/provider/subscription"
+                className="px-6 py-3 bg-[#FF6A00] text-white rounded-xl font-bold hover:bg-[#E55F00] transition-colors"
+              >
+                {subscription.status === 'ACTIVE' ? 'Améliorer mon offre' : 
+                 subscription.status === 'TRIAL' ? 'Souscrire maintenant' :
+                 'Gérer mon abonnement'}
+              </Link>
+            </div>
+          </div>
+        ) : (
+          <div className="bg-gradient-to-r from-[#FF6A00] to-orange-600 rounded-xl p-6 mb-6 text-white">
+            <div className="flex items-center justify-between flex-wrap gap-4">
+              <div>
+                <h3 className="text-xl font-bold mb-1">🎁 Essayez WookoPRO gratuitement !</h3>
+                <p className="text-sm opacity-90">7 jours d'essai gratuit • Recevez plus de clients</p>
+              </div>
+              <Link
+                href="/provider/subscription"
+                className="px-6 py-3 bg-white text-[#FF6A00] rounded-xl font-bold hover:bg-gray-100 transition-colors"
+              >
+                Découvrir les formules
+              </Link>
+            </div>
+          </div>
+        )}
+
         {/* Provider Info */}
         <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
           <div className="flex items-center justify-between">

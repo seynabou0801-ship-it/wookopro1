@@ -23,6 +23,10 @@ export default function SecureAdminDashboard() {
   
   // ⚡ NOUVEAU : State pour les inscriptions en attente
   const [pendingProviders, setPendingProviders] = useState([])
+  
+  // ⚡ NOUVEAU : State pour les abonnements
+  const [subscriptions, setSubscriptions] = useState([])
+  const [pendingSubscriptions, setPendingSubscriptions] = useState([])
 
   useEffect(() => {
     const storedUser = localStorage.getItem('wooleen_user')
@@ -41,12 +45,14 @@ export default function SecureAdminDashboard() {
 
   const fetchData = async () => {
     try {
-      const [statsRes, providersRes, requestsRes, paymentsRes, pendingRes] = await Promise.all([
+      const [statsRes, providersRes, requestsRes, paymentsRes, pendingRes, subsRes, pendingSubsRes] = await Promise.all([
         fetch('/api/admin/stats'),
         fetch('/api/providers'),
         fetch('/api/requests'),
         fetch('/api/admin/payments/pending'),  
-        fetch('/api/admin/providers/pending')  // ⚡ NOUVEAU
+        fetch('/api/admin/providers/pending'),  // ⚡ NOUVEAU
+        fetch('/api/admin/subscriptions/all'),  // ⚡ NOUVEAU
+        fetch('/api/admin/subscriptions/pending')  // ⚡ NOUVEAU
       ])
       
       if (statsRes.ok) setStats(await statsRes.json())
@@ -54,6 +60,14 @@ export default function SecureAdminDashboard() {
       if (requestsRes.ok) setRequests(await requestsRes.json())
       if (paymentsRes.ok) setPendingPayments(await paymentsRes.json())
       if (pendingRes.ok) setPendingProviders(await pendingRes.json())  // ⚡ NOUVEAU
+      if (subsRes.ok) {
+        const data = await subsRes.json()
+        setSubscriptions(data.subscriptions || [])
+      }
+      if (pendingSubsRes.ok) {
+        const data = await pendingSubsRes.json()
+        setPendingSubscriptions(data.subscriptions || [])
+      }
     } catch (error) {
       console.error('Error:', error)
     }
@@ -211,6 +225,57 @@ export default function SecureAdminDashboard() {
     setActionLoading(false)
   }
 
+  // ⚡ NOUVEAU : Valider un abonnement
+  const handleValidateSubscription = async (subscriptionId) => {
+    if (!confirm('Valider ce paiement d\'abonnement ?')) return
+    
+    setActionLoading(true)
+    try {
+      const res = await fetch(`/api/admin/subscriptions/${subscriptionId}/validate`, {
+        method: 'POST'
+      })
+      
+      if (res.ok) {
+        alert('✅ Abonnement validé et activé !')
+        await fetchData()
+      } else {
+        const error = await res.json()
+        alert(error.error || 'Erreur lors de la validation')
+      }
+    } catch (error) {
+      console.error('Error:', error)
+      alert('Erreur de connexion')
+    }
+    setActionLoading(false)
+  }
+
+  // ⚡ NOUVEAU : Rejeter un abonnement
+  const handleRejectSubscription = async (subscriptionId) => {
+    const reason = prompt('Raison du rejet (optionnel):')
+    if (reason === null) return // Annulé
+    
+    setActionLoading(true)
+    try {
+      const res = await fetch(`/api/admin/subscriptions/${subscriptionId}/reject`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason })
+      })
+      
+      if (res.ok) {
+        alert('✅ Paiement rejeté. Prestataire notifié.')
+        await fetchData()
+      } else {
+        const error = await res.json()
+        alert(error.error || 'Erreur lors du rejet')
+      }
+    } catch (error) {
+      console.error('Error:', error)
+      alert('Erreur de connexion')
+    }
+    setActionLoading(false)
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -299,8 +364,8 @@ export default function SecureAdminDashboard() {
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-2 mb-6">
-          {['overview', 'providers', 'requests', 'inscriptions', 'payments'].map((tab) => (
+        <div className="flex gap-2 mb-6 flex-wrap">
+          {['overview', 'providers', 'requests', 'inscriptions', 'payments', 'abonnements'].map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -315,6 +380,7 @@ export default function SecureAdminDashboard() {
               {tab === 'requests' && `Demandes (${requests.length})`}
               {tab === 'inscriptions' && `Inscriptions en attente (${pendingProviders.length})`}
               {tab === 'payments' && `Paiements en attente (${pendingPayments.length})`}
+              {tab === 'abonnements' && `Abonnements (${subscriptions.length})`}
             </button>
           ))}
         </div>
@@ -630,6 +696,154 @@ export default function SecureAdminDashboard() {
                 </table>
               </div>
             )}
+          </div>
+        )}
+
+        {/* ⚡ Abonnements Tab - NOUVEAU */}
+        {activeTab === 'abonnements' && (
+          <div className="space-y-6">
+            {/* En attente de validation */}
+            <div className="bg-white rounded-xl shadow-sm">
+              <div className="p-4 border-b">
+                <h3 className="font-semibold text-gray-900">Paiements en attente de validation</h3>
+                <p className="text-sm text-gray-500 mt-1">Validez les preuves de paiement uploadées par les prestataires</p>
+              </div>
+
+              {pendingSubscriptions.length === 0 ? (
+                <div className="p-8 text-center text-gray-500">
+                  <p>✅ Aucun paiement en attente</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Prestataire</th>
+                        <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Formule</th>
+                        <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Montant</th>
+                        <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Méthode</th>
+                        <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Preuve</th>
+                        <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {pendingSubscriptions.map((sub) => (
+                        <tr key={sub.id} className="hover:bg-gray-50">
+                          <td className="px-4 py-3">
+                            <div>
+                              <p className="font-medium text-gray-900">{sub.providerName}</p>
+                              <p className="text-sm text-gray-500">{sub.providerPhone}</p>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="font-bold text-[#FF6A00]">{sub.plan}</span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="font-bold text-gray-900">{sub.planDetails.price.toLocaleString()} FCFA</span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="text-sm text-gray-600 capitalize">{sub.paymentMethod?.replace('_', ' ')}</span>
+                          </td>
+                          <td className="px-4 py-3">
+                            {sub.paymentProof && (
+                              <a 
+                                href={sub.paymentProof} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="text-blue-600 hover:text-blue-800 text-sm underline"
+                              >
+                                Voir preuve
+                              </a>
+                            )}
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => handleValidateSubscription(sub.id)}
+                                disabled={actionLoading}
+                                className="px-3 py-1.5 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50"
+                              >
+                                ✅ Valider
+                              </button>
+                              <button
+                                onClick={() => handleRejectSubscription(sub.id)}
+                                disabled={actionLoading}
+                                className="px-3 py-1.5 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 disabled:opacity-50"
+                              >
+                                ❌ Rejeter
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* Tous les abonnements */}
+            <div className="bg-white rounded-xl shadow-sm">
+              <div className="p-4 border-b">
+                <h3 className="font-semibold text-gray-900">Tous les abonnements</h3>
+                <p className="text-sm text-gray-500 mt-1">Vue d'ensemble des abonnements prestataires</p>
+              </div>
+
+              {subscriptions.length === 0 ? (
+                <div className="p-8 text-center text-gray-500">
+                  <p>Aucun abonnement pour le moment</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Prestataire</th>
+                        <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Formule</th>
+                        <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Statut</th>
+                        <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Expire le</th>
+                        <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Leads/mois</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {subscriptions.map((sub) => (
+                        <tr key={sub.id} className="hover:bg-gray-50">
+                          <td className="px-4 py-3">
+                            <div>
+                              <p className="font-medium text-gray-900">{sub.providerName}</p>
+                              <p className="text-sm text-gray-500">{sub.providerPhone}</p>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="font-bold text-[#FF6A00]">{sub.plan}</span>
+                            <p className="text-xs text-gray-500">{sub.planDetails.price.toLocaleString()} FCFA/mois</p>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                              sub.status === 'ACTIVE' ? 'bg-green-100 text-green-800' :
+                              sub.status === 'TRIAL' ? 'bg-blue-100 text-blue-800' :
+                              sub.status === 'PENDING_VALIDATION' ? 'bg-yellow-100 text-yellow-800' :
+                              sub.status === 'EXPIRED' ? 'bg-red-100 text-red-800' :
+                              'bg-gray-100 text-gray-800'
+                            }`}>
+                              {sub.status}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-600">
+                            {sub.expiresAt ? new Date(sub.expiresAt).toLocaleDateString('fr-FR') : 
+                             sub.trialEndsAt ? new Date(sub.trialEndsAt).toLocaleDateString('fr-FR') + ' (essai)' :
+                             '-'}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-600">
+                            {sub.leadsReceivedThisMonth || 0} / {sub.planDetails.leadsPerDay === -1 ? '∞' : sub.planDetails.leadsPerDay * 30}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </main>
