@@ -23,8 +23,8 @@ export default function SubscriptionPage() {
   }, [])
 
   const checkAuth = async () => {
-    const token = localStorage.getItem('token')
-    const userData = localStorage.getItem('user')
+    const token = localStorage.getItem('wooleen_token')
+    const userData = localStorage.getItem('wooleen_user')
     
     if (!token || !userData) {
       router.push('/provider/login')
