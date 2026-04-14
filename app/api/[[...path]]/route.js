@@ -73,6 +73,177 @@ const SUBSCRIPTION_PLANS = {
 const PAYMENT_PHONE = '77 338 90 95' // Numéro Wave/Orange Money
 const TRIAL_PERIOD_DAYS = 7 // Période d'essai gratuite
 
+// ============ AUTOMATIC DISPATCH SYSTEM ============
+const DISPATCH_CONFIG = {
+  MAX_PROVIDERS_PER_REQUEST: 3,      // Max 3 prestataires par demande
+  COOLDOWN_MINUTES: 15,               // Cooldown entre notifications
+  RESPONSE_TIMEOUT_MINUTES: 30,      // Timeout avant redistribution
+  IGNORE_PENALTY_HOURS: 2,           // Pause si ignore 3 fois
+  MIN_RESPONSE_RATE: 0.30            // 30% minimum taux réponse
+}
+
+// Fonction de matching automatique
+async function dispatchRequestToProviders(db, request) {
+  try {
+    // 1. Trouver prestataires éligibles
+    const eligibleProviders = await findEligibleProviders(db, request)
+    
+    if (eligibleProviders.length === 0) {
+      console.log('⚠️ Aucun prestataire éligible trouvé')
+      return []
+    }
+
+    // 2. Scorer et trier
+    const scoredProviders = eligibleProviders
+      .map(provider => ({
+        ...provider,
+        score: calculateProviderScore(provider, request)
+      }))
+      .sort((a, b) => b.score - a.score)
+
+    // 3. Prendre top 3
+    const selectedProviders = scoredProviders.slice(0, DISPATCH_CONFIG.MAX_PROVIDERS_PER_REQUEST)
+
+    // 4. Créer matches
+    const matches = []
+    for (const provider of selectedProviders) {
+      const match = {
+        id: uuidv4(),
+        requestId: request.id,
+        providerId: provider.userId,
+        status: 'SENT',
+        sentAt: new Date(),
+        score: provider.score,
+        createdAt: new Date()
+      }
+      await db.collection('request_matches').insertOne(match)
+      matches.push(match)
+
+      // Incrémenter compteur leads reçus ce mois
+      await db.collection('subscriptions').updateOne(
+        { providerId: provider.userId },
+        { $inc: { leadsReceivedThisMonth: 1 } }
+      )
+
+      // TODO: Envoyer notification WhatsApp
+      console.log(`📨 Match créé: ${provider.businessName} pour ${request.category}`)
+    }
+
+    // 5. Mettre à jour statut demande
+    await db.collection('service_requests').updateOne(
+      { id: request.id },
+      { 
+        $set: { 
+          status: 'DISPATCHED',
+          dispatchedTo: selectedProviders.map(p => p.userId),
+          dispatchedAt: new Date()
+        } 
+      }
+    )
+
+    return matches
+  } catch (error) {
+    console.error('Erreur dispatch:', error)
+    return []
+  }
+}
+
+// Trouver prestataires éligibles
+async function findEligibleProviders(db, request) {
+  const now = new Date()
+  const cooldownTime = new Date(now.getTime() - DISPATCH_CONFIG.COOLDOWN_MINUTES * 60 * 1000)
+
+  // Récupérer tous les prestataires avec profil
+  const providers = await db.collection('provider_profiles').find({
+    category: request.category,
+    isAvailable: true
+  }).toArray()
+
+  const eligibleProviders = []
+
+  for (const profile of providers) {
+    // Récupérer user et abonnement
+    const user = await db.collection('users').findOne({ id: profile.userId })
+    if (!user) continue
+
+    const subscription = await db.collection('subscriptions').findOne({ 
+      providerId: profile.userId,
+      status: { $in: ['TRIAL', 'ACTIVE'] }  // TRIAL + ACTIVE acceptés
+    })
+
+    if (!subscription) continue
+
+    // Vérifier zone/ville
+    const zoneMatch = profile.zones?.includes(request.city) || 
+                      profile.city === request.city ||
+                      subscription.plan === 'PREMIUM'  // PREMIUM = toutes zones
+
+    if (!zoneMatch) continue
+
+    // Vérifier quota leads/jour
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    
+    const leadsToday = await db.collection('request_matches').countDocuments({
+      providerId: profile.userId,
+      createdAt: { $gte: today }
+    })
+
+    const dailyLimit = subscription.planDetails.leadsPerDay
+    if (dailyLimit !== -1 && leadsToday >= dailyLimit) {
+      console.log(`⚠️ ${profile.businessName} a atteint sa limite quotidienne (${dailyLimit})`)
+      continue
+    }
+
+    // Vérifier cooldown
+    const lastMatch = await db.collection('request_matches').findOne(
+      { providerId: profile.userId },
+      { sort: { createdAt: -1 } }
+    )
+
+    if (lastMatch && new Date(lastMatch.createdAt) > cooldownTime) {
+      console.log(`⏱️ ${profile.businessName} en cooldown`)
+      continue
+    }
+
+    eligibleProviders.push({
+      ...profile,
+      subscription,
+      user,
+      rating: profile.rating || 4.0
+    })
+  }
+
+  return eligibleProviders
+}
+
+// Calculer score prestataire
+function calculateProviderScore(provider, request) {
+  let score = 0
+
+  // Priorité abonnement
+  if (provider.subscription.plan === 'PREMIUM') score += 100
+  else if (provider.subscription.plan === 'PRO') score += 50
+  else if (provider.subscription.plan === 'BASIC') score += 10
+
+  // Bonus période active (pas trial)
+  if (provider.subscription.status === 'ACTIVE') score += 20
+
+  // Rating
+  score += (provider.rating || 4.0) * 10
+
+  // Ancienneté abonnement
+  const subscriptionDays = Math.floor(
+    (new Date() - new Date(provider.subscription.createdAt)) / (1000 * 60 * 60 * 24)
+  )
+  score += subscriptionDays * 0.1
+
+  // Taux de réponse (TODO: calculer depuis stats)
+  // score += provider.responseRate * 30
+
+  return Math.round(score)
+}
+
 // ============ OpenAI GPT Integration ============
 const SYSTEM_PROMPT = `Tu es un agent IA de dispatch et de mise en relation pour Wooleen, une marketplace de services locaux au Sénégal.
 
@@ -659,18 +830,17 @@ async function handleRoute(request, { params }) {
       
       await db.collection('leads').insertOne(lead)
       
-      // Also create a service request for tracking
+      // ⚡ NOUVEAU : Create service request with new status flow
       const serviceRequest = {
         id: uuidv4(),
         clientId: user?.id,
         clientPhone: phone,
-        rawMessage: description || `Demande de ${serviceCategory} à ${city}`,
-        normalizedText: description || `Demande de ${serviceCategory} à ${city}`,
-        serviceCategory: serviceCategory || 'autre',
+        category: serviceCategory || 'autre',
         city: city || '',
         zone: '',
-        urgency: 'normale',
-        status: 'EN_ATTENTE_VALIDATION_ADMIN',
+        description: description || `Demande de ${serviceCategory} à ${city}`,
+        urgency: 'normal',
+        status: 'SUBMITTED',  // ⚡ Nouveau statut
         source: source || 'homepage_form',
         leadId: lead.id,
         createdAt: new Date(),
@@ -679,32 +849,15 @@ async function handleRoute(request, { params }) {
       
       await db.collection('service_requests').insertOne(serviceRequest)
       
-      // Find and notify matching providers in background
-      const parsed = {
-        service_category: serviceCategory || 'autre',
-        city: city || '',
-        zone: '',
-        urgency: 'normale',
-        short_summary: description || `Demande de ${serviceCategory}`
-      }
-      
-      const providers = await findBestProviders(db, parsed)
-      
-      // NE PAS faire le matching automatiquement - attendre validation admin
-      // Les providers seront matchés lors de la validation admin
-      if (providers.length > 0) {
-        // Juste compter les providers potentiels, ne pas créer les matches
-        await db.collection('service_requests').updateOne(
-          { id: serviceRequest.id },
-          { $set: { potentialMatchCount: providers.length } }
-        )
-      }
+      // ⚡ NOUVEAU : Dispatch automatique immédiat
+      const matches = await dispatchRequestToProviders(db, serviceRequest)
       
       return handleCORS(NextResponse.json({
         success: true,
         leadId: lead.id,
         requestId: serviceRequest.id,
-        potentialProviders: providers.length
+        dispatchedTo: matches.length,
+        message: `Demande envoyée à ${matches.length} prestataires`
       }))
     }
 
@@ -2103,6 +2256,139 @@ async function handleRoute(request, { params }) {
       return handleCORS(NextResponse.json({ 
         success: true,
         message: 'Paiement rejeté. Prestataire notifié.'
+      }))
+    }
+
+    // ============ AUTOMATIC DISPATCH ENDPOINTS ============
+
+    // 📋 POST /api/requests/{id}/contact - Prestataire confirme qu'il a contacté le client
+    const contactRequestMatch = route.match(/^\/requests\/([a-zA-Z0-9-]+)\/contact$/)
+    if (contactRequestMatch && method === 'POST') {
+      const requestId = contactRequestMatch[1]
+      const body = await request.json()
+      const { providerId } = body
+
+      if (!providerId) {
+        return handleCORS(NextResponse.json({ error: 'providerId requis' }, { status: 400 }))
+      }
+
+      // Trouver le match
+      const match = await db.collection('request_matches').findOne({
+        requestId,
+        providerId
+      })
+
+      if (!match) {
+        return handleCORS(NextResponse.json({ error: 'Match non trouvé' }, { status: 404 }))
+      }
+
+      // Mettre à jour match
+      await db.collection('request_matches').updateOne(
+        { id: match.id },
+        { 
+          $set: { 
+            status: 'CONTACTED',
+            contactedAt: new Date()
+          } 
+        }
+      )
+
+      // Mettre à jour demande (premier qui contacte)
+      const request = await db.collection('service_requests').findOne({ id: requestId })
+      if (request && request.status === 'DISPATCHED') {
+        await db.collection('service_requests').updateOne(
+          { id: requestId },
+          { 
+            $set: { 
+              status: 'IN_PROGRESS',
+              firstContactAt: new Date(),
+              firstContactBy: providerId
+            } 
+          }
+        )
+      }
+
+      return handleCORS(NextResponse.json({ 
+        success: true,
+        message: 'Contact confirmé'
+      }))
+    }
+
+    // 📋 POST /api/requests/{id}/complete - Client confirme la fin du service
+    const completeRequestMatch = route.match(/^\/requests\/([a-zA-Z0-9-]+)\/complete$/)
+    if (completeRequestMatch && method === 'POST') {
+      const requestId = completeRequestMatch[1]
+      const body = await request.json()
+      const { rating, feedback, wonByProviderId } = body
+
+      await db.collection('service_requests').updateOne(
+        { id: requestId },
+        { 
+          $set: { 
+            status: 'COMPLETED',
+            completedAt: new Date(),
+            rating: rating || null,
+            feedback: feedback || null,
+            wonByProviderId: wonByProviderId || null
+          } 
+        }
+      )
+
+      // Marquer le match gagnant
+      if (wonByProviderId) {
+        await db.collection('request_matches').updateOne(
+          { requestId, providerId: wonByProviderId },
+          { $set: { won: true, status: 'WON' } }
+        )
+      }
+
+      return handleCORS(NextResponse.json({ 
+        success: true,
+        message: 'Service marqué comme terminé'
+      }))
+    }
+
+    // 📋 GET /api/provider/leads - Récupérer mes leads reçus (avec matches)
+    if (route === '/provider/leads' && method === 'GET') {
+      const url = new URL(request.url)
+      const providerId = url.searchParams.get('providerId')
+
+      if (!providerId) {
+        return handleCORS(NextResponse.json({ error: 'providerId requis' }, { status: 400 }))
+      }
+
+      // Récupérer tous les matches du prestataire
+      const matches = await db.collection('request_matches')
+        .find({ providerId })
+        .sort({ createdAt: -1 })
+        .limit(50)
+        .toArray()
+
+      // Enrichir avec infos de la demande
+      const enrichedMatches = await Promise.all(matches.map(async (match) => {
+        const request = await db.collection('service_requests').findOne({ id: match.requestId })
+        return {
+          ...match,
+          request: request || null
+        }
+      }))
+
+      return handleCORS(NextResponse.json({ 
+        leads: enrichedMatches.filter(m => m.request !== null)
+      }))
+    }
+
+    // 📋 POST /api/admin/migrate-old-requests - Migrer anciennes demandes vers COMPLETED
+    if (route === '/admin/migrate-old-requests' && method === 'POST') {
+      const result = await db.collection('service_requests').updateMany(
+        { status: { $in: ['EN_ATTENTE_VALIDATION_ADMIN', 'VALIDEE_PAR_ADMIN'] } },
+        { $set: { status: 'COMPLETED', migratedAt: new Date() } }
+      )
+
+      return handleCORS(NextResponse.json({ 
+        success: true,
+        migrated: result.modifiedCount,
+        message: `${result.modifiedCount} demandes migrées vers COMPLETED`
       }))
     }
 
