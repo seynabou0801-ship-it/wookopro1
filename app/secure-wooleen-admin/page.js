@@ -276,6 +276,31 @@ export default function SecureAdminDashboard() {
     setActionLoading(false)
   }
 
+  // ⚡ NOUVEAU : Nettoyer les anciennes données
+  const handleCleanupOldData = async () => {
+    if (!confirm('⚠️ ATTENTION : Cette action va nettoyer toutes les anciennes données de test.\n\nContinuer ?')) return
+    
+    setActionLoading(true)
+    try {
+      const res = await fetch('/api/admin/cleanup-old-data', {
+        method: 'POST'
+      })
+      
+      const data = await res.json()
+      
+      if (res.ok) {
+        alert(`✅ Nettoyage terminé !\n\n${data.message}\n\nDétails :\n- Matches supprimés : ${data.summary.matchesDeleted}\n- Demandes migrées : ${data.summary.requestsMigrated}\n- Leads supprimés : ${data.summary.leadsDeleted}`)
+        await fetchData()
+      } else {
+        alert(`❌ Erreur : ${data.error}`)
+      }
+    } catch (error) {
+      console.error('Error:', error)
+      alert('Erreur de connexion')
+    }
+    setActionLoading(false)
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -425,6 +450,30 @@ export default function SecureAdminDashboard() {
                     <p className="text-sm text-gray-500 mt-1">{p.serviceCategory} • {p.city}</p>
                   </div>
                 ))}
+              </div>
+            </div>
+
+            {/* Bouton nettoyage */}
+            <div className="md:col-span-2 bg-red-50 border-2 border-red-200 rounded-xl p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-bold text-red-900 mb-2">🧹 Nettoyage des anciennes données</h3>
+                  <p className="text-sm text-red-700">
+                    Migrer les anciennes demandes et supprimer les données obsolètes du système.
+                  </p>
+                  <ul className="text-xs text-red-600 mt-2 space-y-1">
+                    <li>• Migrer demandes EN_ATTENTE_VALIDATION_ADMIN → COMPLETED</li>
+                    <li>• Supprimer matches avec statuts obsolètes (PAYMENT_PENDING, etc.)</li>
+                    <li>• Supprimer leads non liés de plus de 7 jours</li>
+                  </ul>
+                </div>
+                <button
+                  onClick={handleCleanupOldData}
+                  disabled={actionLoading}
+                  className="px-6 py-3 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 disabled:opacity-50 whitespace-nowrap"
+                >
+                  {actionLoading ? 'Nettoyage...' : '🧹 Nettoyer'}
+                </button>
               </div>
             </div>
           </div>

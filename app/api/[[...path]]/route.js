@@ -2392,6 +2392,44 @@ async function handleRoute(request, { params }) {
       }))
     }
 
+    // 📋 POST /api/admin/cleanup-old-data - Nettoyer anciennes données de test
+    if (route === '/admin/cleanup-old-data' && method === 'POST') {
+      try {
+        // 1. Supprimer anciens matches avec statuts obsolètes
+        const matchesDeleted = await db.collection('request_matches').deleteMany({
+          status: { $in: ['PAYMENT_PENDING', 'ACCEPTED', 'DECLINED'] }
+        })
+
+        // 2. Migrer anciennes demandes vers COMPLETED
+        const requestsMigrated = await db.collection('service_requests').updateMany(
+          { status: { $in: ['EN_ATTENTE_VALIDATION_ADMIN', 'VALIDEE_PAR_ADMIN', 'ENVOYEE_AUX_PRESTATAIRES'] } },
+          { $set: { status: 'COMPLETED', migratedAt: new Date() } }
+        )
+
+        // 3. Supprimer anciens leads non liés
+        const leadsDeleted = await db.collection('leads').deleteMany({
+          status: 'NEW',
+          createdAt: { $lt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) } // Plus de 7 jours
+        })
+
+        return handleCORS(NextResponse.json({ 
+          success: true,
+          summary: {
+            matchesDeleted: matchesDeleted.deletedCount,
+            requestsMigrated: requestsMigrated.modifiedCount,
+            leadsDeleted: leadsDeleted.deletedCount
+          },
+          message: `Nettoyage terminé : ${matchesDeleted.deletedCount} matches supprimés, ${requestsMigrated.modifiedCount} demandes migrées, ${leadsDeleted.deletedCount} leads supprimés`
+        }))
+      } catch (error) {
+        console.error('Erreur nettoyage:', error)
+        return handleCORS(NextResponse.json({ 
+          error: 'Erreur lors du nettoyage',
+          details: error.message
+        }, { status: 500 }))
+      }
+    }
+
     return handleCORS(NextResponse.json({ error: `Route ${route} not found` }, { status: 404 }))
 
   } catch (error) {

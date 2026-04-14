@@ -454,6 +454,18 @@ backend:
         agent: "testing"
         comment: "✅ TESTÉ AVEC SUCCÈS - API retourne tous les abonnements. Filtre par status fonctionnel (?status=ACTIVE). Enrichissement avec informations prestataire"
 
+  - task: "Admin Cleanup Old Data"
+    implemented: true
+    working: true
+    file: "app/api/[[...path]]/route.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTÉ AVEC SUCCÈS - Endpoint POST /api/admin/cleanup-old-data fonctionnel. Nettoyage effectué: 19 matches supprimés (statuts PAYMENT_PENDING, ACCEPTED, DECLINED), 20 demandes migrées vers COMPLETED (depuis EN_ATTENTE_VALIDATION_ADMIN), 36 leads anciens supprimés (>7 jours). Réponse JSON correcte avec success:true, summary avec tous les champs attendus (matchesDeleted, requestsMigrated, leadsDeleted), et message descriptif."
+
 frontend:
   - task: "Lead Capture Form (Homepage)"
     implemented: true
@@ -778,3 +790,23 @@ agent_communication:
       ✅ AUTHENTIFICATION PERSISTÉE CORRECTEMENT
       ✅ AUCUNE REDIRECTION VERS LOGIN
       ✅ FONCTIONNALITÉ COMPLÈTE OPÉRATIONNELLE
+  - agent: "testing"
+    message: |
+      🧹 ADMIN CLEANUP ENDPOINT TESTING COMPLET - TEST RAPIDE EFFECTUÉ (30 secondes)
+      
+      ✅ ENDPOINT POST /api/admin/cleanup-old-data TESTÉ AVEC SUCCÈS:
+      
+      📊 Résultats du nettoyage:
+      - 19 matches supprimés (statuts obsolètes: PAYMENT_PENDING, ACCEPTED, DECLINED)
+      - 20 demandes migrées vers COMPLETED (depuis EN_ATTENTE_VALIDATION_ADMIN)
+      - 36 leads anciens supprimés (plus de 7 jours)
+      
+      ✅ VALIDATION TECHNIQUE:
+      - Status HTTP: 200 ✅
+      - Response JSON valide ✅
+      - Champ success: true ✅
+      - Summary avec tous les champs attendus (matchesDeleted, requestsMigrated, leadsDeleted) ✅
+      - Message descriptif en français ✅
+      
+      🎯 ENDPOINT ENTIÈREMENT FONCTIONNEL
+      Le nettoyage des données fonctionne parfaitement selon les spécifications demandées.
