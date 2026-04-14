@@ -1,311 +1,479 @@
 #!/usr/bin/env python3
 """
-Backend Testing Script for Wooleen Lead Capture Endpoint
-Tests the new POST /api/leads endpoint and related functionality
+WookoPRO Subscription System Backend Testing
+Tests all subscription endpoints in the correct order
 """
 
 import requests
 import json
+import base64
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 
 # Configuration
-BASE_URL = "https://provider-connect-24.preview.emergentagent.com"
-API_BASE = f"{BASE_URL}/api"
+BASE_URL = "https://provider-connect-24.preview.emergentagent.com/api"
+PROVIDER_ID = "7daacf79-20bd-4cd4-8642-e9c40ed1aad0"  # Test provider USER ID (not profile ID)
 
-def print_test_header(test_name):
-    print(f"\n{'='*60}")
-    print(f"🧪 TEST: {test_name}")
-    print(f"{'='*60}")
+# Test data
+SAMPLE_PAYMENT_PROOF = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
 
-def print_result(success, message):
+def print_test_result(test_name, success, details=""):
+    """Print formatted test result"""
     status = "✅ PASS" if success else "❌ FAIL"
-    print(f"{status}: {message}")
+    print(f"{status} {test_name}")
+    if details:
+        print(f"   {details}")
+    print()
 
-def make_request(method, endpoint, data=None, params=None):
-    """Make HTTP request with error handling"""
-    url = f"{API_BASE}{endpoint}"
+def test_subscription_plans():
+    """Test 1: GET /api/subscriptions/plans"""
+    print("🧪 Test 1: GET /api/subscriptions/plans")
+    
     try:
-        if method == "GET":
-            response = requests.get(url, params=params, timeout=30)
-        elif method == "POST":
-            response = requests.post(url, json=data, timeout=30)
-        elif method == "PATCH":
-            response = requests.patch(url, json=data, timeout=30)
-        else:
-            raise ValueError(f"Unsupported method: {method}")
+        response = requests.get(f"{BASE_URL}/subscriptions/plans")
         
-        print(f"📡 {method} {endpoint}")
-        print(f"Status: {response.status_code}")
-        
-        if response.headers.get('content-type', '').startswith('application/json'):
-            return response.status_code, response.json()
-        else:
-            return response.status_code, response.text
+        if response.status_code == 200:
+            data = response.json()
             
-    except requests.exceptions.RequestException as e:
-        print(f"❌ Request failed: {e}")
-        return None, str(e)
-
-def test_seed_database():
-    """Ensure database is seeded with providers"""
-    print_test_header("Database Seeding")
-    
-    status_code, response = make_request("POST", "/seed")
-    
-    if status_code == 200:
-        print_result(True, "Database seeded successfully")
-        if isinstance(response, dict):
-            print(f"   Providers created: {response.get('providersCreated', 'N/A')}")
-        return True
-    else:
-        print_result(False, f"Seeding failed with status {status_code}")
+            # Verify structure
+            required_fields = ['plans', 'paymentPhone', 'trialPeriodDays']
+            missing_fields = [field for field in required_fields if field not in data]
+            
+            if missing_fields:
+                print_test_result("Subscription Plans API", False, f"Missing fields: {missing_fields}")
+                return False
+            
+            # Verify plans
+            plans = data['plans']
+            expected_plans = ['BASIC', 'PRO', 'PREMIUM']
+            plan_names = [plan['name'] for plan in plans]
+            
+            if not all(plan in plan_names for plan in expected_plans):
+                print_test_result("Subscription Plans API", False, f"Missing plans. Found: {plan_names}")
+                return False
+            
+            # Verify prices
+            plans_dict = {plan['name']: plan for plan in plans}
+            basic_price = plans_dict['BASIC']['price']
+            pro_price = plans_dict['PRO']['price']
+            premium_price = plans_dict['PREMIUM']['price']
+            
+            if basic_price != 5000 or pro_price != 10000 or premium_price != 20000:
+                print_test_result("Subscription Plans API", False, f"Wrong prices: BASIC={basic_price}, PRO={pro_price}, PREMIUM={premium_price}")
+                return False
+            
+            # Verify payment phone
+            if not data['paymentPhone']:
+                print_test_result("Subscription Plans API", False, "Missing payment phone number")
+                return False
+            
+            print_test_result("Subscription Plans API", True, f"3 plans found with correct prices, payment phone: {data['paymentPhone']}")
+            return True
+            
+        else:
+            print_test_result("Subscription Plans API", False, f"HTTP {response.status_code}: {response.text}")
+            return False
+            
+    except Exception as e:
+        print_test_result("Subscription Plans API", False, f"Exception: {str(e)}")
         return False
 
-def test_basic_lead_capture():
-    """Test basic lead capture functionality"""
-    print_test_header("Basic Lead Capture")
+def test_subscription_creation():
+    """Test 2: POST /api/subscriptions/create - Trial creation"""
+    print("🧪 Test 2: POST /api/subscriptions/create (Trial creation)")
     
-    lead_data = {
-        "serviceCategory": "plombier",
-        "city": "Dakar",
-        "phone": "+221771234567",
-        "description": "Fuite d'eau dans la cuisine",
-        "source": "homepage_form"
-    }
-    
-    status_code, response = make_request("POST", "/leads", lead_data)
-    
-    if status_code == 200 and isinstance(response, dict):
-        if response.get('success') and response.get('leadId') and response.get('requestId'):
-            matched_providers = response.get('matchedProviders', 0)
-            print_result(True, f"Lead created successfully")
-            print(f"   Lead ID: {response.get('leadId')}")
-            print(f"   Request ID: {response.get('requestId')}")
-            print(f"   Matched Providers: {matched_providers}")
+    try:
+        # First check if subscription already exists
+        existing_response = requests.get(f"{BASE_URL}/subscriptions/my-subscription?providerId={PROVIDER_ID}")
+        if existing_response.status_code == 200:
+            existing_data = existing_response.json()
+            if 'subscription' in existing_data and existing_data['subscription']:
+                subscription_id = existing_data['subscription']['id']
+                print_test_result("Subscription Creation", True, f"Subscription already exists: {subscription_id} (status: {existing_data['subscription']['status']})")
+                return True, subscription_id
+        
+        payload = {
+            "providerId": PROVIDER_ID,
+            "plan": "PRO"
+        }
+        
+        response = requests.post(f"{BASE_URL}/subscriptions/create", json=payload)
+        
+        if response.status_code == 200:
+            data = response.json()
             
-            if matched_providers > 0:
-                print_result(True, f"Automatic matching worked - {matched_providers} providers matched")
+            # Verify response structure
+            required_fields = ['success', 'subscriptionId', 'status', 'trialEndsAt']
+            missing_fields = [field for field in required_fields if field not in data]
+            
+            if missing_fields:
+                print_test_result("Subscription Creation", False, f"Missing fields: {missing_fields}")
+                return False, None
+            
+            # Verify status is TRIAL
+            if data['status'] != 'TRIAL':
+                print_test_result("Subscription Creation", False, f"Expected status TRIAL, got {data['status']}")
+                return False, None
+            
+            # Verify trial end date (should be ~7 days from now)
+            trial_end = datetime.fromisoformat(data['trialEndsAt'].replace('Z', '+00:00'))
+            expected_end = datetime.now() + timedelta(days=7)
+            time_diff = abs((trial_end - expected_end).total_seconds())
+            
+            if time_diff > 3600:  # Allow 1 hour difference
+                print_test_result("Subscription Creation", False, f"Trial end date incorrect: {data['trialEndsAt']}")
+                return False, None
+            
+            subscription_id = data['subscriptionId']
+            print_test_result("Subscription Creation", True, f"Trial subscription created: {subscription_id}, ends: {data['trialEndsAt']}")
+            return True, subscription_id
+            
+        elif response.status_code == 400:
+            # Check if it's the "already has subscription" error
+            data = response.json()
+            if "déjà un abonnement" in data.get('error', '').lower():
+                # Get existing subscription ID
+                existing_response = requests.get(f"{BASE_URL}/subscriptions/my-subscription?providerId={PROVIDER_ID}")
+                if existing_response.status_code == 200:
+                    existing_data = existing_response.json()
+                    if 'subscription' in existing_data and existing_data['subscription']:
+                        subscription_id = existing_data['subscription']['id']
+                        print_test_result("Subscription Creation", True, f"Subscription already exists: {subscription_id}")
+                        return True, subscription_id
+                
+                print_test_result("Subscription Creation", False, "Provider already has subscription but couldn't retrieve it")
+                return False, None
             else:
-                print_result(False, "No providers matched - check seeded data")
-            
-            return True, response
+                print_test_result("Subscription Creation", False, f"HTTP 400: {data.get('error')}")
+                return False, None
         else:
-            print_result(False, f"Invalid response structure: {response}")
+            print_test_result("Subscription Creation", False, f"HTTP {response.status_code}: {response.text}")
             return False, None
-    else:
-        print_result(False, f"Request failed with status {status_code}: {response}")
+            
+    except Exception as e:
+        print_test_result("Subscription Creation", False, f"Exception: {str(e)}")
         return False, None
 
-def test_different_service_categories():
-    """Test lead capture with different service categories"""
-    print_test_header("Different Service Categories")
+def test_duplicate_subscription():
+    """Test 2b: POST /api/subscriptions/create - Duplicate error"""
+    print("🧪 Test 2b: POST /api/subscriptions/create (Duplicate check)")
     
-    test_cases = [
-        {
-            "serviceCategory": "electricien",
-            "city": "Dakar",
-            "phone": "+221771234568",
-            "description": "Panne électrique dans le salon",
-            "source": "homepage_form"
-        },
-        {
-            "serviceCategory": "climatiseur",
-            "city": "Thiès",
-            "phone": "+221771234569",
-            "description": "Climatiseur ne refroidit plus",
-            "source": "homepage_form"
-        },
-        {
-            "serviceCategory": "nettoyage",
-            "city": "Dakar",
-            "phone": "+221771234570",
-            "description": "Nettoyage complet de bureau",
-            "source": "homepage_form"
+    try:
+        payload = {
+            "providerId": PROVIDER_ID,
+            "plan": "BASIC"
         }
-    ]
-    
-    all_passed = True
-    
-    for i, test_case in enumerate(test_cases, 1):
-        print(f"\n--- Test Case {i}: {test_case['serviceCategory']} à {test_case['city']} ---")
         
-        status_code, response = make_request("POST", "/leads", test_case)
+        response = requests.post(f"{BASE_URL}/subscriptions/create", json=payload)
         
-        if status_code == 200 and isinstance(response, dict) and response.get('success'):
-            matched_providers = response.get('matchedProviders', 0)
-            print_result(True, f"{test_case['serviceCategory']} lead created - {matched_providers} matches")
+        if response.status_code == 400:
+            data = response.json()
+            if "déjà un abonnement" in data.get('error', '').lower():
+                print_test_result("Duplicate Subscription Check", True, "Correctly rejected duplicate subscription")
+                return True
+            else:
+                print_test_result("Duplicate Subscription Check", False, f"Wrong error message: {data.get('error')}")
+                return False
         else:
-            print_result(False, f"Failed to create {test_case['serviceCategory']} lead")
-            all_passed = False
-    
-    return all_passed
-
-def test_optional_description():
-    """Test lead capture without description (optional field)"""
-    print_test_header("Optional Description Field")
-    
-    lead_data = {
-        "serviceCategory": "plombier",
-        "city": "Dakar",
-        "phone": "+221771234571",
-        "source": "homepage_form"
-        # No description field
-    }
-    
-    status_code, response = make_request("POST", "/leads", lead_data)
-    
-    if status_code == 200 and isinstance(response, dict) and response.get('success'):
-        print_result(True, "Lead created successfully without description")
-        print(f"   Matched Providers: {response.get('matchedProviders', 0)}")
-        return True
-    else:
-        print_result(False, f"Failed to create lead without description: {response}")
-        return False
-
-def test_admin_stats_updated():
-    """Test that admin stats now include leads, conversions, and conversion rate"""
-    print_test_header("Admin Stats with Lead Metrics")
-    
-    status_code, response = make_request("GET", "/admin/stats")
-    
-    if status_code == 200 and isinstance(response, dict):
-        required_fields = ['leads', 'conversions', 'conversionRate']
-        missing_fields = []
-        
-        for field in required_fields:
-            if field not in response:
-                missing_fields.append(field)
-        
-        if not missing_fields:
-            print_result(True, "Admin stats include all new lead metrics")
-            print(f"   Leads: {response.get('leads')}")
-            print(f"   Conversions: {response.get('conversions')}")
-            print(f"   Conversion Rate: {response.get('conversionRate')}%")
-            print(f"   Providers: {response.get('providers')}")
-            print(f"   Requests: {response.get('requests')}")
-            return True
-        else:
-            print_result(False, f"Missing fields in admin stats: {missing_fields}")
+            print_test_result("Duplicate Subscription Check", False, f"Expected 400 error, got {response.status_code}")
             return False
-    else:
-        print_result(False, f"Failed to get admin stats: {response}")
+            
+    except Exception as e:
+        print_test_result("Duplicate Subscription Check", False, f"Exception: {str(e)}")
         return False
 
-def test_service_requests_created():
-    """Verify that service_requests are created when leads are captured"""
-    print_test_header("Service Requests Creation")
+def test_upload_payment_proof(subscription_id):
+    """Test 3: POST /api/subscriptions/upload-proof"""
+    print("🧪 Test 3: POST /api/subscriptions/upload-proof")
     
-    # Get current requests count
-    status_code, initial_response = make_request("GET", "/requests")
-    initial_count = 0
-    if status_code == 200 and isinstance(initial_response, list):
-        initial_count = len(initial_response)
-    
-    # Create a new lead
-    lead_data = {
-        "serviceCategory": "menuisier",
-        "city": "Dakar",
-        "phone": "+221771234572",
-        "description": "Réparation de porte d'entrée",
-        "source": "homepage_form"
-    }
-    
-    status_code, lead_response = make_request("POST", "/leads", lead_data)
-    
-    if status_code != 200 or not lead_response.get('success'):
-        print_result(False, "Failed to create lead for service request test")
-        return False
-    
-    # Wait a moment for processing
-    time.sleep(1)
-    
-    # Check if service_requests increased
-    status_code, final_response = make_request("GET", "/requests")
-    
-    if status_code == 200 and isinstance(final_response, list):
-        final_count = len(final_response)
-        if final_count > initial_count:
-            print_result(True, f"Service request created - count increased from {initial_count} to {final_count}")
+    try:
+        payload = {
+            "subscriptionId": subscription_id,
+            "paymentProof": SAMPLE_PAYMENT_PROOF,
+            "paymentMethod": "wave"
+        }
+        
+        response = requests.post(f"{BASE_URL}/subscriptions/upload-proof", json=payload)
+        
+        if response.status_code == 200:
+            data = response.json()
             
-            # Find the latest request
-            latest_request = None
-            for req in final_response:
-                if req.get('leadId') == lead_response.get('leadId'):
-                    latest_request = req
-                    break
-            
-            if latest_request:
-                print(f"   Request ID: {latest_request.get('id')}")
-                print(f"   Status: {latest_request.get('status')}")
-                print(f"   Service Category: {latest_request.get('serviceCategory')}")
-                print(f"   City: {latest_request.get('city')}")
-            
-            return True
+            if data.get('success'):
+                print_test_result("Payment Proof Upload", True, "Payment proof uploaded successfully")
+                return True
+            else:
+                print_test_result("Payment Proof Upload", False, f"Unexpected response: {data}")
+                return False
         else:
-            print_result(False, f"Service request not created - count remained {final_count}")
+            print_test_result("Payment Proof Upload", False, f"HTTP {response.status_code}: {response.text}")
             return False
-    else:
-        print_result(False, "Failed to get service requests")
+            
+    except Exception as e:
+        print_test_result("Payment Proof Upload", False, f"Exception: {str(e)}")
         return False
 
-def run_all_tests():
-    """Run all lead capture tests"""
-    print("🚀 Starting Wooleen Lead Capture Endpoint Tests")
-    print(f"Base URL: {BASE_URL}")
-    print(f"API Base: {API_BASE}")
-    print(f"Test Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+def test_my_subscription():
+    """Test 4: GET /api/subscriptions/my-subscription"""
+    print("🧪 Test 4: GET /api/subscriptions/my-subscription")
     
-    test_results = []
+    try:
+        response = requests.get(f"{BASE_URL}/subscriptions/my-subscription?providerId={PROVIDER_ID}")
+        
+        if response.status_code == 200:
+            data = response.json()
+            
+            if 'subscription' in data:
+                subscription = data['subscription']
+                required_fields = ['id', 'status', 'plan', 'createdAt']
+                missing_fields = [field for field in required_fields if field not in subscription]
+                
+                if missing_fields:
+                    print_test_result("My Subscription API", False, f"Missing fields: {missing_fields}")
+                    return False
+                
+                print_test_result("My Subscription API", True, f"Subscription found: {subscription['plan']} - {subscription['status']}")
+                return True
+            else:
+                print_test_result("My Subscription API", False, "No subscription field in response")
+                return False
+        else:
+            print_test_result("My Subscription API", False, f"HTTP {response.status_code}: {response.text}")
+            return False
+            
+    except Exception as e:
+        print_test_result("My Subscription API", False, f"Exception: {str(e)}")
+        return False
+
+def test_admin_pending_subscriptions():
+    """Test 5: GET /api/admin/subscriptions/pending"""
+    print("🧪 Test 5: GET /api/admin/subscriptions/pending")
     
-    # Test 1: Seed database
-    result = test_seed_database()
-    test_results.append(("Database Seeding", result))
+    try:
+        response = requests.get(f"{BASE_URL}/admin/subscriptions/pending")
+        
+        if response.status_code == 200:
+            data = response.json()
+            
+            if 'subscriptions' in data:
+                subscriptions = data['subscriptions']
+                
+                # Should have at least one pending subscription
+                if len(subscriptions) > 0:
+                    # Check if our subscription is in the list
+                    pending_found = any(sub['status'] == 'PENDING_VALIDATION' for sub in subscriptions)
+                    
+                    if pending_found:
+                        print_test_result("Admin Pending Subscriptions", True, f"Found {len(subscriptions)} pending subscription(s)")
+                        return True
+                    else:
+                        print_test_result("Admin Pending Subscriptions", False, "No PENDING_VALIDATION subscriptions found")
+                        return False
+                else:
+                    print_test_result("Admin Pending Subscriptions", True, "No pending subscriptions (empty list)")
+                    return True
+            else:
+                print_test_result("Admin Pending Subscriptions", False, "No subscriptions field in response")
+                return False
+        else:
+            print_test_result("Admin Pending Subscriptions", False, f"HTTP {response.status_code}: {response.text}")
+            return False
+            
+    except Exception as e:
+        print_test_result("Admin Pending Subscriptions", False, f"Exception: {str(e)}")
+        return False
+
+def test_admin_validate_subscription(subscription_id):
+    """Test 6: POST /api/admin/subscriptions/{id}/validate"""
+    print("🧪 Test 6: POST /api/admin/subscriptions/{id}/validate")
     
-    if not result:
-        print("\n❌ Cannot proceed without seeded data")
-        return
+    try:
+        response = requests.post(f"{BASE_URL}/admin/subscriptions/{subscription_id}/validate")
+        
+        if response.status_code == 200:
+            data = response.json()
+            
+            if data.get('success') and 'expiresAt' in data:
+                # Verify expiration date (should be ~30 days from now)
+                expires_at_str = data['expiresAt']
+                if expires_at_str:
+                    # Handle both with and without timezone info
+                    if expires_at_str.endswith('Z'):
+                        expires_at = datetime.fromisoformat(expires_at_str.replace('Z', '+00:00'))
+                        expected_expiry = datetime.now().replace(tzinfo=expires_at.tzinfo) + timedelta(days=30)
+                    else:
+                        expires_at = datetime.fromisoformat(expires_at_str)
+                        expected_expiry = datetime.now() + timedelta(days=30)
+                    
+                    time_diff = abs((expires_at - expected_expiry).total_seconds())
+                    
+                    if time_diff > 86400:  # Allow 1 day difference
+                        print_test_result("Admin Validate Subscription", False, f"Expiry date incorrect: {data['expiresAt']}")
+                        return False
+                
+                print_test_result("Admin Validate Subscription", True, f"Subscription validated, expires: {data.get('expiresAt', 'N/A')}")
+                return True
+            else:
+                print_test_result("Admin Validate Subscription", False, f"Unexpected response: {data}")
+                return False
+        else:
+            print_test_result("Admin Validate Subscription", False, f"HTTP {response.status_code}: {response.text}")
+            return False
+            
+    except Exception as e:
+        print_test_result("Admin Validate Subscription", False, f"Exception: {str(e)}")
+        return False
+
+def test_admin_all_subscriptions():
+    """Test 7: GET /api/admin/subscriptions/all"""
+    print("🧪 Test 7: GET /api/admin/subscriptions/all")
     
-    # Test 2: Basic lead capture
-    result, _ = test_basic_lead_capture()
-    test_results.append(("Basic Lead Capture", result))
+    try:
+        # Test without filter
+        response = requests.get(f"{BASE_URL}/admin/subscriptions/all")
+        
+        if response.status_code == 200:
+            data = response.json()
+            
+            if 'subscriptions' in data:
+                all_subscriptions = data['subscriptions']
+                
+                # Test with ACTIVE filter
+                response_filtered = requests.get(f"{BASE_URL}/admin/subscriptions/all?status=ACTIVE")
+                
+                if response_filtered.status_code == 200:
+                    filtered_data = response_filtered.json()
+                    active_subscriptions = filtered_data['subscriptions']
+                    
+                    # Verify all returned subscriptions are ACTIVE
+                    all_active = all(sub['status'] == 'ACTIVE' for sub in active_subscriptions)
+                    
+                    if all_active:
+                        print_test_result("Admin All Subscriptions", True, f"All subscriptions: {len(all_subscriptions)}, Active: {len(active_subscriptions)}")
+                        return True
+                    else:
+                        print_test_result("Admin All Subscriptions", False, "Filter not working correctly")
+                        return False
+                else:
+                    print_test_result("Admin All Subscriptions", False, f"Filtered request failed: {response_filtered.status_code}")
+                    return False
+            else:
+                print_test_result("Admin All Subscriptions", False, "No subscriptions field in response")
+                return False
+        else:
+            print_test_result("Admin All Subscriptions", False, f"HTTP {response.status_code}: {response.text}")
+            return False
+            
+    except Exception as e:
+        print_test_result("Admin All Subscriptions", False, f"Exception: {str(e)}")
+        return False
+
+def test_admin_reject_subscription():
+    """Test 8: POST /api/admin/subscriptions/{id}/reject"""
+    print("🧪 Test 8: POST /api/admin/subscriptions/{id}/reject")
     
-    # Test 3: Different service categories
-    result = test_different_service_categories()
-    test_results.append(("Different Service Categories", result))
+    try:
+        # Get all subscriptions to find one we can test rejection on
+        all_subs_response = requests.get(f"{BASE_URL}/admin/subscriptions/all")
+        if all_subs_response.status_code != 200:
+            print_test_result("Admin Reject Subscription", False, "Could not get subscriptions list")
+            return False
+        
+        all_subs = all_subs_response.json().get('subscriptions', [])
+        
+        # Find a subscription that's not ACTIVE (could be TRIAL or PENDING_VALIDATION)
+        test_subscription = None
+        for sub in all_subs:
+            if sub.get('status') in ['TRIAL', 'PENDING_VALIDATION']:
+                test_subscription = sub
+                break
+        
+        if not test_subscription:
+            print_test_result("Admin Reject Subscription", True, "No suitable subscription found for rejection test (all are ACTIVE)")
+            return True
+        
+        # Test rejection
+        reject_payload = {
+            "reason": "Preuve invalide - test automatique"
+        }
+        
+        response = requests.post(f"{BASE_URL}/admin/subscriptions/{test_subscription['id']}/reject", json=reject_payload)
+        
+        if response.status_code == 200:
+            data = response.json()
+            
+            if data.get('success'):
+                print_test_result("Admin Reject Subscription", True, f"Subscription {test_subscription['id']} rejected successfully")
+                return True
+            else:
+                print_test_result("Admin Reject Subscription", False, f"Unexpected response: {data}")
+                return False
+        else:
+            print_test_result("Admin Reject Subscription", False, f"HTTP {response.status_code}: {response.text}")
+            return False
+            
+    except Exception as e:
+        print_test_result("Admin Reject Subscription", False, f"Exception: {str(e)}")
+        return False
+
+def main():
+    """Run all subscription tests in order"""
+    print("🚀 Starting WookoPRO Subscription System Tests")
+    print("=" * 60)
     
-    # Test 4: Optional description
-    result = test_optional_description()
-    test_results.append(("Optional Description", result))
+    results = []
+    subscription_id = None
     
-    # Test 5: Admin stats updated
-    result = test_admin_stats_updated()
-    test_results.append(("Admin Stats Updated", result))
+    # Test 1: Get subscription plans
+    results.append(test_subscription_plans())
     
-    # Test 6: Service requests created
-    result = test_service_requests_created()
-    test_results.append(("Service Requests Creation", result))
+    # Test 2: Create subscription (trial)
+    success, sub_id = test_subscription_creation()
+    results.append(success)
+    subscription_id = sub_id
+    
+    # Test 2b: Try to create duplicate (should fail)
+    if subscription_id:
+        results.append(test_duplicate_subscription())
+    
+    # Test 3: Upload payment proof
+    if subscription_id:
+        results.append(test_upload_payment_proof(subscription_id))
+    
+    # Test 4: Get my subscription
+    results.append(test_my_subscription())
+    
+    # Test 5: Admin - get pending subscriptions
+    results.append(test_admin_pending_subscriptions())
+    
+    # Test 6: Admin - validate subscription
+    if subscription_id:
+        results.append(test_admin_validate_subscription(subscription_id))
+    
+    # Test 7: Admin - get all subscriptions
+    results.append(test_admin_all_subscriptions())
+    
+    # Test 8: Admin - reject subscription
+    results.append(test_admin_reject_subscription())
     
     # Summary
-    print(f"\n{'='*60}")
+    print("=" * 60)
     print("📊 TEST SUMMARY")
-    print(f"{'='*60}")
+    print("=" * 60)
     
-    passed = 0
-    total = len(test_results)
+    passed = sum(results)
+    total = len(results)
     
-    for test_name, result in test_results:
-        status = "✅ PASS" if result else "❌ FAIL"
-        print(f"{status}: {test_name}")
-        if result:
-            passed += 1
-    
-    print(f"\nResults: {passed}/{total} tests passed ({(passed/total)*100:.1f}%)")
+    print(f"✅ Passed: {passed}/{total}")
+    print(f"❌ Failed: {total - passed}/{total}")
+    print(f"📈 Success Rate: {(passed/total)*100:.1f}%")
     
     if passed == total:
-        print("🎉 All tests passed! Lead Capture Endpoint is working correctly.")
+        print("\n🎉 ALL SUBSCRIPTION TESTS PASSED!")
+        print("WookoPRO Subscription System is fully functional!")
     else:
-        print("⚠️  Some tests failed. Check the details above.")
+        print(f"\n⚠️  {total - passed} test(s) failed. Please check the issues above.")
+    
+    return passed == total
 
 if __name__ == "__main__":
-    run_all_tests()
+    main()

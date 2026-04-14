@@ -36,6 +36,43 @@ export async function OPTIONS() {
   return handleCORS(new NextResponse(null, { status: 200 }))
 }
 
+// ============ SUBSCRIPTION PLANS ============
+const SUBSCRIPTION_PLANS = {
+  BASIC: {
+    name: 'BASIC',
+    price: 5000,              // 5 000 FCFA/mois
+    duration: 30,             // jours
+    leadsPerDay: 5,           // Max 5 demandes/jour
+    categories: 1,            // 1 catégorie
+    zones: 1,                 // 1 zone
+    priority: 'normal',
+    features: ['5 leads/jour', '1 catégorie', '1 zone']
+  },
+  PRO: {
+    name: 'PRO',
+    price: 10000,             // 10 000 FCFA/mois
+    duration: 30,
+    leadsPerDay: 15,          // Max 15 demandes/jour
+    categories: 3,            // 3 catégories
+    zones: 3,                 // 3 zones
+    priority: 'high',
+    features: ['15 leads/jour', '3 catégories', '3 zones', 'Priorité haute']
+  },
+  PREMIUM: {
+    name: 'PREMIUM',
+    price: 20000,             // 20 000 FCFA/mois
+    duration: 30,
+    leadsPerDay: -1,          // Illimité
+    categories: -1,           // Toutes catégories
+    zones: -1,                // Toutes zones
+    priority: 'highest',
+    features: ['Leads illimités', 'Toutes catégories', 'Tout Sénégal', 'Badge vérifié', 'Support prioritaire']
+  }
+}
+
+const PAYMENT_PHONE = '77 338 90 95' // Numéro Wave/Orange Money
+const TRIAL_PERIOD_DAYS = 7 // Période d'essai gratuite
+
 // ============ OpenAI GPT Integration ============
 const SYSTEM_PROMPT = `Tu es un agent IA de dispatch et de mise en relation pour Wooleen, une marketplace de services locaux au Sénégal.
 
@@ -1787,6 +1824,285 @@ async function handleRoute(request, { params }) {
       return handleCORS(NextResponse.json({ 
         success: true,
         message: 'Prestataire rejeté'
+      }))
+    }
+
+    // ============ SUBSCRIPTIONS ENDPOINTS ============
+
+    // 📋 GET /api/subscriptions/plans - Récupérer les formules d'abonnement
+    if (route === '/subscriptions/plans' && method === 'GET') {
+      return handleCORS(NextResponse.json({ 
+        plans: Object.values(SUBSCRIPTION_PLANS),
+        paymentPhone: PAYMENT_PHONE,
+        trialPeriodDays: TRIAL_PERIOD_DAYS
+      }))
+    }
+
+    // 📋 POST /api/subscriptions/create - Créer un abonnement (période d'essai)
+    if (route === '/subscriptions/create' && method === 'POST') {
+      const body = await request.json()
+      const { providerId, plan } = body
+
+      if (!providerId || !plan) {
+        return handleCORS(NextResponse.json({ error: 'providerId et plan requis' }, { status: 400 }))
+      }
+
+      if (!SUBSCRIPTION_PLANS[plan]) {
+        return handleCORS(NextResponse.json({ error: 'Plan invalide' }, { status: 400 }))
+      }
+
+      // Vérifier que le prestataire existe
+      const provider = await db.collection('users').findOne({ id: providerId, role: 'PROVIDER' })
+      if (!provider) {
+        return handleCORS(NextResponse.json({ error: 'Prestataire non trouvé' }, { status: 404 }))
+      }
+
+      // Vérifier s'il a déjà un abonnement actif
+      const existingSubscription = await db.collection('subscriptions').findOne({
+        providerId,
+        status: { $in: ['TRIAL', 'ACTIVE'] }
+      })
+
+      if (existingSubscription) {
+        return handleCORS(NextResponse.json({ error: 'Vous avez déjà un abonnement actif' }, { status: 400 }))
+      }
+
+      // Créer abonnement avec période d'essai
+      const now = new Date()
+      const trialEndsAt = new Date(now)
+      trialEndsAt.setDate(trialEndsAt.getDate() + TRIAL_PERIOD_DAYS)
+
+      const subscription = {
+        id: uuidv4(),
+        providerId,
+        plan,
+        planDetails: SUBSCRIPTION_PLANS[plan],
+        status: 'TRIAL',                    // Période d'essai
+        
+        startDate: now,
+        trialEndsAt,
+        expiresAt: null,                    // Sera défini après paiement
+        
+        paymentMethod: null,
+        paymentProof: null,
+        paymentValidatedBy: null,
+        paymentValidatedAt: null,
+        
+        leadsReceivedThisMonth: 0,
+        autoRenew: false,
+        
+        createdAt: now,
+        updatedAt: now
+      }
+
+      await db.collection('subscriptions').insertOne(subscription)
+
+      // Mettre à jour le prestataire
+      await db.collection('users').updateOne(
+        { id: providerId },
+        { $set: { subscriptionId: subscription.id, updatedAt: now } }
+      )
+
+      return handleCORS(NextResponse.json({ 
+        success: true,
+        subscription,
+        message: `Période d'essai de ${TRIAL_PERIOD_DAYS} jours activée !`
+      }))
+    }
+
+    // 📋 POST /api/subscriptions/upload-proof - Upload preuve de paiement
+    if (route === '/subscriptions/upload-proof' && method === 'POST') {
+      const body = await request.json()
+      const { subscriptionId, paymentProof, paymentMethod } = body
+
+      if (!subscriptionId || !paymentProof || !paymentMethod) {
+        return handleCORS(NextResponse.json({ error: 'Données manquantes' }, { status: 400 }))
+      }
+
+      const subscription = await db.collection('subscriptions').findOne({ id: subscriptionId })
+      if (!subscription) {
+        return handleCORS(NextResponse.json({ error: 'Abonnement non trouvé' }, { status: 404 }))
+      }
+
+      // Mettre à jour avec preuve de paiement
+      await db.collection('subscriptions').updateOne(
+        { id: subscriptionId },
+        { 
+          $set: { 
+            paymentProof,                     // Base64 de l'image
+            paymentMethod,                    // 'wave' ou 'orange_money'
+            status: 'PENDING_VALIDATION',     // En attente validation admin
+            updatedAt: new Date()
+          } 
+        }
+      )
+
+      return handleCORS(NextResponse.json({ 
+        success: true,
+        message: 'Preuve de paiement envoyée. Validation sous 24h.'
+      }))
+    }
+
+    // 📋 GET /api/subscriptions/my-subscription - Récupérer mon abonnement
+    if (route === '/subscriptions/my-subscription' && method === 'GET') {
+      const url = new URL(request.url)
+      const providerId = url.searchParams.get('providerId')
+
+      if (!providerId) {
+        return handleCORS(NextResponse.json({ error: 'providerId requis' }, { status: 400 }))
+      }
+
+      const subscription = await db.collection('subscriptions').findOne(
+        { providerId },
+        { sort: { createdAt: -1 } }  // Plus récent en premier
+      )
+
+      if (!subscription) {
+        return handleCORS(NextResponse.json({ subscription: null }))
+      }
+
+      // Vérifier si période d'essai expirée
+      if (subscription.status === 'TRIAL' && new Date() > new Date(subscription.trialEndsAt)) {
+        await db.collection('subscriptions').updateOne(
+          { id: subscription.id },
+          { $set: { status: 'TRIAL_EXPIRED', updatedAt: new Date() } }
+        )
+        subscription.status = 'TRIAL_EXPIRED'
+      }
+
+      // Vérifier si abonnement expiré
+      if (subscription.status === 'ACTIVE' && subscription.expiresAt && new Date() > new Date(subscription.expiresAt)) {
+        await db.collection('subscriptions').updateOne(
+          { id: subscription.id },
+          { $set: { status: 'EXPIRED', updatedAt: new Date() } }
+        )
+        subscription.status = 'EXPIRED'
+      }
+
+      return handleCORS(NextResponse.json({ subscription }))
+    }
+
+    // ============ ADMIN SUBSCRIPTIONS ENDPOINTS ============
+
+    // 📋 GET /api/admin/subscriptions/pending - Abonnements en attente de validation
+    if (route === '/admin/subscriptions/pending' && method === 'GET') {
+      const subscriptions = await db.collection('subscriptions')
+        .find({ status: 'PENDING_VALIDATION' })
+        .sort({ updatedAt: -1 })
+        .toArray()
+
+      // Enrichir avec infos prestataire
+      const enriched = await Promise.all(subscriptions.map(async (sub) => {
+        const provider = await db.collection('users').findOne({ id: sub.providerId })
+        const profile = await db.collection('provider_profiles').findOne({ userId: sub.providerId })
+        return {
+          ...sub,
+          providerName: profile?.businessName || provider?.name || provider?.phone,
+          providerPhone: provider?.phone
+        }
+      }))
+
+      return handleCORS(NextResponse.json({ subscriptions: enriched }))
+    }
+
+    // 📋 GET /api/admin/subscriptions/all - Tous les abonnements
+    if (route === '/admin/subscriptions/all' && method === 'GET') {
+      const url = new URL(request.url)
+      const status = url.searchParams.get('status') // Filtre optionnel
+
+      const query = status ? { status } : {}
+      const subscriptions = await db.collection('subscriptions')
+        .find(query)
+        .sort({ createdAt: -1 })
+        .toArray()
+
+      // Enrichir avec infos prestataire
+      const enriched = await Promise.all(subscriptions.map(async (sub) => {
+        const provider = await db.collection('users').findOne({ id: sub.providerId })
+        const profile = await db.collection('provider_profiles').findOne({ userId: sub.providerId })
+        return {
+          ...sub,
+          providerName: profile?.businessName || provider?.name || provider?.phone,
+          providerPhone: provider?.phone
+        }
+      }))
+
+      return handleCORS(NextResponse.json({ subscriptions: enriched }))
+    }
+
+    // 📋 POST /api/admin/subscriptions/{id}/validate - Valider paiement abonnement
+    const validateSubscriptionMatch = route.match(/^\/admin\/subscriptions\/([a-zA-Z0-9-]+)\/validate$/)
+    if (validateSubscriptionMatch && method === 'POST') {
+      const subscriptionId = validateSubscriptionMatch[1]
+
+      const subscription = await db.collection('subscriptions').findOne({ id: subscriptionId })
+      if (!subscription) {
+        return handleCORS(NextResponse.json({ error: 'Abonnement non trouvé' }, { status: 404 }))
+      }
+
+      if (subscription.status !== 'PENDING_VALIDATION') {
+        return handleCORS(NextResponse.json({ error: 'Abonnement non en attente de validation' }, { status: 400 }))
+      }
+
+      // Calculer date d'expiration
+      const now = new Date()
+      const expiresAt = new Date(now)
+      expiresAt.setDate(expiresAt.getDate() + subscription.planDetails.duration)
+
+      // Activer abonnement
+      await db.collection('subscriptions').updateOne(
+        { id: subscriptionId },
+        { 
+          $set: { 
+            status: 'ACTIVE',
+            paymentValidatedAt: now,
+            expiresAt,
+            updatedAt: now
+          } 
+        }
+      )
+
+      // TODO: Envoyer notification WhatsApp au prestataire
+
+      return handleCORS(NextResponse.json({ 
+        success: true,
+        message: 'Abonnement validé et activé !',
+        expiresAt
+      }))
+    }
+
+    // 📋 POST /api/admin/subscriptions/{id}/reject - Rejeter paiement abonnement
+    const rejectSubscriptionMatch = route.match(/^\/admin\/subscriptions\/([a-zA-Z0-9-]+)\/reject$/)
+    if (rejectSubscriptionMatch && method === 'POST') {
+      const subscriptionId = rejectSubscriptionMatch[1]
+      const body = await request.json()
+      const { reason } = body
+
+      const subscription = await db.collection('subscriptions').findOne({ id: subscriptionId })
+      if (!subscription) {
+        return handleCORS(NextResponse.json({ error: 'Abonnement non trouvé' }, { status: 404 }))
+      }
+
+      // Rejeter et remettre en période d'essai ou expirer
+      const newStatus = subscription.status === 'TRIAL' ? 'TRIAL' : 'REJECTED'
+      
+      await db.collection('subscriptions').updateOne(
+        { id: subscriptionId },
+        { 
+          $set: { 
+            status: newStatus,
+            paymentProof: null,           // Supprimer preuve rejetée
+            rejectionReason: reason || 'Preuve de paiement invalide',
+            updatedAt: new Date()
+          } 
+        }
+      )
+
+      // TODO: Envoyer notification WhatsApp au prestataire
+
+      return handleCORS(NextResponse.json({ 
+        success: true,
+        message: 'Paiement rejeté. Prestataire notifié.'
       }))
     }
 
