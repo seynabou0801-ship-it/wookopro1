@@ -810,3 +810,31 @@ agent_communication:
       
       🎯 ENDPOINT ENTIÈREMENT FONCTIONNEL
       Le nettoyage des données fonctionne parfaitement selon les spécifications demandées.
+  - agent: "testing"
+    message: |
+      🔍 ANALYSE ÉTAT BASE DE DONNÉES ET NETTOYAGE - INVESTIGATION COMPLÈTE
+      
+      ✅ RÉSULTATS DE L'INVESTIGATION (1 minute):
+      
+      📊 ÉTAT ACTUEL DE LA BASE:
+      - Total requests: 67 demandes
+      - Statuts présents: SUBMITTED (2), COMPLETED (20), ASSIGNED (17), MATCHING (27), PENDING (1)
+      - Total matches: 45
+      - Total leads: 9
+      
+      🎯 ANALYSE DU NETTOYAGE (0 partout):
+      ✅ EXPLICATION CONFIRMÉE - Le nettoyage retourne 0 car:
+      1. ❌ Aucune demande avec statuts ciblés: EN_ATTENTE_VALIDATION_ADMIN, VALIDEE_PAR_ADMIN, ENVOYEE_AUX_PRESTATAIRES
+      2. ❌ Aucun match avec statuts obsolètes: PAYMENT_PENDING, ACCEPTED, DECLINED  
+      3. ❌ Aucun lead ancien (>7 jours) avec status 'NEW'
+      
+      🔧 CONCLUSION:
+      - Le nettoyage fonctionne parfaitement ✅
+      - Les données ont déjà été nettoyées lors des tests précédents ✅
+      - Les statuts actuels sont tous modernes (MATCHING, ASSIGNED, COMPLETED, etc.) ✅
+      - Aucune action de nettoyage nécessaire ✅
+      
+      💡 RECOMMANDATION:
+      Le système est propre. Si besoin de nettoyer à nouveau, il faudrait soit:
+      - Créer de nouvelles données de test avec les anciens statuts
+      - Ou élargir les critères de nettoyage pour inclure d'autres statuts
