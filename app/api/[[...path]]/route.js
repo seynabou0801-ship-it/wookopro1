@@ -887,7 +887,7 @@ async function handleRoute(request, { params }) {
       }
 
       // ⚡ NOUVEAU : Vérifier le statut du compte AVANT validation mot de passe
-      if (user.status === 'EN_ATTENTE') {
+      if (user.status === 'EN_ATTENTE' || user.status === 'PENDING') {
         return handleCORS(NextResponse.json({ 
           error: 'COMPTE_EN_ATTENTE',
           message: 'Votre compte est en attente de validation par l\'administrateur. Vous recevrez une notification par WhatsApp une fois votre compte activé.'
@@ -901,8 +901,15 @@ async function handleRoute(request, { params }) {
         }, { status: 403 }))
       }
 
-      // Seuls les comptes VALIDES peuvent se connecter
-      if (user.status !== 'VALIDE') {
+      if (user.status === 'INACTIVE' || user.status === 'SUSPENDED') {
+        return handleCORS(NextResponse.json({ 
+          error: 'COMPTE_INACTIF',
+          message: 'Votre compte a été désactivé par l\'administration. Contactez le support au 77 338 90 95.'
+        }, { status: 403 }))
+      }
+
+      // Seuls les comptes VALIDES ou ACTIVE peuvent se connecter
+      if (user.status && user.status !== 'VALIDE' && user.status !== 'ACTIVE') {
         return handleCORS(NextResponse.json({ 
           error: 'COMPTE_INACTIF',
           message: 'Votre compte n\'est pas actif. Contactez l\'administrateur.'
