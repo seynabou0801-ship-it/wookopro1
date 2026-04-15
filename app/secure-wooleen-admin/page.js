@@ -27,6 +27,11 @@ export default function SecureAdminDashboard() {
   // ⚡ NOUVEAU : State pour les abonnements
   const [subscriptions, setSubscriptions] = useState([])
   const [pendingSubscriptions, setPendingSubscriptions] = useState([])
+  
+  // ⚡ NOUVEAU : State pour gestion statut prestataires
+  const [showStatusModal, setShowStatusModal] = useState(false)
+  const [selectedProviderForStatus, setSelectedProviderForStatus] = useState(null)
+  const [statusReason, setStatusReason] = useState('')
 
   useEffect(() => {
     const storedUser = localStorage.getItem('wooleen_user')
@@ -329,6 +334,45 @@ export default function SecureAdminDashboard() {
     setActionLoading(false)
   }
 
+  // ⚡ NOUVEAU : Gérer le statut du prestataire (ACTIVE/INACTIVE/SUSPENDED)
+  const handleToggleProviderStatus = async (provider, newStatus) => {
+    setSelectedProviderForStatus(provider)
+    
+    // Si on désactive/suspend, demander la raison
+    if (newStatus !== 'ACTIVE') {
+      setShowStatusModal(true)
+    } else {
+      // Activation directe
+      await updateProviderStatus(provider.userId, newStatus, null)
+    }
+  }
+
+  const updateProviderStatus = async (providerId, newStatus, reason = null) => {
+    setActionLoading(true)
+    try {
+      const res = await fetch(`/api/providers/${providerId}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus, reason })
+      })
+      
+      if (res.ok) {
+        const data = await res.json()
+        alert(`✅ ${data.message}`)
+        setShowStatusModal(false)
+        setStatusReason('')
+        await fetchData()
+      } else {
+        const error = await res.json()
+        alert(error.error || 'Erreur lors du changement de statut')
+      }
+    } catch (error) {
+      console.error('Error:', error)
+      alert('Erreur de connexion')
+    }
+    setActionLoading(false)
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -544,12 +588,15 @@ export default function SecureAdminDashboard() {
                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Ville</th>
                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Zones</th>
                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Note</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Statut</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Disponibilité</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Statut Compte</th>
                     <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
-                  {providers.map((p) => (
+                  {providers.map((p) => {
+                    const accountStatus = p.accountStatus || 'ACTIVE'
+                    return (
                     <tr key={p.id}>
                       <td className="px-4 py-3 font-medium">{p.businessName}</td>
                       <td className="px-4 py-3 text-gray-600 capitalize">{p.serviceCategory}</td>
@@ -564,18 +611,58 @@ export default function SecureAdminDashboard() {
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        <button
-                          onClick={() => {
-                            setSelectedProvider(p)
-                            setShowProviderModal(true)
-                          }}
-                          className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-                        >
-                          👁️ Détails
-                        </button>
+                        <div className="flex flex-col gap-1">
+                          <span className={`px-2 py-1 rounded-full text-xs font-semibold inline-block ${
+                            accountStatus === 'ACTIVE' ? 'bg-green-100 text-green-800' :
+                            accountStatus === 'INACTIVE' ? 'bg-gray-100 text-gray-800' :
+                            accountStatus === 'SUSPENDED' ? 'bg-red-100 text-red-800' :
+                            'bg-yellow-100 text-yellow-800'
+                          }`}>
+                            {accountStatus === 'ACTIVE' ? '🟢 ACTIF' :
+                             accountStatus === 'INACTIVE' ? '⚫ INACTIF' :
+                             accountStatus === 'SUSPENDED' ? '🔴 SUSPENDU' :
+                             '🟡 EN ATTENTE'}
+                          </span>
+                          {p.disabledReason && (
+                            <span className="text-xs text-gray-500 italic">
+                              {p.disabledReason}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex flex-col gap-2">
+                          <button
+                            onClick={() => {
+                              setSelectedProvider(p)
+                              setShowProviderModal(true)
+                            }}
+                            className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                          >
+                            👁️ Détails
+                          </button>
+                          
+                          {accountStatus === 'ACTIVE' ? (
+                            <button
+                              onClick={() => handleToggleProviderStatus(p, 'INACTIVE')}
+                              disabled={actionLoading}
+                              className="px-3 py-1 bg-red-600 text-white rounded text-xs font-medium hover:bg-red-700 disabled:opacity-50"
+                            >
+                              🔴 Désactiver
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => handleToggleProviderStatus(p, 'ACTIVE')}
+                              disabled={actionLoading}
+                              className="px-3 py-1 bg-green-600 text-white rounded text-xs font-medium hover:bg-green-700 disabled:opacity-50"
+                            >
+                              🟢 Activer
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
-                  ))}
+                  )})}
                 </tbody>
               </table>
             </div>
@@ -1335,6 +1422,64 @@ export default function SecureAdminDashboard() {
                   </button>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ⚡ NOUVEAU : Modal Désactivation Prestataire */}
+      {showStatusModal && selectedProviderForStatus && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl max-w-md w-full">
+            <div className="p-6 border-b">
+              <h3 className="text-xl font-bold text-gray-900">
+                🔴 Désactiver le prestataire
+              </h3>
+              <p className="text-sm text-gray-500 mt-1">
+                {selectedProviderForStatus.businessName}
+              </p>
+            </div>
+
+            <div className="p-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Raison de la désactivation (optionnel)
+              </label>
+              <textarea
+                value={statusReason}
+                onChange={(e) => setStatusReason(e.target.value)}
+                placeholder="Ex: Non-respect des règles, Fraude, Qualité insuffisante..."
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                rows={4}
+              />
+              <p className="text-xs text-gray-500 mt-2">
+                ⚠️ Le prestataire ne recevra plus aucune demande tant que son compte est désactivé.
+              </p>
+            </div>
+
+            <div className="p-6 border-t bg-gray-50">
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    setShowStatusModal(false)
+                    setStatusReason('')
+                    setSelectedProviderForStatus(null)
+                  }}
+                  className="flex-1 bg-gray-200 text-gray-700 py-3 rounded-xl font-semibold hover:bg-gray-300"
+                >
+                  Annuler
+                </button>
+                <button
+                  onClick={() => updateProviderStatus(
+                    selectedProviderForStatus.userId,
+                    'INACTIVE',
+                    statusReason || null
+                  )}
+                  disabled={actionLoading}
+                  className="flex-1 bg-red-600 text-white py-3 rounded-xl font-semibold hover:bg-red-700 disabled:opacity-50"
+                >
+                  {actionLoading ? 'En cours...' : '✓ Confirmer'}
+                </button>
+              </div>
             </div>
           </div>
         </div>

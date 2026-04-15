@@ -166,6 +166,13 @@ async function findEligibleProviders(db, request) {
     const user = await db.collection('users').findOne({ id: profile.userId })
     if (!user) continue
 
+    // ⚡ FILTRE: Exclure les prestataires désactivés/suspendus
+    const userStatus = user.status || 'ACTIVE'  // Par défaut ACTIVE pour rétrocompatibilité
+    if (userStatus !== 'ACTIVE') {
+      console.log(`⚠️ ${profile.businessName} exclu: statut=${userStatus}`)
+      continue
+    }
+
     const subscription = await db.collection('subscriptions').findOne({ 
       providerId: profile.userId,
       status: { $in: ['TRIAL', 'ACTIVE'] }  // TRIAL + ACTIVE acceptés
@@ -1474,7 +1481,16 @@ async function handleRoute(request, { params }) {
           { $sort: { tier: -1, rating: -1, createdAt: -1 } }
         ])
         .toArray()
-      return handleCORS(NextResponse.json(providers.map(({ _id, ...rest }) => rest)))
+      
+      // Ajouter les champs status, disabledReason, disabledAt depuis user
+      const enrichedProviders = providers.map(({ _id, ...p }) => ({
+        ...p,
+        accountStatus: p.user?.status || 'ACTIVE',  // Status du compte user
+        disabledReason: p.user?.disabledReason || null,
+        disabledAt: p.user?.disabledAt || null
+      }))
+      
+      return handleCORS(NextResponse.json(enrichedProviders))
     }
 
     if (route === '/providers' && method === 'POST') {
@@ -1513,6 +1529,59 @@ async function handleRoute(request, { params }) {
       const updated = await db.collection('provider_profiles').findOne({ id })
       const { _id, ...clean } = updated
       return handleCORS(NextResponse.json(clean))
+    }
+
+    // ============ PROVIDER STATUS MANAGEMENT ============
+    const statusMatch = route.match(/^\/providers\/([a-zA-Z0-9-]+)\/status$/)
+    if (statusMatch && method === 'PATCH') {
+      const providerId = statusMatch[1]
+      const body = await request.json()
+      
+      // Validation du statut
+      const validStatuses = ['ACTIVE', 'INACTIVE', 'SUSPENDED', 'PENDING']
+      if (!validStatuses.includes(body.status)) {
+        return handleCORS(NextResponse.json(
+          { error: 'Statut invalide. Valeurs acceptées: ACTIVE, INACTIVE, SUSPENDED, PENDING' },
+          { status: 400 }
+        ))
+      }
+
+      // Récupérer le provider et le user associé
+      const provider = await db.collection('provider_profiles').findOne({ userId: providerId })
+      if (!provider) {
+        return handleCORS(NextResponse.json({ error: 'Prestataire non trouvé' }, { status: 404 }))
+      }
+
+      // Mettre à jour le statut dans users
+      const updateData = {
+        status: body.status,
+        updatedAt: new Date()
+      }
+
+      if (body.status !== 'ACTIVE' && body.reason) {
+        updateData.disabledReason = body.reason
+        updateData.disabledAt = new Date()
+      } else if (body.status === 'ACTIVE') {
+        updateData.disabledReason = null
+        updateData.disabledAt = null
+      }
+
+      await db.collection('users').updateOne(
+        { id: providerId },
+        { $set: updateData }
+      )
+
+      // Récupérer les données mises à jour
+      const updatedUser = await db.collection('users').findOne({ id: providerId })
+      const { _id, ...cleanUser } = updatedUser
+
+      console.log(`✅ Statut prestataire ${providerId} changé vers ${body.status}`)
+
+      return handleCORS(NextResponse.json({
+        success: true,
+        user: cleanUser,
+        message: `Statut changé vers ${body.status}`
+      }))
     }
 
     if (providerMatch && method === 'DELETE') {

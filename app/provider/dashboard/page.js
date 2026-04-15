@@ -37,6 +37,13 @@ export default function ProviderDashboard() {
         const myProvider = providers.find(p => p.userId === userId)
         if (myProvider) {
           setProvider(myProvider)
+          
+          // Vérifier si le compte est désactivé
+          if (myProvider.accountStatus && myProvider.accountStatus !== 'ACTIVE') {
+            // Compte désactivé, on charge quand même mais on affichera un banner
+            console.log('⚠️ Compte désactivé:', myProvider.accountStatus)
+          }
+          
           await fetchSubscription(userId)
           await fetchLeads(userId)
         }
@@ -172,6 +179,47 @@ export default function ProviderDashboard() {
       </header>
 
       <main className="max-w-5xl mx-auto px-4 py-6">
+        {/* ⚡ BANNER COMPTE DÉSACTIVÉ */}
+        {provider?.accountStatus && provider.accountStatus !== 'ACTIVE' && (
+          <div className={`rounded-xl border-2 p-6 mb-6 ${
+            provider.accountStatus === 'SUSPENDED' ? 'bg-red-50 border-red-300' :
+            provider.accountStatus === 'INACTIVE' ? 'bg-gray-50 border-gray-300' :
+            'bg-yellow-50 border-yellow-300'
+          }`}>
+            <div className="flex items-start gap-4">
+              <div className="text-4xl">
+                {provider.accountStatus === 'SUSPENDED' ? '🔴' : 
+                 provider.accountStatus === 'INACTIVE' ? '⚫' : '🟡'}
+              </div>
+              <div className="flex-1">
+                <h3 className="text-xl font-bold text-gray-900 mb-2">
+                  {provider.accountStatus === 'SUSPENDED' && '🚫 Compte Suspendu'}
+                  {provider.accountStatus === 'INACTIVE' && '⛔ Compte Désactivé'}
+                  {provider.accountStatus === 'PENDING' && '⏳ Compte En Attente'}
+                </h3>
+                <p className="text-gray-700 mb-3">
+                  {provider.accountStatus === 'SUSPENDED' && 
+                    'Votre compte a été suspendu par l\'administration. Vous ne pouvez plus recevoir de nouvelles demandes.'}
+                  {provider.accountStatus === 'INACTIVE' && 
+                    'Votre compte a été désactivé par l\'administration. Vous ne recevez plus de nouvelles demandes.'}
+                  {provider.accountStatus === 'PENDING' && 
+                    'Votre compte est en attente de validation par l\'administration.'}
+                </p>
+                {provider.disabledReason && (
+                  <div className="bg-white border border-gray-200 rounded-lg p-3 mb-3">
+                    <p className="text-sm font-semibold text-gray-700 mb-1">Raison :</p>
+                    <p className="text-sm text-gray-600">{provider.disabledReason}</p>
+                  </div>
+                )}
+                <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <Phone className="w-4 h-4" />
+                  <span>Contactez le support au <strong className="text-[#FF6A00]">77 338 90 95</strong> pour plus d'informations</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Subscription Widget */}
         {subscription ? (
           <div className={`rounded-xl border-2 p-5 mb-6 ${
@@ -231,34 +279,58 @@ export default function ProviderDashboard() {
 
         {/* Leads Section */}
         <div className="bg-white rounded-xl border shadow-sm">
-          <div className="p-6 border-b flex items-center justify-between">
-            <div>
-              <h2 className="text-xl font-bold text-gray-900">Demandes Reçues</h2>
-              <p className="text-sm text-gray-600 mt-1">
-                {canViewClientPhone() 
-                  ? 'Contactez directement les clients'
-                  : '⚠️ Abonnement requis pour voir les numéros'}
-              </p>
-            </div>
-            <button
-              onClick={() => fetchLeads(user?.id)}
-              disabled={refreshing}
-              className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 disabled:opacity-50"
-            >
-              {refreshing ? '⏳' : '🔄'} Actualiser
-            </button>
-          </div>
-
-          {leads.length === 0 ? (
-            <div className="p-12 text-center text-gray-500">
-              <MessageCircle className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-              <p className="text-lg font-medium mb-2">Aucune demande pour le moment</p>
-              <p className="text-sm">Les clients qui cherchent vos services apparaîtront ici automatiquement.</p>
+          {/* ⚡ BANNER si compte désactivé */}
+          {provider?.accountStatus && provider.accountStatus !== 'ACTIVE' ? (
+            <div className="p-12 text-center">
+              <div className="max-w-md mx-auto">
+                <div className="text-6xl mb-4">🔒</div>
+                <h3 className="text-xl font-bold text-gray-900 mb-2">Accès aux demandes bloqué</h3>
+                <p className="text-gray-600 mb-4">
+                  Votre compte étant {provider.accountStatus === 'SUSPENDED' ? 'suspendu' : 
+                                      provider.accountStatus === 'INACTIVE' ? 'désactivé' : 
+                                    'en attente'}, vous ne pouvez plus accéder aux demandes.
+                </p>
+                {provider.disabledReason && (
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 mb-3 text-left">
+                    <p className="text-sm font-semibold text-gray-700 mb-1">Raison :</p>
+                    <p className="text-sm text-gray-600">{provider.disabledReason}</p>
+                  </div>
+                )}
+                <p className="text-sm text-gray-500">
+                  Contactez le support au <strong className="text-[#FF6A00]">77 338 90 95</strong>
+                </p>
+              </div>
             </div>
           ) : (
-            <div className="divide-y">
-              {leads.map((lead) => (
-                <div key={lead.id} className="p-6 hover:bg-gray-50 transition-colors">
+            <>
+              <div className="p-6 border-b flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">Demandes Reçues</h2>
+                <p className="text-sm text-gray-600 mt-1">
+                  {canViewClientPhone() 
+                    ? 'Contactez directement les clients'
+                    : '⚠️ Abonnement requis pour voir les numéros'}
+                </p>
+              </div>
+              <button
+                onClick={() => fetchLeads(user?.id)}
+                disabled={refreshing}
+                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 disabled:opacity-50"
+              >
+                {refreshing ? '⏳' : '🔄'} Actualiser
+              </button>
+            </div>
+
+            {leads.length === 0 ? (
+              <div className="p-12 text-center text-gray-500">
+                <MessageCircle className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+                <p className="text-lg font-medium mb-2">Aucune demande pour le moment</p>
+                <p className="text-sm">Les clients qui cherchent vos services apparaîtront ici automatiquement.</p>
+              </div>
+            ) : (
+              <div className="divide-y">
+                {leads.map((lead) => (
+                  <div key={lead.id} className="p-6 hover:bg-gray-50 transition-colors">
                   <div className="flex items-start justify-between gap-4 mb-4">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
@@ -332,6 +404,9 @@ export default function ProviderDashboard() {
               ))}
             </div>
           )}
+            </>
+          )
+          }
         </div>
 
         {/* Info Box */}
