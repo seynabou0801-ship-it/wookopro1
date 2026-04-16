@@ -171,6 +171,7 @@ export default function ProviderAuthPage() {
                     value={formData.loginPhone}
                     onChange={(e) => setFormData({ ...formData, loginPhone: e.target.value })}
                     placeholder="+221 77 123 45 67"
+                    autoComplete="off"
                     required
                     className="w-full px-4 py-3.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-[#FF7A00] focus:ring-4 focus:ring-orange-100 transition-all"
                   />
@@ -186,6 +187,7 @@ export default function ProviderAuthPage() {
                       value={formData.loginPassword}
                       onChange={(e) => setFormData({ ...formData, loginPassword: e.target.value })}
                       placeholder="••••••••"
+                      autoComplete="off"
                       required
                       className="w-full px-4 py-3.5 pr-12 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-[#FF7A00] focus:ring-4 focus:ring-orange-100 transition-all"
                     />
