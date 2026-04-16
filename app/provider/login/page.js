@@ -319,6 +319,7 @@ export default function ProviderAuthPage() {
                           value={formData.password}
                           onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                           placeholder="••••••••"
+                          autoComplete="new-password"
                           required
                           minLength={6}
                           className="w-full px-4 py-3.5 pr-12 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-[#FF7A00] focus:ring-4 focus:ring-orange-100 transition-all"
@@ -343,6 +344,7 @@ export default function ProviderAuthPage() {
                           value={formData.passwordConfirm}
                           onChange={(e) => setFormData({ ...formData, passwordConfirm: e.target.value })}
                           placeholder="••••••••"
+                          autoComplete="new-password"
                           required
                           minLength={6}
                           className="w-full px-4 py-3.5 pr-12 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-[#FF7A00] focus:ring-4 focus:ring-orange-100 transition-all"
