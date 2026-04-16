@@ -397,6 +397,74 @@ export default function SecureAdminDashboard() {
     setShowPaymentProofModal(true)
   }
 
+  // ⚡ NOUVEAU : Ouvrir Data URL dans nouvel onglet (conversion en Blob)
+  const openInNewTab = (dataUrl) => {
+    try {
+      // Si c'est une Data URL (base64), convertir en Blob URL
+      if (dataUrl.startsWith('data:')) {
+        // Extraire le type MIME et les données base64
+        const arr = dataUrl.split(',')
+        const mimeMatch = arr[0].match(/:(.*?);/)
+        const mime = mimeMatch ? mimeMatch[1] : 'application/octet-stream'
+        const bstr = atob(arr[1])
+        let n = bstr.length
+        const u8arr = new Uint8Array(n)
+        
+        while (n--) {
+          u8arr[n] = bstr.charCodeAt(n)
+        }
+        
+        const blob = new Blob([u8arr], { type: mime })
+        const blobUrl = URL.createObjectURL(blob)
+        
+        // Ouvrir le Blob URL dans un nouvel onglet
+        const newWindow = window.open(blobUrl, '_blank')
+        
+        if (!newWindow) {
+          alert('❌ Le navigateur a bloqué l\'ouverture du nouvel onglet.\n\nAutorisez les pop-ups pour ce site ou utilisez le bouton Télécharger.')
+        }
+        
+        // Nettoyer le Blob URL après 1 minute
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 60000)
+      } else {
+        // URL normale, ouvrir directement
+        const newWindow = window.open(dataUrl, '_blank')
+        if (!newWindow) {
+          alert('❌ Le navigateur a bloqué l\'ouverture du nouvel onglet.')
+        }
+      }
+    } catch (error) {
+      console.error('Erreur ouverture fichier:', error)
+      alert('❌ Erreur lors de l\'ouverture du fichier.\n\nUtilisez le bouton Télécharger à la place.')
+    }
+  }
+
+  // ⚡ NOUVEAU : Télécharger Data URL
+  const downloadFile = (dataUrl, filename = 'preuve_paiement') => {
+    try {
+      const link = document.createElement('a')
+      link.href = dataUrl
+      
+      // Détecter l'extension depuis le MIME type
+      if (dataUrl.startsWith('data:image/jpeg')) {
+        link.download = `${filename}.jpg`
+      } else if (dataUrl.startsWith('data:image/png')) {
+        link.download = `${filename}.png`
+      } else if (dataUrl.startsWith('data:application/pdf')) {
+        link.download = `${filename}.pdf`
+      } else {
+        link.download = filename
+      }
+      
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+    } catch (error) {
+      console.error('Erreur téléchargement:', error)
+      alert('❌ Erreur lors du téléchargement')
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -1544,14 +1612,12 @@ export default function SecureAdminDashboard() {
                   />
                   <div style={{display: 'none'}} className="text-center py-12">
                     <p className="text-red-600 mb-4">❌ Impossible de charger l'image</p>
-                    <a
-                      href={currentPaymentProof}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                    <button
+                      onClick={() => openInNewTab(currentPaymentProof)}
                       className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
                     >
                       Ouvrir dans un nouvel onglet
-                    </a>
+                    </button>
                   </div>
                 </div>
               )}
@@ -1565,14 +1631,12 @@ export default function SecureAdminDashboard() {
                   />
                   <p className="text-sm text-gray-600 mt-2 text-center">
                     Si le PDF ne s'affiche pas, 
-                    <a
-                      href={currentPaymentProof}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 hover:text-blue-800 ml-1"
+                    <button
+                      onClick={() => openInNewTab(currentPaymentProof)}
+                      className="text-blue-600 hover:text-blue-800 ml-1 underline"
                     >
                       cliquez ici pour l'ouvrir dans un nouvel onglet
-                    </a>
+                    </button>
                   </p>
                 </div>
               )}
@@ -1584,21 +1648,18 @@ export default function SecureAdminDashboard() {
                     Type de fichier non prévisualisable
                   </p>
                   <div className="flex gap-3 justify-center">
-                    <a
-                      href={currentPaymentProof}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                    <button
+                      onClick={() => openInNewTab(currentPaymentProof)}
                       className="px-6 py-3 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700"
                     >
                       🔗 Ouvrir dans un nouvel onglet
-                    </a>
-                    <a
-                      href={currentPaymentProof}
-                      download
+                    </button>
+                    <button
+                      onClick={() => downloadFile(currentPaymentProof)}
                       className="px-6 py-3 bg-green-600 text-white rounded-xl font-semibold hover:bg-green-700"
                     >
                       📥 Télécharger
-                    </a>
+                    </button>
                   </div>
                 </div>
               )}
@@ -1607,21 +1668,18 @@ export default function SecureAdminDashboard() {
             {/* Footer with actions */}
             <div className="p-6 border-t bg-gray-50">
               <div className="flex gap-3 justify-center">
-                <a
-                  href={currentPaymentProof}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <button
+                  onClick={() => openInNewTab(currentPaymentProof)}
                   className="px-6 py-3 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700"
                 >
                   🔗 Ouvrir dans nouvel onglet
-                </a>
-                <a
-                  href={currentPaymentProof}
-                  download
+                </button>
+                <button
+                  onClick={() => downloadFile(currentPaymentProof)}
                   className="px-6 py-3 bg-green-600 text-white rounded-xl font-semibold hover:bg-green-700"
                 >
                   📥 Télécharger
-                </a>
+                </button>
                 <button
                   onClick={() => {
                     setShowPaymentProofModal(false)
