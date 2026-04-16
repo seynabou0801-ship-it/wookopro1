@@ -32,6 +32,10 @@ export default function SecureAdminDashboard() {
   const [showStatusModal, setShowStatusModal] = useState(false)
   const [selectedProviderForStatus, setSelectedProviderForStatus] = useState(null)
   const [statusReason, setStatusReason] = useState('')
+  
+  // ⚡ NOUVEAU : State pour viewer preuve de paiement
+  const [showPaymentProofModal, setShowPaymentProofModal] = useState(false)
+  const [currentPaymentProof, setCurrentPaymentProof] = useState(null)
 
   useEffect(() => {
     const storedUser = localStorage.getItem('wooleen_user')
@@ -371,6 +375,26 @@ export default function SecureAdminDashboard() {
       alert('Erreur de connexion')
     }
     setActionLoading(false)
+  }
+
+  // ⚡ NOUVEAU : Helper pour détecter le type de fichier
+  const getFileType = (url) => {
+    if (!url) return 'unknown'
+    const extension = url.split('.').pop().toLowerCase().split('?')[0]
+    
+    if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'].includes(extension)) {
+      return 'image'
+    }
+    if (extension === 'pdf') {
+      return 'pdf'
+    }
+    return 'other'
+  }
+
+  // ⚡ NOUVEAU : Ouvrir le viewer de preuve de paiement
+  const openPaymentProofViewer = (proofUrl) => {
+    setCurrentPaymentProof(proofUrl)
+    setShowPaymentProofModal(true)
   }
 
   if (loading) {
@@ -921,15 +945,15 @@ export default function SecureAdminDashboard() {
                             <span className="text-sm text-gray-600 capitalize">{sub.paymentMethod?.replace('_', ' ')}</span>
                           </td>
                           <td className="px-4 py-3">
-                            {sub.paymentProof && (
-                              <a 
-                                href={sub.paymentProof} 
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                                className="text-blue-600 hover:text-blue-800 text-sm underline"
+                            {sub.paymentProof ? (
+                              <button
+                                onClick={() => openPaymentProofViewer(sub.paymentProof)}
+                                className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700"
                               >
-                                Voir preuve
-                              </a>
+                                📎 Voir preuve
+                              </button>
+                            ) : (
+                              <span className="text-sm text-gray-400">Aucune preuve</span>
                             )}
                           </td>
                           <td className="px-4 py-3">
@@ -1478,6 +1502,134 @@ export default function SecureAdminDashboard() {
                   className="flex-1 bg-red-600 text-white py-3 rounded-xl font-semibold hover:bg-red-700 disabled:opacity-50"
                 >
                   {actionLoading ? 'En cours...' : '✓ Confirmer'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ⚡ NOUVEAU : Modal Viewer Preuve de Paiement */}
+      {showPaymentProofModal && currentPaymentProof && (
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] flex flex-col">
+            {/* Header */}
+            <div className="p-6 border-b flex items-center justify-between">
+              <h3 className="text-xl font-bold text-gray-900">
+                📎 Preuve de Paiement
+              </h3>
+              <button
+                onClick={() => {
+                  setShowPaymentProofModal(false)
+                  setCurrentPaymentProof(null)
+                }}
+                className="text-gray-500 hover:text-gray-700 text-2xl font-bold"
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 overflow-auto p-6">
+              {getFileType(currentPaymentProof) === 'image' && (
+                <div className="flex justify-center">
+                  <img 
+                    src={currentPaymentProof} 
+                    alt="Preuve de paiement"
+                    className="max-w-full h-auto rounded-lg shadow-lg"
+                    onError={(e) => {
+                      e.target.style.display = 'none'
+                      e.target.nextSibling.style.display = 'block'
+                    }}
+                  />
+                  <div style={{display: 'none'}} className="text-center py-12">
+                    <p className="text-red-600 mb-4">❌ Impossible de charger l'image</p>
+                    <a
+                      href={currentPaymentProof}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                    >
+                      Ouvrir dans un nouvel onglet
+                    </a>
+                  </div>
+                </div>
+              )}
+
+              {getFileType(currentPaymentProof) === 'pdf' && (
+                <div className="h-[600px]">
+                  <iframe
+                    src={currentPaymentProof}
+                    className="w-full h-full border rounded-lg"
+                    title="Preuve de paiement PDF"
+                  />
+                  <p className="text-sm text-gray-600 mt-2 text-center">
+                    Si le PDF ne s'affiche pas, 
+                    <a
+                      href={currentPaymentProof}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:text-blue-800 ml-1"
+                    >
+                      cliquez ici pour l'ouvrir dans un nouvel onglet
+                    </a>
+                  </p>
+                </div>
+              )}
+
+              {getFileType(currentPaymentProof) === 'other' && (
+                <div className="text-center py-12">
+                  <div className="text-6xl mb-4">📄</div>
+                  <p className="text-gray-700 mb-4">
+                    Type de fichier non prévisualisable
+                  </p>
+                  <div className="flex gap-3 justify-center">
+                    <a
+                      href={currentPaymentProof}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-6 py-3 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700"
+                    >
+                      🔗 Ouvrir dans un nouvel onglet
+                    </a>
+                    <a
+                      href={currentPaymentProof}
+                      download
+                      className="px-6 py-3 bg-green-600 text-white rounded-xl font-semibold hover:bg-green-700"
+                    >
+                      📥 Télécharger
+                    </a>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Footer with actions */}
+            <div className="p-6 border-t bg-gray-50">
+              <div className="flex gap-3 justify-center">
+                <a
+                  href={currentPaymentProof}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-6 py-3 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700"
+                >
+                  🔗 Ouvrir dans nouvel onglet
+                </a>
+                <a
+                  href={currentPaymentProof}
+                  download
+                  className="px-6 py-3 bg-green-600 text-white rounded-xl font-semibold hover:bg-green-700"
+                >
+                  📥 Télécharger
+                </a>
+                <button
+                  onClick={() => {
+                    setShowPaymentProofModal(false)
+                    setCurrentPaymentProof(null)
+                  }}
+                  className="px-6 py-3 bg-gray-200 text-gray-700 rounded-xl font-semibold hover:bg-gray-300"
+                >
+                  Fermer
                 </button>
               </div>
             </div>
