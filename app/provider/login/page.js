@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
@@ -27,6 +27,23 @@ export default function ProviderAuthPage() {
   })
   const [loading, setLoading] = useState(false)
   const [registered, setRegistered] = useState(false)
+
+  // ⚡ Force le vidage des champs de connexion au chargement
+  useEffect(() => {
+    // Réinitialiser les champs de connexion
+    setFormData(prev => ({
+      ...prev,
+      loginPhone: '',
+      loginPassword: ''
+    }))
+    
+    // Forcer le vidage des inputs HTML directement
+    const phoneInput = document.getElementById('login-phone-unique')
+    const passwordInput = document.getElementById('login-password-unique')
+    
+    if (phoneInput) phoneInput.value = ''
+    if (passwordInput) passwordInput.value = ''
+  }, [])
 
   const handleLogin = async (e) => {
     e.preventDefault()
@@ -172,6 +189,8 @@ export default function ProviderAuthPage() {
                     onChange={(e) => setFormData({ ...formData, loginPhone: e.target.value })}
                     placeholder="+221 77 123 45 67"
                     autoComplete="off"
+                    name="login-phone-unique"
+                    id="login-phone-unique"
                     required
                     className="w-full px-4 py-3.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-[#FF7A00] focus:ring-4 focus:ring-orange-100 transition-all"
                   />
@@ -187,7 +206,9 @@ export default function ProviderAuthPage() {
                       value={formData.loginPassword}
                       onChange={(e) => setFormData({ ...formData, loginPassword: e.target.value })}
                       placeholder="••••••••"
-                      autoComplete="off"
+                      autoComplete="new-password"
+                      name="login-password-unique"
+                      id="login-password-unique"
                       required
                       className="w-full px-4 py-3.5 pr-12 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-[#FF7A00] focus:ring-4 focus:ring-orange-100 transition-all"
                     />
