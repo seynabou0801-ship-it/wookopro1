@@ -3,6 +3,20 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import {
+  mainKPIs,
+  acquisitionData,
+  engagementData,
+  conversionFunnel,
+  marketplaceData,
+  qualityData,
+  businessData,
+  trafficEvolution,
+  providersDetailedTable,
+  formatCurrency,
+  formatNumber,
+  formatPercentage
+} from './analytics-mock-data'
 
 export default function SecureAdminDashboard() {
   const router = useRouter()
@@ -561,12 +575,12 @@ export default function SecureAdminDashboard() {
                   <span className="text-2xl">👁️</span>
                 </div>
                 <span className="px-2 py-1 bg-green-50 text-green-700 rounded-full text-xs font-semibold">
-                  +24%
+                  {mainKPIs.visits.change}
                 </span>
               </div>
               <h3 className="text-sm text-gray-600 font-medium mb-1">Visites Totales</h3>
-              <p className="text-2xl font-bold text-gray-900">12,458</p>
-              <p className="text-xs text-gray-500 mt-1">8,942 visiteurs uniques</p>
+              <p className="text-2xl font-bold text-gray-900">{formatNumber(mainKPIs.visits.total)}</p>
+              <p className="text-xs text-gray-500 mt-1">{formatNumber(mainKPIs.visits.unique)} visiteurs uniques</p>
             </div>
 
             {/* Engagement */}
@@ -576,12 +590,12 @@ export default function SecureAdminDashboard() {
                   <span className="text-2xl">🖱️</span>
                 </div>
                 <span className="px-2 py-1 bg-green-50 text-green-700 rounded-full text-xs font-semibold">
-                  +31%
+                  {mainKPIs.clicks.change}
                 </span>
               </div>
               <h3 className="text-sm text-gray-600 font-medium mb-1">Clics Totaux</h3>
-              <p className="text-2xl font-bold text-gray-900">3,267</p>
-              <p className="text-xs text-gray-500 mt-1">Taux d'engagement: 26.2%</p>
+              <p className="text-2xl font-bold text-gray-900">{formatNumber(mainKPIs.clicks.total)}</p>
+              <p className="text-xs text-gray-500 mt-1">Taux d'engagement: {mainKPIs.clicks.engagementRate}%</p>
             </div>
 
             {/* Conversion */}
@@ -591,12 +605,12 @@ export default function SecureAdminDashboard() {
                   <span className="text-2xl">📈</span>
                 </div>
                 <span className="px-2 py-1 bg-green-50 text-green-700 rounded-full text-xs font-semibold">
-                  +18%
+                  {mainKPIs.conversion.change}
                 </span>
               </div>
               <h3 className="text-sm text-gray-600 font-medium mb-1">Taux de Conversion</h3>
-              <p className="text-2xl font-bold text-gray-900">5.89%</p>
-              <p className="text-xs text-gray-500 mt-1">734 conversions réussies</p>
+              <p className="text-2xl font-bold text-gray-900">{mainKPIs.conversion.rate}%</p>
+              <p className="text-xs text-gray-500 mt-1">{mainKPIs.conversion.total} conversions réussies</p>
             </div>
 
             {/* Business */}
@@ -606,12 +620,12 @@ export default function SecureAdminDashboard() {
                   <span className="text-2xl">💰</span>
                 </div>
                 <span className="px-2 py-1 bg-green-50 text-green-700 rounded-full text-xs font-semibold">
-                  +29%
+                  {mainKPIs.revenue.change}
                 </span>
               </div>
               <h3 className="text-sm text-gray-600 font-medium mb-1">Revenu Total</h3>
-              <p className="text-2xl font-bold text-gray-900">8.2M FCFA</p>
-              <p className="text-xs text-gray-500 mt-1">Panier moyen: 11,180 FCFA</p>
+              <p className="text-2xl font-bold text-gray-900">{(mainKPIs.revenue.total / 1000000).toFixed(1)}M FCFA</p>
+              <p className="text-xs text-gray-500 mt-1">Panier moyen: {formatNumber(mainKPIs.revenue.avgBasket)} FCFA</p>
             </div>
           </div>
 
@@ -625,7 +639,7 @@ export default function SecureAdminDashboard() {
                 <div className="relative">
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-sm text-gray-600">Visites</span>
-                    <span className="text-sm font-bold text-gray-900">12,458</span>
+                    <span className="text-sm font-bold text-gray-900">{formatNumber(conversionFunnel.visits.count)}</span>
                   </div>
                   <div className="h-10 bg-gradient-to-r from-blue-500 to-blue-400 rounded-lg flex items-center px-4">
                     <span className="text-white font-semibold text-sm">100%</span>
@@ -635,40 +649,40 @@ export default function SecureAdminDashboard() {
                 <div className="relative">
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-sm text-gray-600">Clics</span>
-                    <span className="text-sm font-bold text-gray-900">3,267 (26.2%)</span>
+                    <span className="text-sm font-bold text-gray-900">{formatNumber(conversionFunnel.clicks.count)} ({formatPercentage(conversionFunnel.clicks.percentage)})</span>
                   </div>
                   <div className="h-10 bg-gradient-to-r from-indigo-500 to-indigo-400 rounded-lg flex items-center px-4" style={{width: '78%'}}>
-                    <span className="text-white font-semibold text-sm">26.2%</span>
+                    <span className="text-white font-semibold text-sm">{formatPercentage(conversionFunnel.clicks.percentage)}</span>
                   </div>
                 </div>
 
                 <div className="relative">
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-sm text-gray-600">Demandes</span>
-                    <span className="text-sm font-bold text-gray-900">1,845 (14.8%)</span>
+                    <span className="text-sm font-bold text-gray-900">{formatNumber(conversionFunnel.requests.count)} ({formatPercentage(conversionFunnel.requests.percentage)})</span>
                   </div>
                   <div className="h-10 bg-gradient-to-r from-purple-500 to-purple-400 rounded-lg flex items-center px-4" style={{width: '56%'}}>
-                    <span className="text-white font-semibold text-sm">14.8%</span>
+                    <span className="text-white font-semibold text-sm">{formatPercentage(conversionFunnel.requests.percentage)}</span>
                   </div>
                 </div>
 
                 <div className="relative">
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-sm text-gray-600">Réservations</span>
-                    <span className="text-sm font-bold text-gray-900">892 (7.2%)</span>
+                    <span className="text-sm font-bold text-gray-900">{formatNumber(conversionFunnel.bookings.count)} ({formatPercentage(conversionFunnel.bookings.percentage)})</span>
                   </div>
                   <div className="h-10 bg-gradient-to-r from-orange-500 to-orange-400 rounded-lg flex items-center px-4" style={{width: '38%'}}>
-                    <span className="text-white font-semibold text-sm">7.2%</span>
+                    <span className="text-white font-semibold text-sm">{formatPercentage(conversionFunnel.bookings.percentage)}</span>
                   </div>
                 </div>
 
                 <div className="relative">
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-sm text-gray-600">Paiements</span>
-                    <span className="text-sm font-bold text-gray-900">734 (5.9%)</span>
+                    <span className="text-sm font-bold text-gray-900">{formatNumber(conversionFunnel.payments.count)} ({formatPercentage(conversionFunnel.payments.percentage)})</span>
                   </div>
                   <div className="h-10 bg-gradient-to-r from-green-500 to-green-400 rounded-lg flex items-center px-4" style={{width: '28%'}}>
-                    <span className="text-white font-semibold text-sm">5.9%</span>
+                    <span className="text-white font-semibold text-sm">{formatPercentage(conversionFunnel.payments.percentage)}</span>
                   </div>
                 </div>
               </div>
@@ -681,27 +695,27 @@ export default function SecureAdminDashboard() {
               <div className="space-y-3">
                 <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
                   <span className="text-sm text-gray-700">Prestataires actifs</span>
-                  <span className="text-lg font-bold text-blue-700">{stats?.activeProviders || 0}</span>
+                  <span className="text-lg font-bold text-blue-700">{marketplaceData.activeProviders}</span>
                 </div>
 
                 <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
                   <span className="text-sm text-gray-700">Taux de réponse moyen</span>
-                  <span className="text-lg font-bold text-green-700">87.3%</span>
+                  <span className="text-lg font-bold text-green-700">{marketplaceData.avgResponseRate}%</span>
                 </div>
 
                 <div className="flex items-center justify-between p-3 bg-purple-50 rounded-lg">
                   <span className="text-sm text-gray-700">Délai moyen réponse</span>
-                  <span className="text-lg font-bold text-purple-700">12 min</span>
+                  <span className="text-lg font-bold text-purple-700">{marketplaceData.avgResponseTime}</span>
                 </div>
 
                 <div className="flex items-center justify-between p-3 bg-yellow-50 rounded-lg">
                   <span className="text-sm text-gray-700">Note moyenne</span>
-                  <span className="text-lg font-bold text-yellow-700">4.7 ⭐</span>
+                  <span className="text-lg font-bold text-yellow-700">{qualityData.avgRating} ⭐</span>
                 </div>
 
                 <div className="flex items-center justify-between p-3 bg-orange-50 rounded-lg">
                   <span className="text-sm text-gray-700">Profils les plus vus</span>
-                  <span className="text-lg font-bold text-orange-700">342</span>
+                  <span className="text-lg font-bold text-orange-700">{marketplaceData.topProviders[0].views}</span>
                 </div>
               </div>
             </div>
@@ -714,24 +728,19 @@ export default function SecureAdminDashboard() {
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
               <h3 className="text-lg font-bold text-gray-900 mb-4">🔥 Top Catégories</h3>
               <div className="space-y-3">
-                {[
-                  { name: 'Plomberie', value: 342, color: 'bg-blue-500' },
-                  { name: 'Électricité', value: 298, color: 'bg-yellow-500' },
-                  { name: 'Nettoyage', value: 267, color: 'bg-green-500' },
-                  { name: 'Climatisation', value: 234, color: 'bg-cyan-500' },
-                  { name: 'Menuiserie', value: 189, color: 'bg-orange-500' }
-                ].map((cat, idx) => {
-                  const maxValue = 342
-                  const percentage = (cat.value / maxValue) * 100
+                {marketplaceData.topCategories.map((cat, idx) => {
+                  const maxValue = marketplaceData.topCategories[0].requests
+                  const percentage = (cat.requests / maxValue) * 100
+                  const colors = ['bg-blue-500', 'bg-yellow-500', 'bg-green-500', 'bg-cyan-500', 'bg-orange-500']
                   return (
                     <div key={idx}>
                       <div className="flex items-center justify-between mb-1">
                         <span className="text-sm text-gray-700 font-medium">{cat.name}</span>
-                        <span className="text-sm font-bold text-gray-900">{cat.value}</span>
+                        <span className="text-sm font-bold text-gray-900">{cat.requests}</span>
                       </div>
                       <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
                         <div 
-                          className={`h-full ${cat.color} rounded-full transition-all`}
+                          className={`h-full ${colors[idx]} rounded-full transition-all`}
                           style={{ width: `${percentage}%` }}
                         />
                       </div>
@@ -745,16 +754,10 @@ export default function SecureAdminDashboard() {
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
               <h3 className="text-lg font-bold text-gray-900 mb-4">📍 Villes Actives</h3>
               <div className="space-y-3">
-                {[
-                  { name: 'Dakar', value: 589 },
-                  { name: 'Thiès', value: 234 },
-                  { name: 'Saint-Louis', value: 198 },
-                  { name: 'Kaolack', value: 156 },
-                  { name: 'Ziguinchor', value: 123 }
-                ].map((city, idx) => (
+                {marketplaceData.topCities.map((city, idx) => (
                   <div key={idx} className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-colors">
                     <span className="text-sm text-gray-700">{city.name}</span>
-                    <span className="text-sm font-bold text-[#0B2A4A]">{city.value} demandes</span>
+                    <span className="text-sm font-bold text-[#0B2A4A]">{city.requests} demandes</span>
                   </div>
                 ))}
               </div>
@@ -766,22 +769,22 @@ export default function SecureAdminDashboard() {
               <div className="space-y-3">
                 <div className="p-3 bg-yellow-50 rounded-lg">
                   <p className="text-xs text-gray-600 mb-1">Note moyenne</p>
-                  <p className="text-2xl font-bold text-yellow-700">4.7 / 5</p>
+                  <p className="text-2xl font-bold text-yellow-700">{qualityData.avgRating} / 5</p>
                 </div>
                 
                 <div className="p-3 bg-gray-50 rounded-lg">
                   <p className="text-xs text-gray-600 mb-1">Total avis</p>
-                  <p className="text-2xl font-bold text-gray-900">3,482</p>
+                  <p className="text-2xl font-bold text-gray-900">{formatNumber(qualityData.totalReviews)}</p>
                 </div>
 
                 <div className="p-3 bg-green-50 rounded-lg">
                   <p className="text-xs text-gray-600 mb-1">Taux satisfaction</p>
-                  <p className="text-2xl font-bold text-green-700">94.2%</p>
+                  <p className="text-2xl font-bold text-green-700">{qualityData.satisfactionRate}%</p>
                 </div>
 
                 <div className="p-3 bg-red-50 rounded-lg">
                   <p className="text-xs text-gray-600 mb-1">Taux annulation</p>
-                  <p className="text-2xl font-bold text-red-700">3.8%</p>
+                  <p className="text-2xl font-bold text-red-700">{qualityData.cancellationRate}%</p>
                 </div>
               </div>
             </div>
