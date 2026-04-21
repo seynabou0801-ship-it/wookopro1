@@ -544,6 +544,250 @@ export default function SecureAdminDashboard() {
           </div>
         </div>
 
+        {/* ⚡ NOUVEAU : Section Analytics enrichie */}
+        <div className="mb-8">
+          {/* Header Analytics */}
+          <div className="bg-gradient-to-r from-[#0B2A4A] to-blue-800 rounded-xl shadow-lg p-6 mb-6">
+            <h2 className="text-2xl font-bold text-white mb-2">📊 Analytics & Performance</h2>
+            <p className="text-blue-100 text-sm">Vue détaillée des performances de la plateforme</p>
+          </div>
+
+          {/* KPI Cards Avancés */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            {/* Acquisition */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md transition-shadow">
+              <div className="flex items-start justify-between mb-3">
+                <div className="p-2 bg-blue-50 rounded-lg">
+                  <span className="text-2xl">👁️</span>
+                </div>
+                <span className="px-2 py-1 bg-green-50 text-green-700 rounded-full text-xs font-semibold">
+                  +24%
+                </span>
+              </div>
+              <h3 className="text-sm text-gray-600 font-medium mb-1">Visites Totales</h3>
+              <p className="text-2xl font-bold text-gray-900">12,458</p>
+              <p className="text-xs text-gray-500 mt-1">8,942 visiteurs uniques</p>
+            </div>
+
+            {/* Engagement */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md transition-shadow">
+              <div className="flex items-start justify-between mb-3">
+                <div className="p-2 bg-orange-50 rounded-lg">
+                  <span className="text-2xl">🖱️</span>
+                </div>
+                <span className="px-2 py-1 bg-green-50 text-green-700 rounded-full text-xs font-semibold">
+                  +31%
+                </span>
+              </div>
+              <h3 className="text-sm text-gray-600 font-medium mb-1">Clics Totaux</h3>
+              <p className="text-2xl font-bold text-gray-900">3,267</p>
+              <p className="text-xs text-gray-500 mt-1">Taux d'engagement: 26.2%</p>
+            </div>
+
+            {/* Conversion */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md transition-shadow">
+              <div className="flex items-start justify-between mb-3">
+                <div className="p-2 bg-purple-50 rounded-lg">
+                  <span className="text-2xl">📈</span>
+                </div>
+                <span className="px-2 py-1 bg-green-50 text-green-700 rounded-full text-xs font-semibold">
+                  +18%
+                </span>
+              </div>
+              <h3 className="text-sm text-gray-600 font-medium mb-1">Taux de Conversion</h3>
+              <p className="text-2xl font-bold text-gray-900">5.89%</p>
+              <p className="text-xs text-gray-500 mt-1">734 conversions réussies</p>
+            </div>
+
+            {/* Business */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md transition-shadow">
+              <div className="flex items-start justify-between mb-3">
+                <div className="p-2 bg-green-50 rounded-lg">
+                  <span className="text-2xl">💰</span>
+                </div>
+                <span className="px-2 py-1 bg-green-50 text-green-700 rounded-full text-xs font-semibold">
+                  +29%
+                </span>
+              </div>
+              <h3 className="text-sm text-gray-600 font-medium mb-1">Revenu Total</h3>
+              <p className="text-2xl font-bold text-gray-900">8.2M FCFA</p>
+              <p className="text-xs text-gray-500 mt-1">Panier moyen: 11,180 FCFA</p>
+            </div>
+          </div>
+
+          {/* Grille Analytics détaillée */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            
+            {/* Funnel de Conversion */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+              <h3 className="text-lg font-bold text-gray-900 mb-4">🎯 Tunnel de Conversion</h3>
+              <div className="space-y-3">
+                <div className="relative">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm text-gray-600">Visites</span>
+                    <span className="text-sm font-bold text-gray-900">12,458</span>
+                  </div>
+                  <div className="h-10 bg-gradient-to-r from-blue-500 to-blue-400 rounded-lg flex items-center px-4">
+                    <span className="text-white font-semibold text-sm">100%</span>
+                  </div>
+                </div>
+
+                <div className="relative">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm text-gray-600">Clics</span>
+                    <span className="text-sm font-bold text-gray-900">3,267 (26.2%)</span>
+                  </div>
+                  <div className="h-10 bg-gradient-to-r from-indigo-500 to-indigo-400 rounded-lg flex items-center px-4" style={{width: '78%'}}>
+                    <span className="text-white font-semibold text-sm">26.2%</span>
+                  </div>
+                </div>
+
+                <div className="relative">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm text-gray-600">Demandes</span>
+                    <span className="text-sm font-bold text-gray-900">1,845 (14.8%)</span>
+                  </div>
+                  <div className="h-10 bg-gradient-to-r from-purple-500 to-purple-400 rounded-lg flex items-center px-4" style={{width: '56%'}}>
+                    <span className="text-white font-semibold text-sm">14.8%</span>
+                  </div>
+                </div>
+
+                <div className="relative">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm text-gray-600">Réservations</span>
+                    <span className="text-sm font-bold text-gray-900">892 (7.2%)</span>
+                  </div>
+                  <div className="h-10 bg-gradient-to-r from-orange-500 to-orange-400 rounded-lg flex items-center px-4" style={{width: '38%'}}>
+                    <span className="text-white font-semibold text-sm">7.2%</span>
+                  </div>
+                </div>
+
+                <div className="relative">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm text-gray-600">Paiements</span>
+                    <span className="text-sm font-bold text-gray-900">734 (5.9%)</span>
+                  </div>
+                  <div className="h-10 bg-gradient-to-r from-green-500 to-green-400 rounded-lg flex items-center px-4" style={{width: '28%'}}>
+                    <span className="text-white font-semibold text-sm">5.9%</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Performance Marketplace */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+              <h3 className="text-lg font-bold text-gray-900 mb-4">🏪 Performance Marketplace</h3>
+              
+              <div className="space-y-3">
+                <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                  <span className="text-sm text-gray-700">Prestataires actifs</span>
+                  <span className="text-lg font-bold text-blue-700">{stats?.activeProviders || 0}</span>
+                </div>
+
+                <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                  <span className="text-sm text-gray-700">Taux de réponse moyen</span>
+                  <span className="text-lg font-bold text-green-700">87.3%</span>
+                </div>
+
+                <div className="flex items-center justify-between p-3 bg-purple-50 rounded-lg">
+                  <span className="text-sm text-gray-700">Délai moyen réponse</span>
+                  <span className="text-lg font-bold text-purple-700">12 min</span>
+                </div>
+
+                <div className="flex items-center justify-between p-3 bg-yellow-50 rounded-lg">
+                  <span className="text-sm text-gray-700">Note moyenne</span>
+                  <span className="text-lg font-bold text-yellow-700">4.7 ⭐</span>
+                </div>
+
+                <div className="flex items-center justify-between p-3 bg-orange-50 rounded-lg">
+                  <span className="text-sm text-gray-700">Profils les plus vus</span>
+                  <span className="text-lg font-bold text-orange-700">342</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Top Catégories */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            {/* Catégories populaires */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+              <h3 className="text-lg font-bold text-gray-900 mb-4">🔥 Top Catégories</h3>
+              <div className="space-y-3">
+                {[
+                  { name: 'Plomberie', value: 342, color: 'bg-blue-500' },
+                  { name: 'Électricité', value: 298, color: 'bg-yellow-500' },
+                  { name: 'Nettoyage', value: 267, color: 'bg-green-500' },
+                  { name: 'Climatisation', value: 234, color: 'bg-cyan-500' },
+                  { name: 'Menuiserie', value: 189, color: 'bg-orange-500' }
+                ].map((cat, idx) => {
+                  const maxValue = 342
+                  const percentage = (cat.value / maxValue) * 100
+                  return (
+                    <div key={idx}>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-sm text-gray-700 font-medium">{cat.name}</span>
+                        <span className="text-sm font-bold text-gray-900">{cat.value}</span>
+                      </div>
+                      <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+                        <div 
+                          className={`h-full ${cat.color} rounded-full transition-all`}
+                          style={{ width: `${percentage}%` }}
+                        />
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Villes actives */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+              <h3 className="text-lg font-bold text-gray-900 mb-4">📍 Villes Actives</h3>
+              <div className="space-y-3">
+                {[
+                  { name: 'Dakar', value: 589 },
+                  { name: 'Thiès', value: 234 },
+                  { name: 'Saint-Louis', value: 198 },
+                  { name: 'Kaolack', value: 156 },
+                  { name: 'Ziguinchor', value: 123 }
+                ].map((city, idx) => (
+                  <div key={idx} className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-colors">
+                    <span className="text-sm text-gray-700">{city.name}</span>
+                    <span className="text-sm font-bold text-[#0B2A4A]">{city.value} demandes</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Qualité Service */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+              <h3 className="text-lg font-bold text-gray-900 mb-4">⭐ Qualité</h3>
+              <div className="space-y-3">
+                <div className="p-3 bg-yellow-50 rounded-lg">
+                  <p className="text-xs text-gray-600 mb-1">Note moyenne</p>
+                  <p className="text-2xl font-bold text-yellow-700">4.7 / 5</p>
+                </div>
+                
+                <div className="p-3 bg-gray-50 rounded-lg">
+                  <p className="text-xs text-gray-600 mb-1">Total avis</p>
+                  <p className="text-2xl font-bold text-gray-900">3,482</p>
+                </div>
+
+                <div className="p-3 bg-green-50 rounded-lg">
+                  <p className="text-xs text-gray-600 mb-1">Taux satisfaction</p>
+                  <p className="text-2xl font-bold text-green-700">94.2%</p>
+                </div>
+
+                <div className="p-3 bg-red-50 rounded-lg">
+                  <p className="text-xs text-gray-600 mb-1">Taux annulation</p>
+                  <p className="text-2xl font-bold text-red-700">3.8%</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* System Info */}
         <div className="bg-white rounded-xl shadow-sm p-4 mb-8">
           <div className="flex items-center gap-6 text-sm">
