@@ -106,6 +106,19 @@ export default function HomePage() {
             </p>
           </Link>
           
+          {/* CHANGE 1: Navigation links (additive only) */}
+          <nav className="wpro-new-nav hidden lg:flex items-center gap-6 ml-auto mr-6">
+            <a href="#how-it-works" className="text-sm text-gray-700 hover:text-[#FF7A00] font-medium transition-colors">
+              Comment ça marche
+            </a>
+            <a href="#services" className="text-sm text-gray-700 hover:text-[#FF7A00] font-medium transition-colors">
+              Nos services
+            </a>
+            <a href="#testimonials" className="text-sm text-gray-700 hover:text-[#FF7A00] font-medium transition-colors">
+              Témoignages
+            </a>
+          </nav>
+          
           <div className="flex items-center gap-2 sm:gap-8 ml-4 sm:ml-6">
             <Link
               href="/provider/login"
@@ -145,22 +158,24 @@ export default function HomePage() {
                 </h1>
                 
                 <p className="text-lg sm:text-xl text-gray-600 leading-relaxed">
-                  Des professionnels fiables, disponibles près de chez vous. Simple, rapide et sans engagement.
+                  Pas d'app à télécharger. Envoyez votre numéro, votre ville et votre besoin — on vous trouve un pro vérifié en moins de 2 min.
                 </p>
               </div>
 
               {/* CTA Button */}
               <div className="space-y-4">
-                <button
-                  onClick={() => setShowForm(true)}
+                <a
+                  href="https://wa.me/221773389095?text=Bonjour%20WookoPRO%2C%20je%20cherche%20un%20pro."
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="group w-full sm:w-auto bg-[#25D366] hover:bg-[#20BA5A] text-white px-8 py-5 rounded-2xl text-lg font-bold shadow-xl hover:shadow-2xl transition-all flex items-center justify-center gap-3"
                 >
                   <span className="text-2xl">💬</span>
-                  <span>Trouvez un pro en 2 minutes ⚡</span>
+                  <span>Contacter WookoPRO sur WhatsApp</span>
                   <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                   </svg>
-                </button>
+                </a>
                 
                 {/* Trust badges */}
                 <div className="flex flex-wrap items-center gap-4 sm:gap-6 text-sm text-gray-600">
@@ -204,6 +219,37 @@ export default function HomePage() {
                     </div>
                   </div>
                 </div>
+
+                {/* CHANGE 4: New badge bottom-left with pulse animation */}
+                <div className="wpro-new-badge absolute bottom-6 left-6 bg-white rounded-xl shadow-lg p-4 border border-gray-100 z-10">
+                  <div className="flex items-center gap-3">
+                    <div className="wpro-pulse-dot relative">
+                      <div className="w-3 h-3 bg-[#25D366] rounded-full"></div>
+                      <div className="wpro-pulse-ring absolute inset-0 bg-[#25D366] rounded-full"></div>
+                    </div>
+                    <p className="text-sm font-semibold text-gray-900">Réponse &lt; 2 min</p>
+                  </div>
+                </div>
+                
+                <style jsx>{`
+                  .wpro-pulse-dot {
+                    position: relative;
+                    display: inline-block;
+                  }
+                  .wpro-pulse-ring {
+                    animation: wpro-pulse 1.5s ease-in-out infinite;
+                  }
+                  @keyframes wpro-pulse {
+                    0%, 100% {
+                      transform: scale(1);
+                      opacity: 1;
+                    }
+                    50% {
+                      transform: scale(1.4);
+                      opacity: 0.5;
+                    }
+                  }
+                `}</style>
               </div>
             </div>
           </div>
@@ -335,8 +381,59 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* CHANGE 5: New "3 informations suffisent" section */}
+      <section id="how-it-works" className="wpro-hiw py-16 sm:py-20 bg-white">
+        <div className="max-w-7xl mx-auto px-6 sm:px-8">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-3">
+              3 informations suffisent
+            </h2>
+            <p className="text-lg text-gray-600">
+              Envoyez-les en un seul message WhatsApp
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-6 mb-10">
+            {/* Card 1 */}
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow">
+              <div className="text-4xl mb-4">📱</div>
+              <h3 className="text-lg font-bold text-gray-900 mb-2">Votre numéro WhatsApp</h3>
+              <p className="text-sm text-gray-500 italic">ex: 77 123 45 67</p>
+            </div>
+
+            {/* Card 2 */}
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow">
+              <div className="text-4xl mb-4">📍</div>
+              <h3 className="text-lg font-bold text-gray-900 mb-2">Votre ville ou quartier</h3>
+              <p className="text-sm text-gray-500 italic">ex: Dakar, Plateau</p>
+            </div>
+
+            {/* Card 3 */}
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow">
+              <div className="text-4xl mb-4">🔧</div>
+              <h3 className="text-lg font-bold text-gray-900 mb-2">Votre besoin</h3>
+              <p className="text-sm text-gray-500 italic">ex: Plombier urgent</p>
+            </div>
+          </div>
+
+          <div className="text-center">
+            <a
+              href="https://wa.me/221773389095?text=Bonjour%20WookoPRO%2C%20je%20cherche%20un%20pro."
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-3 bg-[#25D366] hover:bg-[#20BA5A] text-white px-8 py-4 rounded-2xl text-lg font-bold shadow-xl hover:shadow-2xl transition-all"
+            >
+              <span>Envoyer ma demande sur WhatsApp</span>
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </a>
+          </div>
+        </div>
+      </section>
+
       {/* Comment ça marche Section */}
-      <section className="py-16 sm:py-24 bg-gradient-to-b from-white to-gray-50">
+      <section id="services" className="py-16 sm:py-24 bg-gradient-to-b from-white to-gray-50">
         <div className="max-w-7xl mx-auto px-6 sm:px-8">
           <div className="text-center mb-16">
             <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
@@ -381,6 +478,67 @@ export default function HomePage() {
                 <p className="text-gray-600 leading-relaxed">
                   Les prestataires intéressés vous contactent rapidement sur WhatsApp. Comparez et choisissez !
                 </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* CHANGE 6: Testimonials Section */}
+      <section id="testimonials" className="wpro-testimonials py-16 sm:py-20 bg-gradient-to-b from-gray-50 to-white">
+        <div className="max-w-7xl mx-auto px-6 sm:px-8">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
+              Ce qu'ils disent
+            </h2>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-6">
+            {/* Testimonial 1 */}
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow">
+              <div className="flex gap-1 mb-3">
+                {[...Array(5)].map((_, i) => (
+                  <span key={i} className="text-yellow-400 text-xl">★</span>
+                ))}
+              </div>
+              <p className="text-gray-700 mb-4 leading-relaxed">
+                "En 3 minutes j'avais un plombier un dimanche soir. Incroyable."
+              </p>
+              <div className="border-t pt-4">
+                <p className="font-semibold text-gray-900">Moussa L.</p>
+                <p className="text-sm text-gray-500">Dakar</p>
+              </div>
+            </div>
+
+            {/* Testimonial 2 */}
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow">
+              <div className="flex gap-1 mb-3">
+                {[...Array(5)].map((_, i) => (
+                  <span key={i} className="text-yellow-400 text-xl">★</span>
+                ))}
+              </div>
+              <p className="text-gray-700 mb-4 leading-relaxed">
+                "Pas d'app, juste WhatsApp. Exactement ce qu'il nous faut."
+              </p>
+              <div className="border-t pt-4">
+                <p className="font-semibold text-gray-900">Fatou D.</p>
+                <p className="text-sm text-gray-500">Thiès</p>
+              </div>
+            </div>
+
+            {/* Testimonial 3 */}
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow">
+              <div className="flex gap-1 mb-3">
+                {[...Array(5)].map((_, i) => (
+                  <span key={i} className="text-yellow-400 text-xl">★</span>
+                ))}
+              </div>
+              <p className="text-gray-700 mb-4 leading-relaxed">
+                "Pro vérifié, prix négocié direct sur WA. Service parfait."
+              </p>
+              <div className="border-t pt-4">
+                <p className="font-semibold text-gray-900">Amadou B.</p>
+                <p className="text-sm text-gray-500">Saint-Louis</p>
               </div>
             </div>
           </div>
@@ -524,6 +682,38 @@ export default function HomePage() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
               </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* CHANGE 7: Final CTA Banner */}
+      <section className="wpro-final-cta bg-[#111111] py-16 sm:py-20">
+        <div className="max-w-7xl mx-auto px-6 sm:px-8">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-8">
+            {/* Left: Text */}
+            <div className="text-center md:text-left">
+              <h2 className="text-3xl sm:text-4xl font-bold text-white mb-3">
+                Besoin d'un pro <span className="text-[#FF6B35]">maintenant</span> ?
+              </h2>
+              <p className="text-lg text-gray-400">
+                Un clic suffit — WhatsApp s'ouvre directement
+              </p>
+            </div>
+
+            {/* Right: CTA Button */}
+            <div className="flex-shrink-0">
+              <a
+                href="https://wa.me/221773389095?text=Bonjour%20WookoPRO%2C%20je%20cherche%20un%20pro."
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-3 bg-[#25D366] hover:bg-[#20BA5A] text-white px-8 py-4 rounded-2xl text-lg font-bold shadow-xl hover:shadow-2xl transition-all"
+              >
+                <span>Démarrer sur WhatsApp</span>
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </a>
             </div>
           </div>
         </div>
