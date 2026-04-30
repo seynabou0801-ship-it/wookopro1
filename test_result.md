@@ -906,3 +906,29 @@ agent_communication:
       🎯 IMPACT:
       Le système de matching fonctionne maintenant correctement pour tous les prestataires.
       Tous les prestataires avec abonnements actifs recevront les demandes correspondant à leur catégorie et zone.
+
+  - agent: "main"
+    message: |
+      🔴 INCIDENT CRITIQUE RÉSOLU — Restauration du backend
+      
+      Contexte:
+      - Session précédente: le fichier /app/app/api/[[...path]]/route.js (≈2557 lignes)
+        avait été écrasé par un stub de 423 lignes, cassant ~90% du backend
+        (abonnements, auto-dispatch, preuves de paiement, etc.).
+      - Symptôme: login admin (+221700000001 / wooleen2025) renvoyait 401.
+      
+      Actions effectuées:
+      1) git log sur le fichier a identifié le dernier commit sain: 3f4871a (2557 lignes).
+      2) Sauvegarde de la version cassée dans /tmp/route.js.broken-backup.
+      3) Restauration: git show 3f4871a:app/api/[[...path]]/route.js > route.js.
+      4) Redémarrage supervisor nextjs (OK, Ready in 2.1s).
+      5) POST /api/seed → idempotent, réponse {"ok":true,"seededProviders":5}.
+      6) POST /api/auth/login avec +221700000001/wooleen2025 → 200, token ADMIN OK.
+      7) POST /api/auth/provider/login avec +221700000030 → 200, provider OK.
+      8) POST /api/auth/provider/login avec +221700000101 → 200, provider OK.
+      9) Homepage /  — rendu correct (capture vérifiée).
+      10) /app/memory/test_credentials.md mis à jour.
+      
+      État: backend entièrement restauré, login admin + prestataires fonctionnels.
+      Prochaine étape suggérée: validation end-to-end du dispatch automatique
+      (création d'un lead client → réception par les prestataires ACTIVE).
