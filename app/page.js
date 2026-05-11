@@ -89,7 +89,7 @@ export default function HomePage() {
 
       // Construire le message WhatsApp prérempli
       const category = SERVICE_CATEGORIES.find(c => c.value === formData.serviceCategory)?.label || formData.serviceCategory
-      const message = `Bonjour 👋 Je cherche un ${category} à ${formData.city}. Pouvez-vous m'aider ?`
+      const message = `Bonjour 👋 Je cherche un prestataire en ${category} à ${formData.city}. Pouvez-vous m'aider ?`
 
       // Ouvrir WhatsApp avec le message prérempli
       openWhatsApp(phone, message)

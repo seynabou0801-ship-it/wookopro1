@@ -5,6 +5,22 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { openWhatsApp, getDefaultWhatsAppNumber } from '@/lib/whatsapp'
 
+// Map slug → label lisible pour l'affichage / WhatsApp
+const SERVICE_LABELS = {
+  plombier: 'Plomberie',
+  electricien: 'Électricité',
+  climatiseur: 'Climatisation',
+  menuisier: 'Menuiserie',
+  peintre: 'Peinture',
+  serrurier: 'Serrurerie',
+  nettoyage: 'Nettoyage',
+  mecanicien: 'Mécanique',
+  demenagement: 'Déménagement',
+  technicien: 'Technicien',
+  autre: 'Autre service'
+}
+const getServiceLabel = (slug) => SERVICE_LABELS[slug] || slug
+
 export default function ClientDashboard() {
   const router = useRouter()
   const phone = getDefaultWhatsAppNumber()
@@ -82,7 +98,7 @@ export default function ClientDashboard() {
         setShowNewRequestForm(false)
         
         // Ouvrir WhatsApp avec message prérempli
-        const message = `Bonjour 👋 Je cherche un ${formData.serviceCategory} à ${formData.city}. Pouvez-vous m'aider ?`
+        const message = `Bonjour 👋 Je cherche un prestataire en ${getServiceLabel(formData.serviceCategory)} à ${formData.city}. Pouvez-vous m'aider ?`
         openWhatsApp(phone, message)
       } else {
         const error = await res.json()
