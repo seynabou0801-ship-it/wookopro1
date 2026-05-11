@@ -31,6 +31,8 @@ export default function SecureAdminDashboard() {
   const [selectedRequest, setSelectedRequest] = useState(null)
   const [showRequestModal, setShowRequestModal] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
+  const [seedLoading, setSeedLoading] = useState(false)
+  const [seedToast, setSeedToast] = useState(null) // { type: 'success'|'error', message: string }
   
   // ⚡ NOUVEAU : State pour les paiements en attente
   const [pendingPayments, setPendingPayments] = useState([])
@@ -104,13 +106,42 @@ export default function SecureAdminDashboard() {
   }
 
   const seedDatabase = async () => {
+    if (seedLoading) return
+    setSeedLoading(true)
+    setSeedToast(null)
     try {
-      const res = await fetch('/api/seed', { method: 'POST' })
+      const res = await fetch('/api/seed', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store'
+      })
+      const data = await res.json().catch(() => ({}))
       if (res.ok) {
-        fetchData()
+        // Refresh all counters & lists
+        await fetchData()
+        const s = data.stats || {}
+        const parts = [
+          `${data.seededProviders ?? s.providers ?? '—'} prestataires`,
+          data.seededRequests ? `${data.seededRequests} demandes` : null,
+          data.seededMatches ? `${data.seededMatches} matchings` : null
+        ].filter(Boolean).join(' • ')
+        setSeedToast({
+          type: 'success',
+          message: `Base de données initialisée avec succès — ${parts}.`
+        })
+      } else {
+        setSeedToast({
+          type: 'error',
+          message: data.error || `Erreur ${res.status} lors du seed.`
+        })
       }
     } catch (error) {
-      console.error('Error:', error)
+      console.error('Seed error:', error)
+      setSeedToast({ type: 'error', message: `Erreur réseau : ${error.message}` })
+    } finally {
+      setSeedLoading(false)
+      // Auto-dismiss toast after 4s
+      setTimeout(() => setSeedToast(null), 4000)
     }
   }
 
@@ -509,9 +540,21 @@ export default function SecureAdminDashboard() {
           <div className="flex items-center gap-4">
             <button
               onClick={seedDatabase}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700"
+              disabled={seedLoading}
+              aria-busy={seedLoading}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center gap-2 transition-colors"
             >
-              🔄 Seed DB
+              {seedLoading ? (
+                <>
+                  <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+                  </svg>
+                  <span>Initialisation…</span>
+                </>
+              ) : (
+                <span>🔄 Seed DB</span>
+              )}
             </button>
             <button
               onClick={fetchData}
@@ -528,6 +571,39 @@ export default function SecureAdminDashboard() {
           </div>
         </div>
       </header>
+
+      {/* Seed toast notification — flash after Seed DB action */}
+      {seedToast && (
+        <div
+          role="status"
+          aria-live="polite"
+          className={`fixed top-4 right-4 z-[100] px-5 py-3 rounded-xl shadow-2xl border max-w-sm animate-in fade-in slide-in-from-top-2 ${
+            seedToast.type === 'success'
+              ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+              : 'bg-red-50 border-red-200 text-red-900'
+          }`}
+        >
+          <div className="flex items-start gap-3">
+            <span className="text-2xl leading-none">
+              {seedToast.type === 'success' ? '✅' : '⚠️'}
+            </span>
+            <div className="flex-1">
+              <p className="font-semibold text-sm">
+                {seedToast.type === 'success' ? 'Seed terminé' : 'Erreur'}
+              </p>
+              <p className="text-sm mt-0.5 opacity-90">{seedToast.message}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSeedToast(null)}
+              aria-label="Fermer"
+              className="text-current opacity-60 hover:opacity-100 transition-opacity text-lg leading-none"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
 
       <main className="max-w-7xl mx-auto px-4 py-8">
         {/* Stats */}

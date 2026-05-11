@@ -1747,10 +1747,109 @@ async function handleRoute(request, { params }) {
         )
       }
 
-      return handleCORS(NextResponse.json({ 
-        ok: true, 
+      // ============ Demo requests + matches (idempotent) ============
+      // Crée 5 demandes client + dispatch automatique (max 3 matches/demande)
+      // si la base est vide, pour que le dashboard affiche immédiatement des compteurs non-nuls.
+      const existingRequestsCount = await db.collection('service_requests').countDocuments()
+      let seededRequests = 0
+      let seededMatches = 0
+
+      if (existingRequestsCount === 0) {
+        const allCategories = await db.collection('categories').find({}).toArray()
+        const allProviderProfiles = await db.collection('provider_profiles').find({}).toArray()
+
+        const demoRequests = [
+          { clientPhone: '+221770000201', name: 'Aïssatou Diop',  serviceCategory: 'plombier',    city: 'Dakar', zone: 'Ouakam',      rawMessage: 'Fuite urgente sous évier cuisine, besoin d\'un plombier rapidement.', urgency: 'urgente' },
+          { clientPhone: '+221770000202', name: 'Moussa Ndiaye',  serviceCategory: 'electricien', city: 'Dakar', zone: 'Pikine',      rawMessage: 'Tableau électrique disjoncte sans arrêt, panne courant secteur.', urgency: 'urgente' },
+          { clientPhone: '+221770000203', name: 'Fatou Sall',     serviceCategory: 'climatiseur', city: 'Thiès', zone: 'Thiès Nord',  rawMessage: 'Climatisation bureau ne fait plus de froid, intervention demandée.', urgency: 'normale' },
+          { clientPhone: '+221770000204', name: 'Ibrahima Faye',  serviceCategory: 'menuisier',   city: 'Dakar', zone: 'Médina',      rawMessage: 'Besoin d\'un menuisier pour réparer une porte d\'entrée.', urgency: 'normale' },
+          { clientPhone: '+221770000205', name: 'Mariama Kane',   serviceCategory: 'nettoyage',   city: 'Dakar', zone: 'Almadies',    rawMessage: 'Nettoyage complet appartement 3 pièces avant emménagement.', urgency: 'faible' }
+        ]
+
+        for (const dr of demoRequests) {
+          // Crée/retrouve le user client
+          let clientUser = await db.collection('users').findOne({ phone: dr.clientPhone })
+          if (!clientUser) {
+            clientUser = {
+              id: uuidv4(),
+              name: dr.name,
+              phone: dr.clientPhone,
+              role: 'CLIENT',
+              createdAt: new Date(),
+              updatedAt: new Date()
+            }
+            await db.collection('users').insertOne(clientUser)
+          }
+
+          const requestId = uuidv4()
+          const serviceRequest = {
+            id: requestId,
+            clientId: clientUser.id,
+            clientPhone: dr.clientPhone,
+            rawMessage: dr.rawMessage,
+            normalizedText: dr.rawMessage,
+            serviceCategory: dr.serviceCategory,
+            city: dr.city,
+            zone: dr.zone,
+            urgency: dr.urgency,
+            status: 'MATCHING',
+            source: 'seed',
+            canal: 'seed',
+            createdAt: new Date(),
+            updatedAt: new Date()
+          }
+          await db.collection('service_requests').insertOne(serviceRequest)
+          seededRequests++
+
+          // Trouve jusqu'à 3 prestataires éligibles (catégorie + ville)
+          const eligible = allProviderProfiles
+            .filter(p => p.serviceCategory === dr.serviceCategory && p.city === dr.city)
+            .slice(0, 3)
+
+          for (let i = 0; i < eligible.length; i++) {
+            const p = eligible[i]
+            // 1er match accepté pour la 1ère demande pour montrer un "Accepté" non-nul,
+            // les autres en statut SENT (= "En attente" côté dashboard).
+            const matchStatus = (seededRequests === 1 && i === 0) ? 'ACCEPTED' : 'SENT'
+            const match = {
+              id: uuidv4(),
+              requestId,
+              providerId: p.id,
+              providerUserId: p.userId,
+              score: 80 - i * 5,
+              status: matchStatus,
+              reason: 'Catégorie + ville',
+              createdAt: new Date(),
+              updatedAt: new Date()
+            }
+            await db.collection('request_matches').insertOne(match)
+            seededMatches++
+          }
+        }
+      }
+
+      // Stats post-seed pour feedback frontend
+      const [providersCount, requestsCount, matchesCount, pendingCount, acceptedCount] = await Promise.all([
+        db.collection('provider_profiles').countDocuments(),
+        db.collection('service_requests').countDocuments(),
+        db.collection('request_matches').countDocuments(),
+        db.collection('request_matches').countDocuments({ status: 'PENDING' }),
+        db.collection('request_matches').countDocuments({ status: 'ACCEPTED' })
+      ])
+
+      return handleCORS(NextResponse.json({
+        ok: true,
         message: 'Base de données initialisée',
         seededProviders: providerData.length,
+        seededRequests,
+        seededMatches,
+        stats: {
+          providers: providersCount,
+          requests: requestsCount,
+          matches: matchesCount,
+          pending: pendingCount,
+          accepted: acceptedCount
+        },
         defaultPassword: 'wooleen2025'
       }))
     }
