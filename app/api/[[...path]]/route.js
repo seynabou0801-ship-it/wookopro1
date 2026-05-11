@@ -1662,6 +1662,162 @@ async function handleRoute(request, { params }) {
       }))
     }
 
+    // ============ ADMIN ANALYTICS (computed live from MongoDB) ============
+    if (route === '/admin/analytics' && method === 'GET') {
+      // --- Aggregations ---
+      const [
+        totalProviders,
+        activeProviders,
+        totalRequests,
+        totalMatches,
+        acceptedMatches,
+        cancelledMatches,
+        matchingRequests,
+        verifiedPayments,
+        verifiedPaymentsAgg,
+        providersAgg,
+        categoryAgg,
+        cityAgg,
+        topProvidersByRating
+      ] = await Promise.all([
+        db.collection('provider_profiles').countDocuments(),
+        db.collection('provider_profiles').countDocuments({
+          $or: [{ status: 'ACTIVE' }, { isAvailable: true }]
+        }),
+        db.collection('service_requests').countDocuments(),
+        db.collection('request_matches').countDocuments(),
+        db.collection('request_matches').countDocuments({ status: 'ACCEPTED' }),
+        db.collection('request_matches').countDocuments({ status: 'CANCELLED' }),
+        db.collection('service_requests').countDocuments({ status: 'MATCHING' }),
+        db.collection('match_payments').countDocuments({ status: 'VERIFIED' }),
+        db.collection('match_payments').aggregate([
+          { $match: { status: 'VERIFIED' } },
+          { $group: { _id: null, total: { $sum: '$amount' }, count: { $sum: 1 } } }
+        ]).toArray(),
+        db.collection('provider_profiles').aggregate([
+          { $group: { _id: null, avgRating: { $avg: '$rating' }, avgResponseRate: { $avg: '$responseRate' } } }
+        ]).toArray(),
+        db.collection('service_requests').aggregate([
+          { $group: { _id: '$serviceCategory', requests: { $sum: 1 } } },
+          { $sort: { requests: -1 } },
+          { $limit: 5 }
+        ]).toArray(),
+        db.collection('service_requests').aggregate([
+          { $match: { city: { $ne: '' } } },
+          { $group: { _id: '$city', requests: { $sum: 1 } } },
+          { $sort: { requests: -1 } },
+          { $limit: 5 }
+        ]).toArray(),
+        db.collection('provider_profiles').find({})
+          .sort({ rating: -1 })
+          .limit(5)
+          .toArray()
+      ])
+
+      const totalRevenue = verifiedPaymentsAgg[0]?.total || 0
+      const paidCount = verifiedPaymentsAgg[0]?.count || 0
+      const avgBasket = paidCount > 0 ? Math.round(totalRevenue / paidCount) : 0
+      const avgRating = providersAgg[0]?.avgRating ? Number(providersAgg[0].avgRating.toFixed(1)) : 0
+      const avgResponseRate = providersAgg[0]?.avgResponseRate ? Number(providersAgg[0].avgResponseRate.toFixed(1)) : 0
+      const cancellationRate = totalMatches > 0 ? Number(((cancelledMatches / totalMatches) * 100).toFixed(1)) : 0
+      const untreatedRequestsRate = totalRequests > 0 ? Number(((matchingRequests / totalRequests) * 100).toFixed(1)) : 0
+      const satisfactionRate = totalMatches > 0 ? Number((100 - cancellationRate).toFixed(1)) : 0
+
+      // Conversion funnel (visits/clicks not tracked → 0)
+      const requestsCount = totalRequests
+      const bookingsCount = acceptedMatches
+      const paymentsCount = verifiedPayments
+      const baseline = Math.max(requestsCount, 1)
+      const conversionRate = requestsCount > 0 ? Number(((paymentsCount / requestsCount) * 100).toFixed(2)) : 0
+
+      // Category dictionary (slug → label)
+      const categoryLabels = {
+        plombier: 'Plomberie', electricien: 'Électricité', climatiseur: 'Climatisation',
+        menuisier: 'Menuiserie', peintre: 'Peinture', serrurier: 'Serrurerie',
+        nettoyage: 'Nettoyage', mecanicien: 'Mécanique', demenagement: 'Déménagement',
+        technicien: 'Technicien', autre: 'Autre'
+      }
+
+      const topCategories = categoryAgg.map(c => ({
+        name: categoryLabels[c._id] || c._id || 'Autre',
+        requests: c.requests,
+        revenue: 0
+      }))
+      const topCities = cityAgg.map(c => ({
+        name: c._id || '—',
+        requests: c.requests,
+        revenue: 0
+      }))
+
+      // Top providers (real, by rating)
+      const topProviders = topProvidersByRating.length > 0
+        ? topProvidersByRating.map(p => ({
+            name: p.businessName || p.name || '—',
+            category: categoryLabels[p.serviceCategory] || p.serviceCategory || '—',
+            views: 0,
+            contacts: 0,
+            rating: Number((p.rating || 0).toFixed(1)),
+            revenue: 0
+          }))
+        : [{ name: '—', category: '—', views: 0, contacts: 0, rating: 0, revenue: 0 }]
+
+      const analytics = {
+        mainKPIs: {
+          visits:     { total: 0, unique: 0, change: '—', trend: 'neutral' },
+          clicks:     { total: 0, engagementRate: 0, change: '—', trend: 'neutral' },
+          conversion: { rate: conversionRate, total: paymentsCount, change: '—', trend: 'neutral' },
+          revenue:    { total: totalRevenue, avgBasket, change: '—', trend: 'neutral' }
+        },
+        conversionFunnel: {
+          visits:   { count: 0, percentage: 0 },
+          clicks:   { count: 0, percentage: 0, conversionFromPrevious: 0 },
+          requests: {
+            count: requestsCount,
+            percentage: 100,
+            conversionFromPrevious: 0
+          },
+          bookings: {
+            count: bookingsCount,
+            percentage: Number(((bookingsCount / baseline) * 100).toFixed(1)),
+            conversionFromPrevious: Number(((bookingsCount / baseline) * 100).toFixed(1))
+          },
+          payments: {
+            count: paymentsCount,
+            percentage: Number(((paymentsCount / baseline) * 100).toFixed(1)),
+            conversionFromPrevious: bookingsCount > 0
+              ? Number(((paymentsCount / bookingsCount) * 100).toFixed(1))
+              : 0
+          },
+          globalConversionRate: conversionRate,
+          avgDropOffRate: 0
+        },
+        marketplaceData: {
+          totalProviders,
+          activeProviders,
+          avgResponseRate,
+          avgResponseTime: '— min',
+          topProviders,
+          topCategories,
+          topCities
+        },
+        qualityData: {
+          avgRating,
+          totalReviews: 0,
+          satisfactionRate,
+          cancellationRate,
+          untreatedRequestsRate,
+          topRatedProviders: topProvidersByRating.map(p => ({
+            name: p.businessName || p.name || '—',
+            rating: Number((p.rating || 0).toFixed(1)),
+            reviews: 0
+          }))
+        },
+        generatedAt: new Date().toISOString()
+      }
+
+      return handleCORS(NextResponse.json(analytics))
+    }
+
     // ============ SEED DATA ============
     if (route === '/seed' && method === 'POST') {
       const passwordHash = await bcrypt.hash('wooleen2025', 10)

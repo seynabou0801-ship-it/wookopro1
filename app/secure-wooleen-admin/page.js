@@ -4,15 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
-  mainKPIs,
-  acquisitionData,
-  engagementData,
-  conversionFunnel,
-  marketplaceData,
-  qualityData,
-  businessData,
-  trafficEvolution,
-  providersDetailedTable,
+  EMPTY_ANALYTICS,
   formatCurrency,
   formatNumber,
   formatPercentage
@@ -22,6 +14,7 @@ export default function SecureAdminDashboard() {
   const router = useRouter()
   const [user, setUser] = useState(null)
   const [stats, setStats] = useState(null)
+  const [analytics, setAnalytics] = useState(EMPTY_ANALYTICS)
   const [providers, setProviders] = useState([])
   const [requests, setRequests] = useState([])
   const [activeTab, setActiveTab] = useState('overview')
@@ -71,8 +64,9 @@ export default function SecureAdminDashboard() {
 
   const fetchData = async () => {
     try {
-      const [statsRes, providersRes, requestsRes, paymentsRes, pendingRes, subsRes, pendingSubsRes] = await Promise.all([
+      const [statsRes, analyticsRes, providersRes, requestsRes, paymentsRes, pendingRes, subsRes, pendingSubsRes] = await Promise.all([
         fetch('/api/admin/stats', { cache: 'no-store' }),
+        fetch('/api/admin/analytics', { cache: 'no-store' }),
         fetch('/api/providers', { cache: 'no-store' }),
         fetch('/api/requests', { cache: 'no-store' }),
         fetch('/api/admin/payments/pending', { cache: 'no-store' }),
@@ -80,8 +74,9 @@ export default function SecureAdminDashboard() {
         fetch('/api/admin/subscriptions/all', { cache: 'no-store' }),
         fetch('/api/admin/subscriptions/pending', { cache: 'no-store' })
       ])
-      
+
       if (statsRes.ok) setStats(await statsRes.json())
+      if (analyticsRes.ok) setAnalytics(await analyticsRes.json())
       if (providersRes.ok) setProviders(await providersRes.json())
       if (requestsRes.ok) setRequests(await requestsRes.json())
       if (paymentsRes.ok) setPendingPayments(await paymentsRes.json())
@@ -543,6 +538,10 @@ export default function SecureAdminDashboard() {
       </div>
     )
   }
+
+  // ⚡ Données analytics calculées dynamiquement depuis MongoDB (état `analytics`)
+  // Fallback sur EMPTY_ANALYTICS pour que le rendu initial soit toujours 0 / vide.
+  const { mainKPIs, conversionFunnel, marketplaceData, qualityData } = analytics || EMPTY_ANALYTICS
 
   return (
     <div className="min-h-screen bg-gray-50">
