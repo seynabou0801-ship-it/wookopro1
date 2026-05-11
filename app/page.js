@@ -34,7 +34,9 @@ export default function HomePage() {
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
   
-  const [showForm, setShowForm] = useState(false)
+  // ⚡ UNIQUE state for the lead qualification modal — all "Contacter WookoPRO"
+  // CTAs must open THIS modal (no direct WhatsApp redirection).
+  const [isLeadModalOpen, setIsLeadModalOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState({
     serviceCategory: '',
@@ -43,10 +45,30 @@ export default function HomePage() {
     description: ''
   })
 
-  const handleQuickWhatsApp = () => {
-    // ⚡ Utiliser le formulaire principal au lieu d'un formulaire séparé
-    setShowForm(true)
+  // Open the unified lead-capture modal. Used by every "Contacter WookoPRO" CTA.
+  const openLeadModal = (e) => {
+    if (e && typeof e.preventDefault === 'function') e.preventDefault()
+    setIsLeadModalOpen(true)
   }
+  const closeLeadModal = () => setIsLeadModalOpen(false)
+
+  // Kept for backward-compatibility (other CTAs across the page may still call it).
+  const handleQuickWhatsApp = openLeadModal
+
+  // Body scroll lock + ESC-to-close while modal is open
+  useEffect(() => {
+    if (!isLeadModalOpen) return
+    const prevOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const onKey = (e) => {
+      if (e.key === 'Escape') closeLeadModal()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => {
+      document.body.style.overflow = prevOverflow
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [isLeadModalOpen])
 
   const handleSubmitLead = async (e) => {
     e.preventDefault()
@@ -73,7 +95,7 @@ export default function HomePage() {
       openWhatsApp(phone, message)
 
       // Reset form
-      setShowForm(false)
+      setIsLeadModalOpen(false)
       setFormData({ serviceCategory: '', city: '', phone: '', description: '' })
     } catch (error) {
       console.error('Error:', error)
@@ -164,10 +186,11 @@ export default function HomePage() {
 
               {/* CTA Button */}
               <div className="space-y-4">
-                <a
-                  href="https://wa.me/221773389095?text=Bonjour%20WookoPRO%2C%20je%20cherche%20un%20pro."
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <button
+                  type="button"
+                  onClick={openLeadModal}
+                  aria-haspopup="dialog"
+                  aria-expanded={isLeadModalOpen}
                   className="group w-full sm:w-auto bg-[#25D366] hover:bg-[#20BA5A] text-white px-8 py-5 rounded-2xl text-lg font-bold shadow-xl hover:shadow-2xl transition-all flex items-center justify-center gap-3"
                 >
                   <span className="text-2xl">💬</span>
@@ -175,7 +198,7 @@ export default function HomePage() {
                   <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                   </svg>
-                </a>
+                </button>
                 
                 {/* Trust badges */}
                 <div className="flex flex-wrap items-center gap-4 sm:gap-6 text-sm text-gray-600">
@@ -256,15 +279,28 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Lead Capture Form Modal */}
-      {showForm && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
-          <div className="bg-white w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl max-h-[90vh] overflow-y-auto">
-            <div className="p-4 border-b flex items-center justify-between sticky top-0 bg-white">
-              <h2 className="text-lg font-semibold">Trouvez un pro en 2 minutes ⚡</h2>
+      {/* Lead Capture Form Modal — Unified for all "Contacter WookoPRO" CTAs */}
+      {isLeadModalOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="lead-modal-title"
+          onClick={closeLeadModal}
+          className="wpro-modal-backdrop fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="wpro-modal-panel bg-white w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl max-h-[90vh] overflow-y-auto shadow-2xl"
+          >
+            <div className="p-4 border-b flex items-center justify-between sticky top-0 bg-white z-10">
+              <h2 id="lead-modal-title" className="text-lg font-semibold">
+                Trouvez un pro en 2 minutes ⚡
+              </h2>
               <button
-                onClick={() => setShowForm(false)}
-                className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
+                type="button"
+                onClick={closeLeadModal}
+                aria-label="Fermer"
+                className="text-gray-400 hover:text-gray-600 text-2xl leading-none w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
               >
                 ×
               </button>
@@ -273,10 +309,12 @@ export default function HomePage() {
             <form onSubmit={handleSubmitLead} className="p-4 space-y-4">
               {/* Service */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="lead-service" className="block text-sm font-medium text-gray-700 mb-1">
                   Quel service recherchez-vous ? *
                 </label>
                 <select
+                  id="lead-service"
+                  autoFocus
                   value={formData.serviceCategory}
                   onChange={(e) => setFormData({ ...formData, serviceCategory: e.target.value })}
                   className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white"
@@ -291,10 +329,11 @@ export default function HomePage() {
 
               {/* Ville */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="lead-city" className="block text-sm font-medium text-gray-700 mb-1">
                   Ville *
                 </label>
                 <select
+                  id="lead-city"
                   value={formData.city}
                   onChange={(e) => setFormData({ ...formData, city: e.target.value })}
                   className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white"
@@ -309,10 +348,11 @@ export default function HomePage() {
 
               {/* Téléphone */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="lead-phone" className="block text-sm font-medium text-gray-700 mb-1">
                   Votre numéro WhatsApp *
                 </label>
                 <input
+                  id="lead-phone"
                   type="tel"
                   value={formData.phone}
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
@@ -326,7 +366,7 @@ export default function HomePage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-[#25D366] text-white py-4 rounded-xl font-bold hover:bg-[#20BA5A] disabled:opacity-50 flex items-center justify-center gap-2 shadow-md"
+                className="w-full bg-[#25D366] text-white py-4 rounded-xl font-bold hover:bg-[#20BA5A] disabled:opacity-50 flex items-center justify-center gap-2 shadow-md transition-colors"
               >
                 {loading ? (
                   'Envoi...'
@@ -342,6 +382,29 @@ export default function HomePage() {
               </p>
             </form>
           </div>
+
+          <style jsx>{`
+            .wpro-modal-backdrop {
+              animation: wpro-fade-in 0.2s ease-out;
+            }
+            .wpro-modal-panel {
+              animation: wpro-scale-in 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+            }
+            @keyframes wpro-fade-in {
+              from { opacity: 0; }
+              to   { opacity: 1; }
+            }
+            @keyframes wpro-scale-in {
+              from { opacity: 0; transform: translateY(16px) scale(0.96); }
+              to   { opacity: 1; transform: translateY(0) scale(1); }
+            }
+            @media (max-width: 640px) {
+              @keyframes wpro-scale-in {
+                from { opacity: 0; transform: translateY(100%); }
+                to   { opacity: 1; transform: translateY(0); }
+              }
+            }
+          `}</style>
         </div>
       )}
 
@@ -565,7 +628,7 @@ export default function HomePage() {
                   key={service.value}
                   onClick={() => {
                     setFormData({ ...formData, serviceCategory: service.value })
-                    setShowForm(true)
+                    setIsLeadModalOpen(true)
                   }}
                   className="group bg-gray-50 hover:bg-gradient-to-br hover:from-[#FF7A00]/10 hover:to-orange-100/50 rounded-2xl p-6 transition-all hover:shadow-lg border border-transparent hover:border-[#FF7A00]/20"
                 >
@@ -703,17 +766,18 @@ export default function HomePage() {
 
             {/* Right: CTA Button */}
             <div className="flex-shrink-0">
-              <a
-                href="https://wa.me/221773389095?text=Bonjour%20WookoPRO%2C%20je%20cherche%20un%20pro."
-                target="_blank"
-                rel="noopener noreferrer"
+              <button
+                type="button"
+                onClick={openLeadModal}
+                aria-haspopup="dialog"
+                aria-expanded={isLeadModalOpen}
                 className="inline-flex items-center gap-3 bg-[#25D366] hover:bg-[#20BA5A] text-white px-8 py-4 rounded-2xl text-lg font-bold shadow-xl hover:shadow-2xl transition-all"
               >
                 <span>Démarrer sur WhatsApp</span>
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
-              </a>
+              </button>
             </div>
           </div>
         </div>
@@ -744,7 +808,7 @@ export default function HomePage() {
               <h3 className="font-bold text-gray-900 mb-4">Pour les clients</h3>
               <ul className="space-y-2 text-sm">
                 <li>
-                  <button onClick={() => setShowForm(true)} className="text-gray-600 hover:text-[#FF7A00] transition-colors">
+                  <button onClick={() => setIsLeadModalOpen(true)} className="text-gray-600 hover:text-[#FF7A00] transition-colors">
                     Trouver un prestataire
                   </button>
                 </li>
