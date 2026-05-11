@@ -33,6 +33,7 @@ export default function SecureAdminDashboard() {
   const [actionLoading, setActionLoading] = useState(false)
   const [seedLoading, setSeedLoading] = useState(false)
   const [seedToast, setSeedToast] = useState(null) // { type: 'success'|'error', message: string }
+  const [refreshLoading, setRefreshLoading] = useState(false)
   
   // ⚡ NOUVEAU : State pour les paiements en attente
   const [pendingPayments, setPendingPayments] = useState([])
@@ -71,13 +72,13 @@ export default function SecureAdminDashboard() {
   const fetchData = async () => {
     try {
       const [statsRes, providersRes, requestsRes, paymentsRes, pendingRes, subsRes, pendingSubsRes] = await Promise.all([
-        fetch('/api/admin/stats'),
-        fetch('/api/providers'),
-        fetch('/api/requests'),
-        fetch('/api/admin/payments/pending'),  
-        fetch('/api/admin/providers/pending'),  // ⚡ NOUVEAU
-        fetch('/api/admin/subscriptions/all'),  // ⚡ NOUVEAU
-        fetch('/api/admin/subscriptions/pending')  // ⚡ NOUVEAU
+        fetch('/api/admin/stats', { cache: 'no-store' }),
+        fetch('/api/providers', { cache: 'no-store' }),
+        fetch('/api/requests', { cache: 'no-store' }),
+        fetch('/api/admin/payments/pending', { cache: 'no-store' }),
+        fetch('/api/admin/providers/pending', { cache: 'no-store' }),
+        fetch('/api/admin/subscriptions/all', { cache: 'no-store' }),
+        fetch('/api/admin/subscriptions/pending', { cache: 'no-store' })
       ])
       
       if (statsRes.ok) setStats(await statsRes.json())
@@ -127,21 +128,46 @@ export default function SecureAdminDashboard() {
         ].filter(Boolean).join(' • ')
         setSeedToast({
           type: 'success',
+          title: 'Seed terminé',
           message: `Base de données initialisée avec succès — ${parts}.`
         })
       } else {
         setSeedToast({
           type: 'error',
+          title: 'Erreur',
           message: data.error || `Erreur ${res.status} lors du seed.`
         })
       }
     } catch (error) {
       console.error('Seed error:', error)
-      setSeedToast({ type: 'error', message: `Erreur réseau : ${error.message}` })
+      setSeedToast({ type: 'error', title: 'Erreur', message: `Erreur réseau : ${error.message}` })
     } finally {
       setSeedLoading(false)
       // Auto-dismiss toast after 4s
       setTimeout(() => setSeedToast(null), 4000)
+    }
+  }
+
+  // Reload all dashboard data (stats + lists) from the local DB
+  const refreshDashboard = async () => {
+    if (refreshLoading) return
+    setRefreshLoading(true)
+    setSeedToast(null)
+    const t0 = performance.now()
+    try {
+      await fetchData()
+      const ms = Math.round(performance.now() - t0)
+      setSeedToast({
+        type: 'success',
+        title: 'Actualisation réussie',
+        message: `Données actualisées depuis la base locale en ${ms} ms.`
+      })
+    } catch (error) {
+      console.error('Refresh error:', error)
+      setSeedToast({ type: 'error', title: 'Erreur', message: `Erreur lors de l'actualisation : ${error.message}` })
+    } finally {
+      setRefreshLoading(false)
+      setTimeout(() => setSeedToast(null), 3000)
     }
   }
 
@@ -557,10 +583,22 @@ export default function SecureAdminDashboard() {
               )}
             </button>
             <button
-              onClick={fetchData}
-              className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200"
+              onClick={refreshDashboard}
+              disabled={refreshLoading}
+              aria-busy={refreshLoading}
+              className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center gap-2 transition-colors"
             >
-              ↻ Actualiser
+              {refreshLoading ? (
+                <>
+                  <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+                  </svg>
+                  <span>Actualisation…</span>
+                </>
+              ) : (
+                <span>↻ Actualiser</span>
+              )}
             </button>
             <button
               onClick={handleLogout}
@@ -589,7 +627,7 @@ export default function SecureAdminDashboard() {
             </span>
             <div className="flex-1">
               <p className="font-semibold text-sm">
-                {seedToast.type === 'success' ? 'Seed terminé' : 'Erreur'}
+                {seedToast.title || (seedToast.type === 'success' ? 'Succès' : 'Erreur')}
               </p>
               <p className="text-sm mt-0.5 opacity-90">{seedToast.message}</p>
             </div>
