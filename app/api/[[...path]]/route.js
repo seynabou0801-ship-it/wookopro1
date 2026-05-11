@@ -251,22 +251,12 @@ function calculateProviderScore(provider, request) {
   return Math.round(score)
 }
 
-// ============ OpenAI GPT Integration ============
-const SYSTEM_PROMPT = `Tu es un agent IA de dispatch et de mise en relation pour Wooleen, une marketplace de services locaux au Sénégal.
+// ============ Message Parsing (100% local / autonome) ============
+// NB: WookoPRO fonctionne désormais sans aucune dépendance externe.
+// L'extraction d'intention est entièrement locale (heuristique multilingue FR/Wolof).
+const SYSTEM_PROMPT = `Extraction locale des champs: service_category, city, zone, urgency, short_summary, missing_information, language, ready_for_matching.`
 
-Extrais les informations suivantes du message client:
-- service_category: plombier, electricien, mecanicien, developpeur, consultant, technicien, menuisier, climatiseur, peintre, serrurier, demenagement, nettoyage, ou autre
-- city: la ville (ex: Dakar, Thiès, Saint-Louis, Kaolack, etc.)
-- zone: le quartier ou zone spécifique (ex: Ouakam, Pikine, Médina, Plateau, etc.)
-- urgency: faible, normale, urgente, ou immediate
-- short_summary: résumé court et clair de la demande en français
-- missing_information: liste des informations manquantes pour traiter la demande
-- language: fr (français) ou wo (wolof)
-- ready_for_matching: true si on a suffisamment d'informations (service + localisation), false sinon
-
-Réponds UNIQUEMENT en JSON valide, sans texte supplémentaire.`
-
-// Smart local parsing as fallback
+// Smart local parsing — autonomous, no external calls
 function parseLocally(message) {
   const lowerMsg = message.toLowerCase()
   
@@ -337,56 +327,15 @@ function parseLocally(message) {
   }
 }
 
-async function parseWithOpenAI(message) {
-  const apiKey = process.env.OPENAI_API_KEY
-  
-  if (apiKey && apiKey.startsWith('sk-')) {
-    try {
-      console.log('Using OpenAI GPT-4o-mini for parsing...')
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
-        },
-        body: JSON.stringify({
-          model: 'gpt-4o-mini',
-          messages: [
-            { role: 'system', content: SYSTEM_PROMPT },
-            { role: 'user', content: message }
-          ],
-          temperature: 0.3,
-          response_format: { type: 'json_object' }
-        })
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        const parsed = JSON.parse(data.choices[0].message.content)
-        console.log('OpenAI parsing successful:', parsed)
-
-        return {
-          service_category: parsed.service_category || 'autre',
-          city: parsed.city || '',
-          zone: parsed.zone || '',
-          urgency: parsed.urgency || 'normale',
-          short_summary: parsed.short_summary || message,
-          missing_information: Array.isArray(parsed.missing_information) ? parsed.missing_information : [],
-          language: parsed.language || 'fr',
-          ready_for_matching: Boolean(parsed.ready_for_matching),
-          ai_source: 'openai'
-        }
-      } else {
-        const error = await response.text()
-        console.error('OpenAI API error:', error)
-      }
-    } catch (error) {
-      console.error('OpenAI API error, falling back to local parsing:', error.message)
-    }
-  }
-  
-  console.log('Using local parsing (fallback)')
+// Renommé en parseMessage : 100% local, aucune dépendance externe.
+// Le wrapper parseWithOpenAI reste exporté pour compatibilité avec les call-sites existants.
+function parseMessage(message) {
   return parseLocally(message)
+}
+
+async function parseWithOpenAI(message) {
+  // Stub conservé pour compatibilité — délègue désormais au parser local.
+  return parseMessage(message)
 }
 
 // ============ Improved Matching Algorithm ============
@@ -451,7 +400,9 @@ function computeScore(provider, req) {
   return { score: Math.max(0, score), reason: reasons.join(', ') || 'Correspondance partielle' }
 }
 
-// ============ WhatsApp Service ============
+// ============ Internal Messaging Service (autonomous, DB-only) ============
+// Aucun appel à WhatsApp Cloud API. Les messages sont uniquement stockés en base
+// et exposés via les endpoints d'administration / monitoring.
 const whatsappMessages = []
 
 async function sendWhatsAppMessage(to, text, db = null) {
@@ -461,87 +412,23 @@ async function sendWhatsAppMessage(to, text, db = null) {
     text,
     status: 'sent',
     timestamp: new Date(),
-    mocked: false
+    channel: 'internal'
   }
-  
+
   whatsappMessages.push(message)
-  
+
   if (db) {
     try {
       await db.collection('whatsapp_messages').insertOne(message)
     } catch (e) {
-      console.error('Error storing WhatsApp message:', e)
+      console.error('Error storing internal message:', e)
     }
   }
-  
-  // REAL WhatsApp Cloud API
-  if (process.env.WHATSAPP_ACCESS_TOKEN && process.env.WHATSAPP_PHONE_NUMBER_ID) {
-    try {
-      const cleanPhone = to.replace(/[^\d]/g, '')
-      
-      console.log(`[WhatsApp] Envoi vers ${to} (${cleanPhone})`)
-      
-      const response = await fetch(
-        `https://graph.facebook.com/v21.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${process.env.WHATSAPP_ACCESS_TOKEN}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            messaging_product: 'whatsapp',
-            recipient_type: 'individual',
-            to: cleanPhone,
-            type: 'text',
-            text: { 
-              preview_url: false, 
-              body: text 
-            }
-          })
-        }
-      )
-      
-      if (response.ok) {
-        const data = await response.json()
-        message.waMessageId = data.messages?.[0]?.id
-        console.log(`[WhatsApp SUCCESS] Message envoyé à ${to} - ID: ${message.waMessageId}`)
-        
-        if (db && message.waMessageId) {
-          await db.collection('whatsapp_messages').updateOne(
-            { id: message.id },
-            { $set: { waMessageId: message.waMessageId } }
-          )
-        }
-        
-        return data
-      } else {
-        const errorData = await response.json()
-        console.error('[WhatsApp ERROR]', response.status, errorData)
-        message.status = 'failed'
-        message.error = errorData
-        
-        if (db) {
-          await db.collection('whatsapp_messages').updateOne(
-            { id: message.id },
-            { $set: { status: 'failed', error: errorData } }
-          )
-        }
-      }
-    } catch (error) {
-      console.error('[WhatsApp EXCEPTION]', error.message)
-      message.status = 'failed'
-      message.error = error.message
-    }
-  } else {
-    console.warn('[WhatsApp] Variables manquantes: WHATSAPP_ACCESS_TOKEN ou WHATSAPP_PHONE_NUMBER_ID')
-  }
-  
-  return { 
-    messaging_product: 'whatsapp', 
-    contacts: [{ wa_id: to }], 
-    messages: [{ id: message.id }],
-    mocked: !process.env.WHATSAPP_ACCESS_TOKEN
+
+  return {
+    messaging_product: 'internal',
+    contacts: [{ wa_id: to }],
+    messages: [{ id: message.id }]
   }
 }
 
@@ -795,7 +682,7 @@ async function handleRoute(request, { params }) {
       return handleCORS(NextResponse.json({ 
         message: 'Bienvenue sur Wooleen API',
         version: '2.1.0',
-        features: ['Lead capture', 'OpenAI GPT parsing', 'Improved matching', 'Monetization ready']
+        features: ['Lead capture', 'Autonomous local parsing', 'Improved matching', 'Subscriptions']
       }))
     }
 
@@ -1770,8 +1657,8 @@ async function handleRoute(request, { params }) {
         leads,
         conversions,
         conversionRate: matches > 0 ? Math.round((conversions / matches) * 100) : 0,
-        aiStatus: process.env.OPENAI_API_KEY ? 'OpenAI GPT-4o-mini' : 'Local parsing',
-        whatsappStatus: process.env.WHATSAPP_ACCESS_TOKEN ? 'Real WhatsApp Cloud API' : 'Mocked'
+        aiStatus: 'Système autonome (local)',
+        whatsappStatus: 'Local (base de données)'
       }))
     }
 

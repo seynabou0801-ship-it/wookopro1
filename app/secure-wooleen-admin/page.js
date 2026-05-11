@@ -794,8 +794,8 @@ export default function SecureAdminDashboard() {
         {/* System Info */}
         <div className="bg-white rounded-xl shadow-sm p-4 mb-8">
           <div className="flex items-center gap-6 text-sm">
-            <span className="text-gray-500">IA: <span className="font-medium text-gray-900">{stats?.aiStatus}</span></span>
-            <span className="text-gray-500">WhatsApp: <span className="font-medium text-gray-900">{stats?.whatsappStatus}</span></span>
+            <span className="text-gray-500">Moteur: <span className="font-medium text-gray-900">{stats?.aiStatus || 'Système autonome (local)'}</span></span>
+            <span className="text-gray-500">Messagerie: <span className="font-medium text-gray-900">{stats?.whatsappStatus || 'Local (base de données)'}</span></span>
           </div>
         </div>
 
