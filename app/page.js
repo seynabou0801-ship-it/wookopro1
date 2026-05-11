@@ -480,17 +480,18 @@ export default function HomePage() {
           </div>
 
           <div className="text-center">
-            <a
-              href="https://wa.me/221773389095?text=Bonjour%20WookoPRO%2C%20je%20cherche%20un%20pro."
-              target="_blank"
-              rel="noopener noreferrer"
+            <button
+              type="button"
+              onClick={openLeadModal}
+              aria-haspopup="dialog"
+              aria-expanded={isLeadModalOpen}
               className="inline-flex items-center gap-3 bg-[#25D366] hover:bg-[#20BA5A] text-white px-8 py-4 rounded-2xl text-lg font-bold shadow-xl hover:shadow-2xl transition-all"
             >
               <span>Envoyer ma demande sur WhatsApp</span>
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>
-            </a>
+            </button>
           </div>
         </div>
       </section>
