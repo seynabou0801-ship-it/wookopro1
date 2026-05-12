@@ -712,7 +712,7 @@ export default function HomePage() {
             Contactez-nous directement sur WhatsApp et recevez une assistance immédiate
           </p>
           <a
-            href="https://wa.me/221773389095?text=Bonjour%20WookoPRO%2C%20j%27ai%20besoin%20d%27une%20assistance%20rapide."
+            href="https://wa.me/33746380448?text=Bonjour%20WookoPRO%2C%20j%27ai%20besoin%20d%27une%20assistance%20rapide."
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-3 bg-white text-[#25D366] px-8 py-4 rounded-2xl text-lg font-bold shadow-2xl hover:scale-105 transition-transform"
@@ -848,7 +848,7 @@ export default function HomePage() {
             </p>
             <div className="flex items-center gap-6">
               <a
-                href="https://wa.me/221773389095?text=Bonjour%20WookoPRO%2C%20j%27ai%20besoin%20du%20support."
+                href="https://wa.me/33746380448?text=Bonjour%20WookoPRO%2C%20j%27ai%20besoin%20du%20support."
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-sm text-[#25D366] hover:text-[#20BA5A] font-medium transition-colors flex items-center gap-2"
