@@ -264,8 +264,9 @@ function parseLocally(message) {
     plombier: ['plombier', 'plomberie', 'fuite', 'douche', 'robinet', 'tuyau', 'wc', 'toilette', 'évier', 'canalisation', 'eau'],
     electricien: ['électricien', 'electricien', 'électrique', 'electrique', 'courant', 'prise', 'lumière', 'ampoule', 'disjoncteur', 'panne de courant'],
     climatiseur: ['climatiseur', 'clim', 'climatisation', 'froid', 'chaud', 'ventilation', 'ac'],
+    macon: ['maçon', 'macon', 'maçonnerie', 'maconnerie', 'mur', 'ciment', 'béton', 'beton', 'briques', 'brique', 'parpaing', 'fondation', 'construction', 'crépi', 'crepi', 'carrelage', 'dallage'],
     menuisier: ['menuisier', 'menuiserie', 'bois', 'meuble', 'armoire', 'porte', 'fenêtre', 'étagère'],
-    peintre: ['peintre', 'peinture', 'peindre', 'mur', 'plafond'],
+    peintre: ['peintre', 'peinture', 'peindre', 'plafond'],
     serrurier: ['serrurier', 'serrure', 'clé', 'clef', 'porte bloquée', 'verrou'],
     nettoyage: ['nettoyage', 'nettoyer', 'ménage', 'propre', 'entretien'],
     mecanicien: ['mécanicien', 'mecanicien', 'voiture', 'auto', 'moteur', 'panne auto'],
@@ -1733,6 +1734,7 @@ async function handleRoute(request, { params }) {
       // Category dictionary (slug → label)
       const categoryLabels = {
         plombier: 'Plomberie', electricien: 'Électricité', climatiseur: 'Climatisation',
+        macon: 'Maçonnerie',
         menuisier: 'Menuiserie', peintre: 'Peinture', serrurier: 'Serrurerie',
         nettoyage: 'Nettoyage', mecanicien: 'Mécanique', demenagement: 'Déménagement',
         technicien: 'Technicien', autre: 'Autre'
@@ -1838,6 +1840,7 @@ async function handleRoute(request, { params }) {
         { id: uuidv4(), name: 'Plomberie', slug: 'plombier' },
         { id: uuidv4(), name: 'Électricité', slug: 'electricien' },
         { id: uuidv4(), name: 'Climatisation', slug: 'climatiseur' },
+        { id: uuidv4(), name: 'Maçonnerie', slug: 'macon' },
         { id: uuidv4(), name: 'Menuiserie', slug: 'menuisier' },
         { id: uuidv4(), name: 'Nettoyage', slug: 'nettoyage' }
       ]

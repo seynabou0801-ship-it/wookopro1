@@ -3,13 +3,14 @@
 import { useState, useEffect } from 'react'
 import Link from "next/link"
 import { openWhatsApp, getDefaultWhatsAppNumber } from "@/lib/whatsapp"
-import { Wrench, Zap, Wind, Sparkles, Home, Phone, CheckCircle2, Clock, Shield, Users, Hammer } from 'lucide-react'
+import { Wrench, Zap, Wind, Sparkles, Home, Phone, CheckCircle2, Clock, Shield, Users, Hammer, Construction } from 'lucide-react'
 
 // Catégories de services
 const SERVICE_CATEGORIES = [
   { value: 'plombier', label: 'Plomberie', icon: Wrench },
   { value: 'electricien', label: 'Électricité', icon: Zap },
   { value: 'climatiseur', label: 'Climatisation', icon: Wind },
+  { value: 'macon', label: 'Maçonnerie', icon: Construction },
   { value: 'menuisier', label: 'Menuiserie', icon: Hammer },
   { value: 'peintre', label: 'Peinture', icon: Sparkles },
   { value: 'serrurier', label: 'Serrurerie', icon: Home },
