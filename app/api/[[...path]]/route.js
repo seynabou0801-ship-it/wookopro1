@@ -1820,6 +1820,98 @@ async function handleRoute(request, { params }) {
       return handleCORS(NextResponse.json(analytics))
     }
 
+    // ============ WOOKOTV — VIDEOS (new feature, isolated) ============
+    // Public endpoint: only published videos
+    if (route === '/videos/published' && method === 'GET') {
+      const videos = await db
+        .collection('videos')
+        .find({ status: 'published' })
+        .project({ _id: 0 })
+        .sort({ createdAt: -1 })
+        .toArray()
+      return handleCORS(NextResponse.json({ videos }))
+    }
+
+    // Admin: list all videos
+    if (route === '/admin/videos' && method === 'GET') {
+      const videos = await db
+        .collection('videos')
+        .find({})
+        .project({ _id: 0 })
+        .sort({ createdAt: -1 })
+        .toArray()
+      return handleCORS(NextResponse.json({ videos }))
+    }
+
+    // Admin: create video
+    if (route === '/admin/videos' && method === 'POST') {
+      const body = await request.json().catch(() => ({}))
+      const title = (body.title || '').trim()
+      const videoUrl = (body.videoUrl || '').trim()
+      if (!title || !videoUrl) {
+        return handleCORS(NextResponse.json(
+          { error: 'title et videoUrl sont requis' },
+          { status: 400 }
+        ))
+      }
+      const allowedStatus = ['draft', 'published']
+      const allowedCategories = ['Pub', 'Tutoriel', 'Témoignage']
+      const status = allowedStatus.includes(body.status) ? body.status : 'draft'
+      const category = allowedCategories.includes(body.category) ? body.category : 'Pub'
+
+      const video = {
+        id: uuidv4(),
+        title,
+        category,
+        videoUrl,
+        thumbnailUrl: (body.thumbnailUrl || '').trim() || null,
+        duration: Number.isFinite(Number(body.duration)) ? Math.round(Number(body.duration)) : null,
+        description: (body.description || '').trim() || null,
+        status,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }
+      await db.collection('videos').insertOne(video)
+      const { _id, ...safe } = video
+      return handleCORS(NextResponse.json({ ok: true, video: safe }))
+    }
+
+    // Admin: update video (PATCH /admin/videos/:id) — including status toggle
+    if (route.startsWith('/admin/videos/') && method === 'PATCH') {
+      const id = route.split('/').pop()
+      const body = await request.json().catch(() => ({}))
+      const update = { updatedAt: new Date() }
+      const allowedStatus = ['draft', 'published']
+      const allowedCategories = ['Pub', 'Tutoriel', 'Témoignage']
+      if (typeof body.title === 'string')        update.title = body.title.trim()
+      if (typeof body.videoUrl === 'string')     update.videoUrl = body.videoUrl.trim()
+      if (typeof body.thumbnailUrl === 'string') update.thumbnailUrl = body.thumbnailUrl.trim() || null
+      if (typeof body.description === 'string')  update.description = body.description.trim() || null
+      if (Number.isFinite(Number(body.duration))) update.duration = Math.round(Number(body.duration))
+      if (allowedStatus.includes(body.status))   update.status = body.status
+      if (allowedCategories.includes(body.category)) update.category = body.category
+
+      const result = await db.collection('videos').findOneAndUpdate(
+        { id },
+        { $set: update },
+        { returnDocument: 'after', projection: { _id: 0 } }
+      )
+      if (!result?.value && !result) {
+        return handleCORS(NextResponse.json({ error: 'Video non trouvée' }, { status: 404 }))
+      }
+      return handleCORS(NextResponse.json({ ok: true, video: result.value || result }))
+    }
+
+    // Admin: delete video
+    if (route.startsWith('/admin/videos/') && method === 'DELETE') {
+      const id = route.split('/').pop()
+      const r = await db.collection('videos').deleteOne({ id })
+      if (r.deletedCount === 0) {
+        return handleCORS(NextResponse.json({ error: 'Video non trouvée' }, { status: 404 }))
+      }
+      return handleCORS(NextResponse.json({ ok: true, deleted: id }))
+    }
+
     // ============ SEED DATA ============
     if (route === '/seed' && method === 'POST') {
       const passwordHash = await bcrypt.hash('wooleen2025', 10)

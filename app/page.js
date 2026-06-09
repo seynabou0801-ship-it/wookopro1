@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from "next/link"
 import { openWhatsApp, getDefaultWhatsAppNumber } from "@/lib/whatsapp"
+import WookoTV from '@/components/WookoTV'
 import { Wrench, Zap, Wind, Sparkles, Home, Phone, CheckCircle2, Clock, Shield, Users, Hammer, Construction } from 'lucide-react'
 
 // Catégories de services
@@ -609,6 +610,9 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* WookoTV section — hidden if no published video (return null) */}
+      <WookoTV />
 
       {/* Services Populaires Section */}
       <section className="py-16 sm:py-24 bg-white">
