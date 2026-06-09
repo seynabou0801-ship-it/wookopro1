@@ -1,5 +1,7 @@
 'use client'
 
+import { getYouTubeThumbnail } from '@/lib/wookotv'
+
 /**
  * VideoTable — Admin table for WookoTV videos.
  * Shows: thumbnail, title, category, duration, status, date, actions.
@@ -53,16 +55,17 @@ export default function VideoTable({ videos, busyId, onEdit, onTogglePublish, on
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {videos.map((v) => (
+            {videos.map((v) => {
+              const thumb = v.thumbnailUrl || getYouTubeThumbnail(v.videoUrl)
+              return (
               <tr key={v.id} className="hover:bg-gray-50">
                 <td className="px-4 py-3">
                   <div
                     className="w-24 h-14 rounded-md overflow-hidden bg-black flex items-center justify-center"
                   >
-                    {v.thumbnailUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
+                    {thumb ? (
                       <img
-                        src={v.thumbnailUrl}
+                        src={thumb}
                         alt={v.title}
                         className="w-full h-full object-cover"
                         loading="lazy"
@@ -121,7 +124,8 @@ export default function VideoTable({ videos, busyId, onEdit, onTogglePublish, on
                   </div>
                 </td>
               </tr>
-            ))}
+              )
+            })}
           </tbody>
         </table>
       </div>

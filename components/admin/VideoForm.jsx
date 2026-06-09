@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { isYouTubeUrl, toYouTubeEmbedUrl } from '@/lib/wookotv'
 
 const CATEGORIES = ['Pub', 'Tutoriel', 'Témoignage']
 
@@ -146,7 +147,7 @@ export default function VideoForm({ initial, onClose, onSave }) {
             <label htmlFor="vf-url" className="block text-sm font-medium text-gray-700 mb-1">
               URL de la vidéo *
               <span className="text-xs text-gray-500 font-normal ml-2">
-                (mp4 / webm — hébergée sur S3, Cloudinary, Bunny, etc.)
+                (YouTube, ou mp4 / webm hébergée sur S3, Cloudinary, Bunny, etc.)
               </span>
             </label>
             <input
@@ -154,23 +155,38 @@ export default function VideoForm({ initial, onClose, onSave }) {
               type="url"
               value={form.videoUrl}
               onChange={(e) => setForm({ ...form, videoUrl: e.target.value })}
-              placeholder="https://exemple.com/ma-video.mp4"
+              placeholder="https://youtu.be/... ou https://exemple.com/ma-video.mp4"
               className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500"
               required
             />
             {form.videoUrl && /^https?:\/\//i.test(form.videoUrl) && (
               <div className="mt-2 rounded-lg overflow-hidden bg-black" style={{ aspectRatio: '16 / 9' }}>
-                <video
-                  ref={videoRef}
-                  src={form.videoUrl}
-                  controls
-                  preload="metadata"
-                  onLoadedMetadata={handleLoadedMetadata}
-                  className="w-full h-full"
-                />
+                {isYouTubeUrl(form.videoUrl) ? (
+                  <iframe
+                    src={toYouTubeEmbedUrl(form.videoUrl)}
+                    title="Aperçu YouTube"
+                    className="w-full h-full"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  />
+                ) : (
+                  <video
+                    ref={videoRef}
+                    src={form.videoUrl}
+                    controls
+                    preload="metadata"
+                    onLoadedMetadata={handleLoadedMetadata}
+                    className="w-full h-full"
+                  />
+                )}
               </div>
             )}
-            {previewDuration && (
+            {isYouTubeUrl(form.videoUrl) && (
+              <p className="text-xs text-emerald-700 mt-1">
+                ✅ Vidéo YouTube détectée — lecture via iframe officiel YouTube.
+              </p>
+            )}
+            {previewDuration && !isYouTubeUrl(form.videoUrl) && (
               <p className="text-xs text-gray-500 mt-1">
                 Durée détectée automatiquement : {Math.floor(previewDuration / 60)}m {previewDuration % 60}s
               </p>

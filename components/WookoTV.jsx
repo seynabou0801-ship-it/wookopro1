@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useRef } from 'react'
+import { isYouTubeUrl, toYouTubeEmbedUrl, getYouTubeThumbnail } from '@/lib/wookotv'
 
 /**
  * WookoTV — Public video section
@@ -84,18 +85,29 @@ export default function WookoTV() {
               className="relative w-full overflow-hidden rounded-2xl shadow-2xl bg-black"
               style={{ aspectRatio: '16 / 9' }}
             >
-              <video
-                key={fadeKey}
-                ref={videoRef}
-                controls
-                playsInline
-                poster={active?.thumbnailUrl || undefined}
-                className="absolute inset-0 w-full h-full object-contain wpro-fade-video"
-                preload="metadata"
-              >
-                <source src={active?.videoUrl} />
-                Votre navigateur ne supporte pas la lecture vidéo HTML5.
-              </video>
+              {isYouTubeUrl(active?.videoUrl) ? (
+                <iframe
+                  key={fadeKey}
+                  src={toYouTubeEmbedUrl(active.videoUrl)}
+                  title={active?.title || 'WookoproTV'}
+                  className="absolute inset-0 w-full h-full wpro-fade-video"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowFullScreen
+                />
+              ) : (
+                <video
+                  key={fadeKey}
+                  ref={videoRef}
+                  controls
+                  playsInline
+                  poster={active?.thumbnailUrl || undefined}
+                  className="absolute inset-0 w-full h-full object-contain wpro-fade-video"
+                  preload="metadata"
+                >
+                  <source src={active?.videoUrl} />
+                  Votre navigateur ne supporte pas la lecture vidéo HTML5.
+                </video>
+              )}
             </div>
 
             {/* Title + share */}
@@ -137,6 +149,7 @@ export default function WookoTV() {
             >
               {videos.map((v, idx) => {
                 const isActive = idx === activeIndex
+                const thumb = v.thumbnailUrl || getYouTubeThumbnail(v.videoUrl)
                 return (
                   <button
                     key={v.id}
@@ -154,9 +167,9 @@ export default function WookoTV() {
                       className="bg-black relative w-full"
                       style={{ aspectRatio: '16 / 9' }}
                     >
-                      {v.thumbnailUrl ? (
+                      {thumb ? (
                         <img
-                          src={v.thumbnailUrl}
+                          src={thumb}
                           alt={v.title}
                           className="absolute inset-0 w-full h-full object-cover"
                           loading="lazy"
