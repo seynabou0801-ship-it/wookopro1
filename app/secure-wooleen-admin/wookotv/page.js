@@ -131,7 +131,7 @@ export default function WookoTVAdminPage() {
         <div className="max-w-7xl mx-auto px-6 sm:px-8 py-4 flex items-center justify-between gap-4">
           <div>
             <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
-              📺 WookoTV — Gestion des vidéos
+              📺 WookoproTV — Gestion des vidéos
             </h1>
             <p className="text-xs sm:text-sm text-gray-500 mt-0.5">
               Section publique affichée sur la home (uniquement les vidéos « Publiées »).

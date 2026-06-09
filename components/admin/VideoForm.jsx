@@ -88,7 +88,7 @@ export default function VideoForm({ initial, onClose, onSave }) {
       >
         <div className="p-4 border-b flex items-center justify-between sticky top-0 bg-white z-10">
           <h2 id="videoform-title" className="text-lg font-semibold">
-            {isEditing ? 'Éditer la vidéo' : 'Nouvelle vidéo WookoTV'}
+            {isEditing ? 'Éditer la vidéo' : 'Nouvelle vidéo WookoproTV'}
           </h2>
           <button
             type="button"

@@ -31,7 +31,7 @@ export default function VideoTable({ videos, busyId, onEdit, onTogglePublish, on
           Aucune vidéo pour le moment
         </h2>
         <p className="text-sm text-gray-500">
-          Clique sur « + Nouvelle vidéo » pour ajouter ta première vidéo WookoTV.
+          Clique sur « + Nouvelle vidéo » pour ajouter ta première vidéo WookoproTV.
         </p>
       </div>
     )

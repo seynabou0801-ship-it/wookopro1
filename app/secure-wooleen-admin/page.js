@@ -932,7 +932,7 @@ export default function SecureAdminDashboard() {
               {tab === 'abonnements' && `Abonnements (${subscriptions.length})`}
             </button>
           ))}
-          <a href="/secure-wooleen-admin/wookotv" className="px-4 py-2 rounded-lg text-sm font-medium bg-white text-gray-600 hover:bg-gray-100 border border-gray-200">📺 WookoTV</a>
+          <a href="/secure-wooleen-admin/wookotv" className="px-4 py-2 rounded-lg text-sm font-medium bg-white text-gray-600 hover:bg-gray-100 border border-gray-200">📺 WookoproTV</a>
         </div>
 
         {/* Overview Tab */}

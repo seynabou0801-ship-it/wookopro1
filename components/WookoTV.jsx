@@ -47,7 +47,7 @@ export default function WookoTV() {
 
   const handleShare = (video) => {
     const text = encodeURIComponent(
-      `${video.title}\n\nRegardez cette vidéo WookoTV : ${video.videoUrl}`
+      `${video.title}\n\nRegardez cette vidéo WookoproTV : ${video.videoUrl}`
     )
     const url = `https://wa.me/?text=${text}`
     if (typeof window !== 'undefined') window.open(url, '_blank', 'noopener,noreferrer')
@@ -58,13 +58,13 @@ export default function WookoTV() {
       id="wookotv"
       className="py-16 sm:py-24"
       style={{ backgroundColor: '#0a1628' }}
-      aria-label="WookoTV"
+      aria-label="WookoproTV"
     >
       <div className="max-w-7xl mx-auto px-6 sm:px-8">
         {/* Heading */}
         <div className="text-center mb-10">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/10 text-white/80 text-xs font-semibold uppercase tracking-wider mb-4">
-            📺 WookoTV
+            📺 WookoproTV
           </div>
           <h2 className="text-3xl sm:text-4xl font-bold text-white mb-3">
             Découvrez nos vidéos
