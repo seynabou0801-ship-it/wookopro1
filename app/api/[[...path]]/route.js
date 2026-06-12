@@ -265,6 +265,7 @@ function parseLocally(message) {
     electricien: ['électricien', 'electricien', 'électrique', 'electrique', 'courant', 'prise', 'lumière', 'ampoule', 'disjoncteur', 'panne de courant'],
     climatiseur: ['climatiseur', 'clim', 'climatisation', 'froid', 'chaud', 'ventilation', 'ac'],
     macon: ['maçon', 'macon', 'maçonnerie', 'maconnerie', 'mur', 'ciment', 'béton', 'beton', 'briques', 'brique', 'parpaing', 'fondation', 'construction', 'crépi', 'crepi', 'carrelage', 'dallage'],
+    tapissier: ['tapissier', 'tapissière', 'tapisserie', 'tapisser', 'tissu', 'rideau', 'rideaux', 'canapé', 'canape', 'fauteuil', 'siège', 'siege', 'rembourrage', 'recouvrir', 'décoration intérieure', 'décoration interieure', 'décorateur', 'tenture'],
     menuisier: ['menuisier', 'menuiserie', 'bois', 'meuble', 'armoire', 'porte', 'fenêtre', 'étagère'],
     peintre: ['peintre', 'peinture', 'peindre', 'plafond'],
     serrurier: ['serrurier', 'serrure', 'clé', 'clef', 'porte bloquée', 'verrou'],
@@ -731,6 +732,7 @@ async function handleRoute(request, { params }) {
         clientId: user?.id,
         clientPhone: phone,
         category: serviceCategory || 'autre',
+        serviceCategory: serviceCategory || 'autre', // 🔧 Compat analytics ($group on $serviceCategory)
         city: city || '',
         zone: '',
         description: description || `Demande de ${serviceCategory} à ${city}`,
@@ -792,7 +794,7 @@ async function handleRoute(request, { params }) {
       if (user.status === 'INACTIVE' || user.status === 'SUSPENDED') {
         return handleCORS(NextResponse.json({ 
           error: 'COMPTE_INACTIF',
-          message: 'Votre compte a été désactivé par l\'administration. Contactez le support au 77 338 90 95.'
+          message: 'Votre compte a été désactivé par l\'administration. Contactez le support au +33 7 77 36 94 62.'
         }, { status: 403 }))
       }
 
@@ -1782,6 +1784,7 @@ async function handleRoute(request, { params }) {
       const categoryLabels = {
         plombier: 'Plomberie', electricien: 'Électricité', climatiseur: 'Climatisation',
         macon: 'Maçonnerie',
+        tapissier: 'Tapisserie',
         menuisier: 'Menuiserie', peintre: 'Peinture', serrurier: 'Serrurerie',
         nettoyage: 'Nettoyage', mecanicien: 'Mécanique', demenagement: 'Déménagement',
         technicien: 'Technicien', autre: 'Autre'
@@ -2024,6 +2027,7 @@ async function handleRoute(request, { params }) {
         { id: uuidv4(), name: 'Électricité', slug: 'electricien' },
         { id: uuidv4(), name: 'Climatisation', slug: 'climatiseur' },
         { id: uuidv4(), name: 'Maçonnerie', slug: 'macon' },
+        { id: uuidv4(), name: 'Tapisserie', slug: 'tapissier' },
         { id: uuidv4(), name: 'Menuiserie', slug: 'menuisier' },
         { id: uuidv4(), name: 'Nettoyage', slug: 'nettoyage' }
       ]

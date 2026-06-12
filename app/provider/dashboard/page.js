@@ -213,7 +213,7 @@ export default function ProviderDashboard() {
                 )}
                 <div className="flex items-center gap-2 text-sm text-gray-600">
                   <Phone className="w-4 h-4" />
-                  <span>Contactez le support au <strong className="text-[#FF6A00]">77 338 90 95</strong> pour plus d'informations</span>
+                  <span>Contactez le support au <strong className="text-[#FF6A00]">+33 7 77 36 94 62</strong> pour plus d'informations</span>
                 </div>
               </div>
             </div>
@@ -297,7 +297,7 @@ export default function ProviderDashboard() {
                   </div>
                 )}
                 <p className="text-sm text-gray-500">
-                  Contactez le support au <strong className="text-[#FF6A00]">77 338 90 95</strong>
+                  Contactez le support au <strong className="text-[#FF6A00]">+33 7 77 36 94 62</strong>
                 </p>
               </div>
             </div>

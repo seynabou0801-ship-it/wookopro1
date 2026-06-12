@@ -324,6 +324,7 @@ export default function ProviderAuthPage() {
                         <option value="electricien">Électricité</option>
                         <option value="climatiseur">Climatisation</option>
                         <option value="macon">Maçonnerie</option>
+                        <option value="tapissier">Tapisserie</option>
                         <option value="menuisier">Menuiserie</option>
                         <option value="peintre">Peinture</option>
                         <option value="serrurier">Serrurerie</option>

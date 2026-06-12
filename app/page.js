@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from "next/link"
 import { openWhatsApp, getDefaultWhatsAppNumber } from "@/lib/whatsapp"
 import WookoTV from '@/components/WookoTV'
-import { Wrench, Zap, Wind, Sparkles, Home, Phone, CheckCircle2, Clock, Shield, Users, Hammer, Construction } from 'lucide-react'
+import { Wrench, Zap, Wind, Sparkles, Home, Phone, CheckCircle2, Clock, Shield, Users, Hammer, Construction, Sofa } from 'lucide-react'
 
 // Catégories de services
 const SERVICE_CATEGORIES = [
@@ -12,6 +12,7 @@ const SERVICE_CATEGORIES = [
   { value: 'electricien', label: 'Électricité', icon: Zap },
   { value: 'climatiseur', label: 'Climatisation', icon: Wind },
   { value: 'macon', label: 'Maçonnerie', icon: Construction },
+  { value: 'tapissier', label: 'Tapisserie', icon: Sofa },
   { value: 'menuisier', label: 'Menuiserie', icon: Hammer },
   { value: 'peintre', label: 'Peinture', icon: Sparkles },
   { value: 'serrurier', label: 'Serrurerie', icon: Home },

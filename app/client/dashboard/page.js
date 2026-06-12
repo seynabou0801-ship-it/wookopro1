@@ -11,6 +11,7 @@ const SERVICE_LABELS = {
   electricien: 'Électricité',
   climatiseur: 'Climatisation',
   macon: 'Maçonnerie',
+  tapissier: 'Tapisserie',
   menuisier: 'Menuiserie',
   peintre: 'Peinture',
   serrurier: 'Serrurerie',
@@ -238,6 +239,7 @@ export default function ClientDashboard() {
                     <option value="electricien">Électricité</option>
                     <option value="climatiseur">Climatisation</option>
                     <option value="macon">Maçonnerie</option>
+                    <option value="tapissier">Tapisserie</option>
                     <option value="menuisier">Menuiserie</option>
                     <option value="peintre">Peinture</option>
                     <option value="serrurier">Serrurerie</option>
