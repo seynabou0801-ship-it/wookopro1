@@ -27,6 +27,9 @@ export default function SecureAdminDashboard() {
   const [seedLoading, setSeedLoading] = useState(false)
   const [seedToast, setSeedToast] = useState(null) // { type: 'success'|'error', message: string }
   const [refreshLoading, setRefreshLoading] = useState(false)
+  const [notifications, setNotifications] = useState([])
+  const [notifPendingCount, setNotifPendingCount] = useState(0)
+  const [showNotifPanel, setShowNotifPanel] = useState(false)
   
   // ⚡ NOUVEAU : State pour les paiements en attente
   const [pendingPayments, setPendingPayments] = useState([])
@@ -64,7 +67,7 @@ export default function SecureAdminDashboard() {
 
   const fetchData = async () => {
     try {
-      const [statsRes, analyticsRes, providersRes, requestsRes, paymentsRes, pendingRes, subsRes, pendingSubsRes] = await Promise.all([
+      const [statsRes, analyticsRes, providersRes, requestsRes, paymentsRes, pendingRes, subsRes, pendingSubsRes, notifRes] = await Promise.all([
         fetch('/api/admin/stats', { cache: 'no-store' }),
         fetch('/api/admin/analytics', { cache: 'no-store' }),
         fetch('/api/providers', { cache: 'no-store' }),
@@ -72,7 +75,8 @@ export default function SecureAdminDashboard() {
         fetch('/api/admin/payments/pending', { cache: 'no-store' }),
         fetch('/api/admin/providers/pending', { cache: 'no-store' }),
         fetch('/api/admin/subscriptions/all', { cache: 'no-store' }),
-        fetch('/api/admin/subscriptions/pending', { cache: 'no-store' })
+        fetch('/api/admin/subscriptions/pending', { cache: 'no-store' }),
+        fetch('/api/admin/notifications', { cache: 'no-store' })
       ])
 
       if (statsRes.ok) setStats(await statsRes.json())
@@ -89,10 +93,38 @@ export default function SecureAdminDashboard() {
         const data = await pendingSubsRes.json()
         setPendingSubscriptions(data.subscriptions || [])
       }
+      if (notifRes.ok) {
+        const data = await notifRes.json()
+        setNotifications(data.notifications || [])
+        setNotifPendingCount(Number(data.pendingCount) || 0)
+      }
     } catch (error) {
       console.error('Error:', error)
     }
     setLoading(false)
+  }
+
+  // Ouvre wa.me pré-rempli + marque la notification comme envoyée
+  const handleSendNotification = async (notif) => {
+    try {
+      window.open(notif.targetWaUrl, '_blank', 'noopener,noreferrer')
+      const r = await fetch(`/api/admin/notifications/${notif.id}/sent`, { method: 'POST' })
+      if (r.ok) {
+        await fetchData()
+      }
+    } catch (e) {
+      console.error('Erreur marquage notification:', e)
+    }
+  }
+
+  // Supprime une notification de la liste (clear)
+  const handleDismissNotification = async (id) => {
+    try {
+      const r = await fetch(`/api/admin/notifications/${id}`, { method: 'DELETE' })
+      if (r.ok) await fetchData()
+    } catch (e) {
+      console.error('Erreur suppression notification:', e)
+    }
   }
 
   const handleLogout = () => {
@@ -599,6 +631,89 @@ export default function SecureAdminDashboard() {
                 <span>↻ Actualiser</span>
               )}
             </button>
+            {/* Notifications bell (Option C — fail-safe WhatsApp dispatch) */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowNotifPanel((s) => !s)}
+                aria-label="Notifications"
+                aria-expanded={showNotifPanel}
+                className="relative px-3 py-2 bg-white text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-100 border border-gray-200 transition-colors"
+              >
+                <span aria-hidden="true">🔔</span>
+                {notifPendingCount > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[20px] h-5 px-1 bg-red-600 text-white text-xs font-bold rounded-full inline-flex items-center justify-center shadow">
+                    {notifPendingCount > 99 ? '99+' : notifPendingCount}
+                  </span>
+                )}
+              </button>
+              {showNotifPanel && (
+                <div
+                  className="absolute right-0 mt-2 w-96 max-w-[calc(100vw-2rem)] bg-white border border-gray-200 rounded-xl shadow-2xl z-50"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="px-4 py-3 border-b flex items-center justify-between">
+                    <p className="font-semibold text-gray-900">Notifications</p>
+                    <span className="text-xs text-gray-500">
+                      {notifPendingCount} à envoyer
+                    </span>
+                  </div>
+                  <div className="max-h-96 overflow-y-auto">
+                    {notifications.length === 0 ? (
+                      <p className="p-6 text-center text-sm text-gray-500">Aucune notification</p>
+                    ) : notifications.map((n) => (
+                      <div key={n.id} className="px-4 py-3 border-b last:border-b-0 hover:bg-gray-50">
+                        <div className="flex items-start justify-between gap-2 mb-1">
+                          <p className="text-xs font-semibold text-gray-900">
+                            🚀 {n.payload?.businessName || 'Nouveau prestataire'}
+                          </p>
+                          <span
+                            className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${
+                              n.status === 'SENT'
+                                ? 'bg-emerald-100 text-emerald-700'
+                                : 'bg-amber-100 text-amber-700'
+                            }`}
+                          >
+                            {n.status === 'SENT' ? 'Envoyé' : 'À envoyer'}
+                          </span>
+                        </div>
+                        <p className="text-xs text-gray-600 mb-2">
+                          {n.payload?.serviceCategory} · {n.payload?.city} · {n.payload?.phone}
+                        </p>
+                        <p className="text-[11px] text-gray-400 mb-2">
+                          {new Date(n.createdAt).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleSendNotification(n)}
+                            className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 bg-[#25D366] hover:bg-[#20BA5A] text-white text-xs font-semibold rounded-md transition-colors"
+                          >
+                            <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884" />
+                            </svg>
+                            {n.status === 'SENT' ? 'Renvoyer' : 'Notifier sur WhatsApp'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDismissNotification(n.id)}
+                            className="px-2 py-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                            aria-label="Supprimer la notification"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="px-4 py-2 border-t bg-gray-50 text-[11px] text-gray-500 rounded-b-xl">
+                    Destinataire WhatsApp : <span className="font-mono">+33 7 77 36 94 62</span>
+                  </div>
+                </div>
+              )}
+            </div>
             <button
               onClick={handleLogout}
               className="text-sm text-red-600 hover:text-red-700"

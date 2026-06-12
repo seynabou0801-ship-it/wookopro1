@@ -885,7 +885,54 @@ async function handleRoute(request, { params }) {
         updatedAt: new Date()
       }
       await db.collection('provider_profiles').insertOne(provider)
-      
+
+      // ⚡ Option C — Notification admin (fail-safe, sans API externe)
+      // Logge l'inscription en base. L'admin verra un badge dans le dashboard
+      // et pourra envoyer la notification WhatsApp d'un clic (lien wa.me pré-rempli).
+      try {
+        const supportPhone = (process.env.SUPPORT_NOTIFICATION_PHONE || '+33777369462').replace(/[^\d]/g, '')
+        const inscriptionDate = new Date()
+        const dateStr = inscriptionDate.toLocaleString('fr-FR', {
+          day: '2-digit', month: '2-digit', year: 'numeric',
+          hour: '2-digit', minute: '2-digit'
+        })
+        const message =
+          '🚀 Nouveau prestataire inscrit sur WookoPRO\n\n' +
+          `Nom : ${businessName}\n` +
+          `Téléphone : ${phone}\n` +
+          `Email : ${email || '—'}\n` +
+          `Métier : ${serviceCategory}\n` +
+          `Ville : ${city}\n` +
+          `Date d'inscription : ${dateStr}\n\n` +
+          'Accéder au tableau de bord administrateur pour validation et suivi.'
+
+        const notification = {
+          id: uuidv4(),
+          type: 'NEW_PROVIDER',
+          targetPhone: '+' + supportPhone,
+          targetWaUrl: `https://wa.me/${supportPhone}?text=${encodeURIComponent(message)}`,
+          message,
+          payload: {
+            providerId: provider.id,
+            userId: user.id,
+            businessName,
+            phone,
+            email: email || null,
+            serviceCategory,
+            city
+          },
+          status: 'PENDING',  // PENDING | SENT | FAILED
+          attempts: 0,
+          createdAt: inscriptionDate,
+          updatedAt: inscriptionDate
+        }
+        await db.collection('admin_notifications').insertOne(notification)
+        console.log(`[notification] Nouvelle inscription prestataire loggée : ${businessName} (${provider.id})`)
+      } catch (notifErr) {
+        // ⚠️ L'échec d'enregistrement de la notification NE doit JAMAIS bloquer l'inscription
+        console.error('[notification] Erreur enregistrement notification:', notifErr.message)
+      }
+
       // ⚡ NE PAS créer de token ni permettre auto-login
       return handleCORS(NextResponse.json({
         success: true,
@@ -1908,6 +1955,50 @@ async function handleRoute(request, { params }) {
       const r = await db.collection('videos').deleteOne({ id })
       if (r.deletedCount === 0) {
         return handleCORS(NextResponse.json({ error: 'Video non trouvée' }, { status: 404 }))
+      }
+      return handleCORS(NextResponse.json({ ok: true, deleted: id }))
+    }
+
+    // ============ ADMIN NOTIFICATIONS (Option C — fail-safe) ============
+    // Liste les notifications avec compteur PENDING (badge dashboard)
+    if (route === '/admin/notifications' && method === 'GET') {
+      const [items, pendingCount] = await Promise.all([
+        db.collection('admin_notifications')
+          .find({})
+          .project({ _id: 0 })
+          .sort({ createdAt: -1 })
+          .limit(50)
+          .toArray(),
+        db.collection('admin_notifications').countDocuments({ status: 'PENDING' })
+      ])
+      return handleCORS(NextResponse.json({ notifications: items, pendingCount }))
+    }
+
+    // Marquer comme envoyé (clic sur le bouton "Notifier sur WhatsApp")
+    if (route.startsWith('/admin/notifications/') && route.endsWith('/sent') && method === 'POST') {
+      const id = route.split('/')[3]
+      const r = await db.collection('admin_notifications').findOneAndUpdate(
+        { id },
+        {
+          $set: { status: 'SENT', updatedAt: new Date(), sentAt: new Date() },
+          $inc: { attempts: 1 }
+        },
+        { returnDocument: 'after', projection: { _id: 0 } }
+      )
+      const notif = r?.value || r
+      if (!notif) {
+        return handleCORS(NextResponse.json({ error: 'Notification non trouvée' }, { status: 404 }))
+      }
+      console.log(`[notification] Marquée comme envoyée: ${id}`)
+      return handleCORS(NextResponse.json({ ok: true, notification: notif }))
+    }
+
+    // Supprimer une notification (clear de la liste)
+    if (route.startsWith('/admin/notifications/') && method === 'DELETE') {
+      const id = route.split('/').pop()
+      const r = await db.collection('admin_notifications').deleteOne({ id })
+      if (r.deletedCount === 0) {
+        return handleCORS(NextResponse.json({ error: 'Notification non trouvée' }, { status: 404 }))
       }
       return handleCORS(NextResponse.json({ ok: true, deleted: id }))
     }
