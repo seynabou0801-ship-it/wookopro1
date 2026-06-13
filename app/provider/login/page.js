@@ -305,6 +305,7 @@ export default function ProviderAuthPage() {
                         <option value="Touba">Touba</option>
                         <option value="Mbour">Mbour</option>
                         <option value="Rufisque">Rufisque</option>
+                        <option value="Tambacounda">Tambacounda</option>
                         <option value="Autre">Autre</option>
                       </select>
                     </div>

@@ -22,7 +22,7 @@ const SERVICE_CATEGORIES = [
 ]
 
 const CITIES = [
-  'Dakar', 'Thiès', 'Saint-Louis', 'Kaolack', 'Ziguinchor', 'Touba', 'Mbour', 'Rufisque', 'Autre'
+  'Dakar', 'Thiès', 'Saint-Louis', 'Kaolack', 'Ziguinchor', 'Touba', 'Mbour', 'Rufisque', 'Tambacounda', 'Autre'
 ]
 
 export default function HomePage() {

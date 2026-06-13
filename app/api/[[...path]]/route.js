@@ -283,12 +283,13 @@ function parseLocally(message) {
     }
   }
   
-  const cities = ['dakar', 'thiès', 'thies', 'saint-louis', 'saint louis', 'kaolack', 'ziguinchor', 'touba', 'mbour', 'rufisque']
+  const cities = ['dakar', 'thiès', 'thies', 'saint-louis', 'saint louis', 'kaolack', 'ziguinchor', 'touba', 'mbour', 'rufisque', 'tambacounda', 'tamba']
   let detectedCity = ''
   for (const city of cities) {
     if (lowerMsg.includes(city)) {
       detectedCity = city.charAt(0).toUpperCase() + city.slice(1)
       if (detectedCity.toLowerCase() === 'thies') detectedCity = 'Thiès'
+      if (detectedCity.toLowerCase() === 'tamba') detectedCity = 'Tambacounda'
       break
     }
   }
