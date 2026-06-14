@@ -437,7 +437,9 @@ async function sendWhatsAppMessage(to, text, db = null) {
 
 // ============ Request Service Functions ============
 async function createServiceRequestFromParsed(db, phone, rawMessage, parsed) {
-  let user = await db.collection('users').findOne({ phone })
+  // ✅ Résolution par rôle : un même numéro peut avoir un compte CLIENT et un compte PROVIDER.
+  // Pour une demande de service entrante, on cherche/crée toujours le compte CLIENT.
+  let user = await db.collection('users').findOne({ phone, role: 'CLIENT' })
 
   if (!user) {
     user = {
@@ -694,11 +696,13 @@ async function handleRoute(request, { params }) {
       const body = await request.json()
       const { serviceCategory, city, phone, description, source } = body
       
-      // Create or find user
-      let user = await db.collection('users').findOne({ 
-        phone: { $regex: new RegExp(phone?.replace(/[^\d]/g, '').slice(-9) || '') }
+      // ✅ Find-or-create user *par rôle* : un même numéro peut être à la fois
+      // client et prestataire. Ici on cherche/crée un compte CLIENT spécifiquement.
+      let user = await db.collection('users').findOne({
+        phone: { $regex: new RegExp(phone?.replace(/[^\d]/g, '').slice(-9) || '') },
+        role: 'CLIENT'
       })
-      
+
       if (!user && phone) {
         user = {
           id: uuidv4(),
@@ -845,12 +849,16 @@ async function handleRoute(request, { params }) {
         return handleCORS(NextResponse.json({ error: 'Tous les champs sont requis' }, { status: 400 }))
       }
       
-      const existingUser = await db.collection('users').findOne({ 
-        phone: { $regex: new RegExp(phone.replace(/[^\d]/g, '').slice(-9)) }
+      // ✅ Unicité du numéro PAR RÔLE (et non globale).
+      // Un même WhatsApp peut être à la fois client ET prestataire (2 comptes distincts).
+      // On ne bloque que si un PRESTATAIRE existe déjà avec ce numéro.
+      const existingUser = await db.collection('users').findOne({
+        phone: { $regex: new RegExp(phone.replace(/[^\d]/g, '').slice(-9)) },
+        role: 'PROVIDER'
       })
-      
+
       if (existingUser) {
-        return handleCORS(NextResponse.json({ error: 'Ce numéro est déjà enregistré' }, { status: 400 }))
+        return handleCORS(NextResponse.json({ error: 'Ce numéro est déjà utilisé pour un compte prestataire' }, { status: 400 }))
       }
       
       const passwordHash = await bcrypt.hash(password, 10)
