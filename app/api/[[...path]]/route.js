@@ -2,6 +2,48 @@ import { MongoClient } from 'mongodb'
 import { v4 as uuidv4 } from 'uuid'
 import { NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
+import jwt from 'jsonwebtoken'
+
+// ============ AUTH HELPERS (JWT signé) ============
+const JWT_SECRET = process.env.JWT_SECRET || 'CHANGE_ME_IN_PRODUCTION'
+const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d'
+
+function signToken(payload) {
+  // payload = { sub: userId, role: 'ADMIN' | 'PROVIDER' | 'CLIENT' }
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN })
+}
+
+function verifyToken(token) {
+  try {
+    return jwt.verify(token, JWT_SECRET)
+  } catch {
+    return null
+  }
+}
+
+// Extracts and verifies the Bearer token. Returns { user, payload } or null.
+async function getAuthUser(request, db) {
+  const auth = request.headers.get('authorization') || ''
+  const m = auth.match(/^Bearer\s+(.+)$/i)
+  if (!m) return null
+  const payload = verifyToken(m[1])
+  if (!payload?.sub) return null
+  const user = await db.collection('users').findOne({ id: payload.sub })
+  if (!user) return null
+  return { user, payload }
+}
+
+// Validation complexité minimale du mot de passe.
+// Renvoie null si OK, ou un message d'erreur sinon.
+function validatePasswordStrength(password) {
+  if (typeof password !== 'string' || password.length < 8) {
+    return 'Le mot de passe doit contenir au moins 8 caractères'
+  }
+  if (!/[A-Z]/.test(password)) return 'Le mot de passe doit contenir au moins 1 majuscule'
+  if (!/[a-z]/.test(password)) return 'Le mot de passe doit contenir au moins 1 minuscule'
+  if (!/\d/.test(password))    return 'Le mot de passe doit contenir au moins 1 chiffre'
+  return null
+}
 
 // MongoDB connection
 let client = null
@@ -685,6 +727,23 @@ async function handleRoute(request, { params }) {
   try {
     const db = await connectToMongo()
 
+    // ============ ADMIN AUTH GUARD (Lot 1 sécurité) ============
+    // Protège toutes les mutations admin + les changements de statut prestataire.
+    // Les GET restent ouverts pour ne pas casser la compat front (durcissement Lot 3).
+    const isAdminMutation =
+      (route.startsWith('/admin/') && ['POST', 'PATCH', 'DELETE'].includes(method)) ||
+      (route.match(/^\/providers\/[^/]+\/status$/) && method === 'PATCH')
+
+    if (isAdminMutation) {
+      const auth = await getAuthUser(request, db)
+      if (!auth || auth.user.role !== 'ADMIN') {
+        return handleCORS(NextResponse.json(
+          { error: 'Authentification admin requise', code: 'UNAUTHORIZED' },
+          { status: 401 }
+        ))
+      }
+    }
+
     // ============ ROOT ============
     if ((route === '/root' || route === '/') && method === 'GET') {
       return handleCORS(NextResponse.json({ 
@@ -814,19 +873,22 @@ async function handleRoute(request, { params }) {
         }, { status: 403 }))
       }
       
-      if (user.passwordHash) {
-        const validPassword = await bcrypt.compare(password, user.passwordHash)
-        if (!validPassword) {
-          return handleCORS(NextResponse.json({ error: 'Mot de passe incorrect' }, { status: 401 }))
-        }
-      } else {
-        if (password !== 'wooleen2025') {
-          return handleCORS(NextResponse.json({ error: 'Mot de passe incorrect' }, { status: 401 }))
-        }
+      if (!user.passwordHash) {
+        // ⚠️ Sécurité : on REFUSE désormais tout login sans hash valide.
+        // Si un user a été créé par seed sans passwordHash, il doit utiliser
+        // le flux "Mot de passe oublié" pour en définir un.
+        return handleCORS(NextResponse.json({
+          error: 'COMPTE_SANS_MOT_DE_PASSE',
+          message: 'Aucun mot de passe défini. Utilisez la procédure "Mot de passe oublié".'
+        }, { status: 401 }))
+      }
+      const validPassword = await bcrypt.compare(password, user.passwordHash)
+      if (!validPassword) {
+        return handleCORS(NextResponse.json({ error: 'Mot de passe incorrect' }, { status: 401 }))
       }
       
       const provider = await db.collection('provider_profiles').findOne({ userId: user.id })
-      const token = Buffer.from(`${user.id}:${Date.now()}`).toString('base64')
+      const token = signToken({ sub: user.id, role: user.role })
       
       return handleCORS(NextResponse.json({
         success: true,
@@ -850,6 +912,12 @@ async function handleRoute(request, { params }) {
       
       if (!phone || !password || !businessName || !serviceCategory || !city) {
         return handleCORS(NextResponse.json({ error: 'Tous les champs sont requis' }, { status: 400 }))
+      }
+
+      // ✅ Validation de complexité du mot de passe (8+ chars, 1 maj, 1 min, 1 chiffre)
+      const pwdErr = validatePasswordStrength(password)
+      if (pwdErr) {
+        return handleCORS(NextResponse.json({ error: pwdErr }, { status: 400 }))
       }
       
       // ✅ Unicité du numéro PAR RÔLE (et non globale).
@@ -984,15 +1052,15 @@ async function handleRoute(request, { params }) {
         return handleCORS(NextResponse.json({ error: 'Utilisateur non trouvé' }, { status: 401 }))
       }
       
-      if (user.passwordHash) {
-        const validPassword = await bcrypt.compare(password, user.passwordHash)
-        if (!validPassword) {
-          return handleCORS(NextResponse.json({ error: 'Mot de passe incorrect' }, { status: 401 }))
-        }
-      } else {
-        if (password !== 'wooleen2025') {
-          return handleCORS(NextResponse.json({ error: 'Mot de passe incorrect' }, { status: 401 }))
-        }
+      if (!user.passwordHash) {
+        return handleCORS(NextResponse.json({
+          error: 'COMPTE_SANS_MOT_DE_PASSE',
+          message: 'Aucun mot de passe défini. Utilisez la procédure "Mot de passe oublié".'
+        }, { status: 401 }))
+      }
+      const validPassword = await bcrypt.compare(password, user.passwordHash)
+      if (!validPassword) {
+        return handleCORS(NextResponse.json({ error: 'Mot de passe incorrect' }, { status: 401 }))
       }
       
       let provider = null
@@ -1000,7 +1068,7 @@ async function handleRoute(request, { params }) {
         provider = await db.collection('provider_profiles').findOne({ userId: user.id })
       }
       
-      const token = Buffer.from(`${user.id}:${user.role}:${Date.now()}`).toString('base64')
+      const token = signToken({ sub: user.id, role: user.role })
       
       return handleCORS(NextResponse.json({
         success: true,
@@ -2056,7 +2124,14 @@ async function handleRoute(request, { params }) {
         createdAt: new Date(),
         updatedAt: new Date()
       }
-      await db.collection('users').updateOne({ phone: admin.phone }, { $setOnInsert: admin }, { upsert: true })
+      await db.collection('users').updateOne(
+        { phone: admin.phone },
+        {
+          $setOnInsert: { id: admin.id, role: admin.role, createdAt: admin.createdAt },
+          $set: { name: admin.name, email: admin.email, phone: admin.phone, passwordHash, updatedAt: new Date() }
+        },
+        { upsert: true }
+      )
 
       const categories = [
         { id: uuidv4(), name: 'Plomberie', slug: 'plombier' },
@@ -2087,7 +2162,7 @@ async function handleRoute(request, { params }) {
       for (const item of providerData) {
         const existingUser = await db.collection('users').findOne({ phone: item.phone })
         let userId = existingUser?.id
-        
+
         if (!existingUser) {
           const user = {
             id: uuidv4(),
@@ -2100,6 +2175,12 @@ async function handleRoute(request, { params }) {
           }
           await db.collection('users').insertOne(user)
           userId = user.id
+        } else if (!existingUser.passwordHash) {
+          // 🔧 Upgrade : si un user seed existant n'a pas de hash (cas legacy), on le rétablit
+          await db.collection('users').updateOne(
+            { id: existingUser.id },
+            { $set: { passwordHash, updatedAt: new Date() } }
+          )
         }
 
         await db.collection('provider_profiles').updateOne(

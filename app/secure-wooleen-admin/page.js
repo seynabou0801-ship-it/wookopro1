@@ -73,7 +73,8 @@ export default function SecureAdminDashboard() {
 
   useEffect(() => {
     const storedUser = localStorage.getItem('wooleen_user')
-    if (!storedUser) {
+    const storedToken = localStorage.getItem('wooleen_token')
+    if (!storedUser || !storedToken) {
       router.push('/secure-wooleen-admin/login')
       return
     }
@@ -82,6 +83,28 @@ export default function SecureAdminDashboard() {
       router.push('/secure-wooleen-admin/login')
       return
     }
+
+    // ✅ Patch global fetch : injecte le Bearer JWT sur tous les appels /api/*
+    // (lecture & écriture). Un seul endroit à maintenir, zéro fetch oublié.
+    if (typeof window !== 'undefined' && !window.__wpro_fetch_patched) {
+      const originalFetch = window.fetch.bind(window)
+      window.fetch = (input, init = {}) => {
+        const url = typeof input === 'string' ? input : input?.url || ''
+        if (url.startsWith('/api/')) {
+          const token = localStorage.getItem('wooleen_token')
+          if (token) {
+            const headers = new Headers(init.headers || {})
+            if (!headers.has('Authorization')) {
+              headers.set('Authorization', `Bearer ${token}`)
+            }
+            init = { ...init, headers }
+          }
+        }
+        return originalFetch(input, init)
+      }
+      window.__wpro_fetch_patched = true
+    }
+
     setUser(userData)
     fetchData()
   }, [])

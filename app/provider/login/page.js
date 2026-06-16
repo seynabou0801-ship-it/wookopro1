@@ -94,6 +94,17 @@ export default function ProviderAuthPage() {
       return
     }
 
+    // ✅ Validate password complexity (must match backend rules)
+    const pwd = formData.password || ''
+    if (pwd.length < 8) {
+      alert('❌ Le mot de passe doit contenir au moins 8 caractères')
+      return
+    }
+    if (!/[A-Z]/.test(pwd) || !/[a-z]/.test(pwd) || !/\d/.test(pwd)) {
+      alert('❌ Le mot de passe doit contenir au moins 1 majuscule, 1 minuscule et 1 chiffre')
+      return
+    }
+
     // Validate terms
     if (!formData.acceptTerms) {
       alert('❌ Vous devez accepter les conditions d\'utilisation')
@@ -350,7 +361,7 @@ export default function ProviderAuthPage() {
                           placeholder="••••••••"
                           autoComplete="new-password"
                           required
-                          minLength={6}
+                          minLength={8}
                           className="w-full px-4 py-3.5 pr-12 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-[#FF7A00] focus:ring-4 focus:ring-orange-100 transition-all"
                         />
                         <button
@@ -361,6 +372,18 @@ export default function ProviderAuthPage() {
                           {showPassword.register ? '🙈' : '👁️'}
                         </button>
                       </div>
+                      {formData.password && (
+                        <p className={`text-xs mt-1 ${
+                          formData.password.length >= 8 &&
+                          /[A-Z]/.test(formData.password) &&
+                          /[a-z]/.test(formData.password) &&
+                          /\d/.test(formData.password)
+                            ? 'text-emerald-600'
+                            : 'text-amber-600'
+                        }`}>
+                          8+ caractères avec 1 majuscule, 1 minuscule et 1 chiffre
+                        </p>
+                      )}
                     </div>
 
                     <div>
@@ -375,7 +398,7 @@ export default function ProviderAuthPage() {
                           placeholder="••••••••"
                           autoComplete="new-password"
                           required
-                          minLength={6}
+                          minLength={8}
                           className="w-full px-4 py-3.5 pr-12 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-[#FF7A00] focus:ring-4 focus:ring-orange-100 transition-all"
                         />
                         <button

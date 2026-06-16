@@ -29,6 +29,25 @@ export default function WookoTVAdminPage() {
       router.replace('/secure-wooleen-admin/login')
       return
     }
+
+    // ✅ Patch global fetch : injection automatique du Bearer JWT
+    if (!window.__wpro_fetch_patched) {
+      const originalFetch = window.fetch.bind(window)
+      window.fetch = (input, init = {}) => {
+        const url = typeof input === 'string' ? input : input?.url || ''
+        if (url.startsWith('/api/')) {
+          const t = localStorage.getItem('wooleen_token')
+          if (t) {
+            const headers = new Headers(init.headers || {})
+            if (!headers.has('Authorization')) headers.set('Authorization', `Bearer ${t}`)
+            init = { ...init, headers }
+          }
+        }
+        return originalFetch(input, init)
+      }
+      window.__wpro_fetch_patched = true
+    }
+
     setAuthChecked(true)
   }, [router])
 
