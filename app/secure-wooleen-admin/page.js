@@ -10,6 +10,27 @@ import {
   formatPercentage
 } from './analytics-mock-data'
 
+// Slug → label lisible pour l'affichage des professionnels dans l'admin
+const PROFESSIONAL_LABELS = {
+  plombier: 'Plombier',
+  electricien: 'Électricien',
+  climatiseur: 'Frigoriste',
+  macon: 'Maçon',
+  tapissier: 'Tapissier',
+  menuisier: 'Menuisier',
+  peintre: 'Peintre',
+  serrurier: 'Serrurier',
+  nettoyage: 'Agent de nettoyage',
+  mecanicien: 'Mécanicien automobile',
+  architecte: 'Architecte',
+  'technicien-batiment': 'Technicien du bâtiment',
+  'entrepreneur-batiment': 'Entrepreneur du bâtiment',
+  demenagement: 'Déménagement',
+  technicien: 'Technicien',
+  autre: 'Autre professionnel'
+}
+const labelPro = (slug) => PROFESSIONAL_LABELS[slug] || (slug || '—')
+
 export default function SecureAdminDashboard() {
   const router = useRouter()
   const [user, setUser] = useState(null)
@@ -678,7 +699,7 @@ export default function SecureAdminDashboard() {
                           </span>
                         </div>
                         <p className="text-xs text-gray-600 mb-2">
-                          {n.payload?.serviceCategory} · {n.payload?.city} · {n.payload?.phone}
+                          {labelPro(n.payload?.serviceCategory)} · {n.payload?.city} · {n.payload?.phone}
                         </p>
                         <p className="text-[11px] text-gray-400 mb-2">
                           {new Date(n.createdAt).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
@@ -1061,7 +1082,7 @@ export default function SecureAdminDashboard() {
                 {requests.slice(0, 5).map((req) => (
                   <div key={req.id} className="p-4">
                     <div className="flex items-center justify-between">
-                      <span className="font-medium capitalize">{req.serviceCategory}</span>
+                      <span className="font-medium">{labelPro(req.serviceCategory)}</span>
                       <span className={`px-2 py-0.5 rounded-full text-xs ${getStatusColor(req.status)}`}>
                         {req.status}
                       </span>
@@ -1087,7 +1108,7 @@ export default function SecureAdminDashboard() {
                         {p.isAvailable ? 'Actif' : 'Inactif'}
                       </span>
                     </div>
-                    <p className="text-sm text-gray-500 mt-1">{p.serviceCategory} • {p.city}</p>
+                    <p className="text-sm text-gray-500 mt-1">{labelPro(p.serviceCategory)} • {p.city}</p>
                   </div>
                 ))}
               </div>
@@ -1167,7 +1188,7 @@ export default function SecureAdminDashboard() {
                     return (
                     <tr key={p.id}>
                       <td className="px-4 py-3 font-medium">{p.businessName}</td>
-                      <td className="px-4 py-3 text-gray-600 capitalize">{p.serviceCategory}</td>
+                      <td className="px-4 py-3 text-gray-600">{labelPro(p.serviceCategory)}</td>
                       <td className="px-4 py-3 text-gray-600">{p.city}</td>
                       <td className="px-4 py-3 text-gray-600 text-sm">{p.zones?.join(', ')}</td>
                       <td className="px-4 py-3 text-gray-600">⭐ {p.rating?.toFixed(1)}</td>
@@ -1268,7 +1289,7 @@ export default function SecureAdminDashboard() {
                   <tbody className="divide-y">
                     {requests.slice(0, 50).map((r) => (
                       <tr key={r.id} className="hover:bg-gray-50">
-                        <td className="px-4 py-3 font-medium capitalize">{r.serviceCategory || r.category}</td>
+                        <td className="px-4 py-3 font-medium">{labelPro(r.serviceCategory || r.category)}</td>
                         <td className="px-4 py-3 text-gray-600 font-mono text-sm">
                           {r.clientPhone || 'N/A'}
                         </td>
@@ -1334,7 +1355,7 @@ export default function SecureAdminDashboard() {
                         </td>
                         <td className="px-4 py-3">
                           <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-medium capitalize">
-                            {user.provider?.serviceCategory || 'N/A'}
+                            {labelPro(user.provider?.serviceCategory) || 'N/A'}
                           </span>
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-600">
@@ -1410,7 +1431,7 @@ export default function SecureAdminDashboard() {
                         </td>
                         <td className="px-4 py-3">
                           <div>
-                            <p className="font-medium text-gray-900 capitalize">{payment.request?.serviceCategory || 'N/A'}</p>
+                            <p className="font-medium text-gray-900">{labelPro(payment.request?.serviceCategory) || 'N/A'}</p>
                             <p className="text-sm text-gray-500 truncate max-w-xs">{payment.request?.normalizedText || payment.request?.rawMessage || 'N/A'}</p>
                           </div>
                         </td>
@@ -1625,7 +1646,7 @@ export default function SecureAdminDashboard() {
                     <span className="text-2xl">🔧</span>
                     <div className="flex-1">
                       <p className="text-sm text-gray-500">Catégorie</p>
-                      <p className="font-semibold text-gray-900 capitalize">{selectedProvider.serviceCategory}</p>
+                      <p className="font-semibold text-gray-900">{labelPro(selectedProvider.serviceCategory)}</p>
                     </div>
                   </div>
 
@@ -1791,7 +1812,7 @@ export default function SecureAdminDashboard() {
                     <span className="text-2xl">🔧</span>
                     <div className="flex-1">
                       <p className="text-sm text-gray-500">Catégorie</p>
-                      <p className="font-semibold text-gray-900 capitalize">{selectedRequest.serviceCategory}</p>
+                      <p className="font-semibold text-gray-900">{labelPro(selectedRequest.serviceCategory)}</p>
                     </div>
                   </div>
                   

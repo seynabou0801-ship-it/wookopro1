@@ -7,19 +7,23 @@ import { openWhatsApp, getDefaultWhatsAppNumber } from '@/lib/whatsapp'
 
 // Map slug → label lisible pour l'affichage / WhatsApp
 const SERVICE_LABELS = {
-  plombier: 'Plomberie',
-  electricien: 'Électricité',
-  climatiseur: 'Climatisation',
-  macon: 'Maçonnerie',
-  tapissier: 'Tapisserie',
-  menuisier: 'Menuiserie',
-  peintre: 'Peinture',
-  serrurier: 'Serrurerie',
-  nettoyage: 'Nettoyage',
-  mecanicien: 'Mécanique',
+  plombier: 'Plombier',
+  electricien: 'Électricien',
+  climatiseur: 'Frigoriste',
+  macon: 'Maçon',
+  tapissier: 'Tapissier',
+  menuisier: 'Menuisier',
+  peintre: 'Peintre',
+  serrurier: 'Serrurier',
+  nettoyage: 'Agent de nettoyage',
+  mecanicien: 'Mécanicien automobile',
+  architecte: 'Architecte',
+  'technicien-batiment': 'Technicien du bâtiment',
+  'entrepreneur-batiment': 'Entrepreneur du bâtiment',
+  // Slugs historiques conservés pour compat avec les anciennes demandes :
   demenagement: 'Déménagement',
   technicien: 'Technicien',
-  autre: 'Autre service'
+  autre: 'Autre professionnel'
 }
 const getServiceLabel = (slug) => SERVICE_LABELS[slug] || slug
 
@@ -100,7 +104,7 @@ export default function ClientDashboard() {
         setShowNewRequestForm(false)
         
         // Ouvrir WhatsApp avec message prérempli
-        const message = `Bonjour 👋 Je cherche un prestataire en ${getServiceLabel(formData.serviceCategory)} à ${formData.city}. Pouvez-vous m'aider ?`
+        const message = `Bonjour 👋 Je cherche un ${getServiceLabel(formData.serviceCategory)} à ${formData.city}. Pouvez-vous m'aider ?`
         openWhatsApp(phone, message)
       } else {
         const error = await res.json()
@@ -226,7 +230,7 @@ export default function ClientDashboard() {
               <form onSubmit={handleCreateRequest} className="p-6 space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Quel service recherchez-vous ? *
+                    Quel professionnel recherchez-vous ? *
                   </label>
                   <select
                     value={formData.serviceCategory}
@@ -234,18 +238,21 @@ export default function ClientDashboard() {
                     className="w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500"
                     required
                   >
-                    <option value="">Sélectionner un service</option>
-                    <option value="plombier">Plomberie</option>
-                    <option value="electricien">Électricité</option>
-                    <option value="climatiseur">Climatisation</option>
-                    <option value="macon">Maçonnerie</option>
-                    <option value="tapissier">Tapisserie</option>
-                    <option value="menuisier">Menuiserie</option>
-                    <option value="peintre">Peinture</option>
-                    <option value="serrurier">Serrurerie</option>
-                    <option value="nettoyage">Nettoyage</option>
-                    <option value="mecanicien">Mécanique</option>
-                    <option value="autre">Autre</option>
+                    <option value="">Sélectionner un professionnel</option>
+                    <option value="plombier">Plombier</option>
+                    <option value="electricien">Électricien</option>
+                    <option value="climatiseur">Frigoriste</option>
+                    <option value="macon">Maçon</option>
+                    <option value="tapissier">Tapissier</option>
+                    <option value="menuisier">Menuisier</option>
+                    <option value="peintre">Peintre</option>
+                    <option value="serrurier">Serrurier</option>
+                    <option value="nettoyage">Agent de nettoyage</option>
+                    <option value="mecanicien">Mécanicien automobile</option>
+                    <option value="architecte">Architecte</option>
+                    <option value="technicien-batiment">Technicien du bâtiment</option>
+                    <option value="entrepreneur-batiment">Entrepreneur du bâtiment</option>
+                    <option value="autre">Autre professionnel</option>
                   </select>
                 </div>
 
@@ -306,7 +313,7 @@ export default function ClientDashboard() {
                 <div key={req.id} className="p-4">
                   <div className="flex items-start justify-between">
                     <div>
-                      <h3 className="font-semibold text-gray-900 capitalize">{req.serviceCategory}</h3>
+                      <h3 className="font-semibold text-gray-900">{getServiceLabel(req.serviceCategory)}</h3>
                       <p className="text-sm text-gray-600 mt-1">{req.normalizedText || req.rawMessage}</p>
                       <div className="flex items-center gap-3 mt-2 text-sm text-gray-500">
                         <span>📍 {req.zone || req.city}</span>

@@ -4,21 +4,24 @@ import { useState, useEffect } from 'react'
 import Link from "next/link"
 import { openWhatsApp, getDefaultWhatsAppNumber } from "@/lib/whatsapp"
 import WookoTV from '@/components/WookoTV'
-import { Wrench, Zap, Wind, Sparkles, Home, Phone, CheckCircle2, Clock, Shield, Users, Hammer, Construction, Sofa } from 'lucide-react'
+import { Wrench, Zap, Wind, Sparkles, Home, Phone, CheckCircle2, Clock, Shield, Users, Hammer, Construction, Sofa, Ruler, HardHat, Briefcase } from 'lucide-react'
 
-// Catégories de services
+// Catégories de professionnels (slugs conservés pour compat données existantes)
 const SERVICE_CATEGORIES = [
-  { value: 'plombier', label: 'Plomberie', icon: Wrench },
-  { value: 'electricien', label: 'Électricité', icon: Zap },
-  { value: 'climatiseur', label: 'Climatisation', icon: Wind },
-  { value: 'macon', label: 'Maçonnerie', icon: Construction },
-  { value: 'tapissier', label: 'Tapisserie', icon: Sofa },
-  { value: 'menuisier', label: 'Menuiserie', icon: Hammer },
-  { value: 'peintre', label: 'Peinture', icon: Sparkles },
-  { value: 'serrurier', label: 'Serrurerie', icon: Home },
-  { value: 'nettoyage', label: 'Nettoyage', icon: Sparkles },
-  { value: 'mecanicien', label: 'Mécanique auto', icon: Wrench },
-  { value: 'autre', label: 'Autre service', icon: Hammer }
+  { value: 'plombier', label: 'Plombier', icon: Wrench },
+  { value: 'electricien', label: 'Électricien', icon: Zap },
+  { value: 'climatiseur', label: 'Frigoriste', icon: Wind },
+  { value: 'macon', label: 'Maçon', icon: Construction },
+  { value: 'tapissier', label: 'Tapissier', icon: Sofa },
+  { value: 'menuisier', label: 'Menuisier', icon: Hammer },
+  { value: 'peintre', label: 'Peintre', icon: Sparkles },
+  { value: 'serrurier', label: 'Serrurier', icon: Home },
+  { value: 'nettoyage', label: 'Agent de nettoyage', icon: Sparkles },
+  { value: 'mecanicien', label: 'Mécanicien automobile', icon: Wrench },
+  { value: 'architecte', label: 'Architecte', icon: Ruler },
+  { value: 'technicien-batiment', label: 'Technicien du bâtiment', icon: HardHat },
+  { value: 'entrepreneur-batiment', label: 'Entrepreneur du bâtiment', icon: Briefcase },
+  { value: 'autre', label: 'Autre professionnel', icon: Hammer }
 ]
 
 const CITIES = [
@@ -92,7 +95,7 @@ export default function HomePage() {
 
       // Construire le message WhatsApp prérempli
       const category = SERVICE_CATEGORIES.find(c => c.value === formData.serviceCategory)?.label || formData.serviceCategory
-      const message = `Bonjour 👋 Je cherche un prestataire en ${category} à ${formData.city}. Pouvez-vous m'aider ?`
+      const message = `Bonjour 👋 Je cherche un ${category} à ${formData.city}. Pouvez-vous m'aider ?`
 
       // Ouvrir WhatsApp avec le message prérempli
       openWhatsApp(phone, message)
@@ -313,7 +316,7 @@ export default function HomePage() {
               {/* Service */}
               <div>
                 <label htmlFor="lead-service" className="block text-sm font-medium text-gray-700 mb-1">
-                  Quel service recherchez-vous ? *
+                  Quel professionnel recherchez-vous ? *
                 </label>
                 <select
                   id="lead-service"
@@ -323,7 +326,7 @@ export default function HomePage() {
                   className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white"
                   required
                 >
-                  <option value="">Sélectionner un service</option>
+                  <option value="">Sélectionner un professionnel</option>
                   {SERVICE_CATEGORIES.map((cat) => (
                     <option key={cat.value} value={cat.value}>{cat.label}</option>
                   ))}
@@ -620,7 +623,7 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto px-6 sm:px-8">
           <div className="text-center mb-16">
             <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
-              Services populaires
+              Professionnels populaires
             </h2>
             <p className="text-lg text-gray-600 max-w-2xl mx-auto">
               Trouvez rapidement le professionnel dont vous avez besoin

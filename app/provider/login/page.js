@@ -312,7 +312,7 @@ export default function ProviderAuthPage() {
 
                     <div>
                       <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Type de service *
+                        Type de professionnel *
                       </label>
                       <select
                         value={formData.service}
@@ -320,18 +320,21 @@ export default function ProviderAuthPage() {
                         required
                         className="w-full px-4 py-3.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-[#FF7A00] focus:ring-4 focus:ring-orange-100 transition-all"
                       >
-                        <option value="">Sélectionnez votre service</option>
-                        <option value="plombier">Plomberie</option>
-                        <option value="electricien">Électricité</option>
-                        <option value="climatiseur">Climatisation</option>
-                        <option value="macon">Maçonnerie</option>
-                        <option value="tapissier">Tapisserie</option>
-                        <option value="menuisier">Menuiserie</option>
-                        <option value="peintre">Peinture</option>
-                        <option value="serrurier">Serrurerie</option>
-                        <option value="nettoyage">Nettoyage</option>
-                        <option value="mecanicien">Mécanique auto</option>
-                        <option value="autre">Autre</option>
+                        <option value="">Sélectionnez votre métier</option>
+                        <option value="plombier">Plombier</option>
+                        <option value="electricien">Électricien</option>
+                        <option value="climatiseur">Frigoriste</option>
+                        <option value="macon">Maçon</option>
+                        <option value="tapissier">Tapissier</option>
+                        <option value="menuisier">Menuisier</option>
+                        <option value="peintre">Peintre</option>
+                        <option value="serrurier">Serrurier</option>
+                        <option value="nettoyage">Agent de nettoyage</option>
+                        <option value="mecanicien">Mécanicien automobile</option>
+                        <option value="architecte">Architecte</option>
+                        <option value="technicien-batiment">Technicien du bâtiment</option>
+                        <option value="entrepreneur-batiment">Entrepreneur du bâtiment</option>
+                        <option value="autre">Autre professionnel</option>
                       </select>
                     </div>
 

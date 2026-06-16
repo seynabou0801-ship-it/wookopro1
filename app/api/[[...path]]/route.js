@@ -266,6 +266,9 @@ function parseLocally(message) {
     climatiseur: ['climatiseur', 'clim', 'climatisation', 'froid', 'chaud', 'ventilation', 'ac'],
     macon: ['maçon', 'macon', 'maçonnerie', 'maconnerie', 'mur', 'ciment', 'béton', 'beton', 'briques', 'brique', 'parpaing', 'fondation', 'construction', 'crépi', 'crepi', 'carrelage', 'dallage'],
     tapissier: ['tapissier', 'tapissière', 'tapisserie', 'tapisser', 'tissu', 'rideau', 'rideaux', 'canapé', 'canape', 'fauteuil', 'siège', 'siege', 'rembourrage', 'recouvrir', 'décoration intérieure', 'décoration interieure', 'décorateur', 'tenture'],
+    architecte: ['architecte', 'architecture', 'plan', 'plans', 'esquisse', 'concept', 'aménagement', 'amenagement', 'agencement', 'rénovation', 'renovation', 'permis de construire'],
+    'technicien-batiment': ['technicien du bâtiment', 'technicien du batiment', 'technicien bâtiment', 'technicien batiment', 'diagnostic', 'inspection', 'audit', 'expertise bâtiment', 'expertise batiment', 'contrôle technique', 'controle technique', 'conformité', 'conformite'],
+    'entrepreneur-batiment': ['entrepreneur', 'entrepreneur du bâtiment', 'entrepreneur du batiment', 'entreprise bâtiment', 'entreprise batiment', 'chantier', 'maître d\'œuvre', 'maitre d\'oeuvre', 'général du bâtiment', 'general du batiment', 'tous corps d\'état'],
     menuisier: ['menuisier', 'menuiserie', 'bois', 'meuble', 'armoire', 'porte', 'fenêtre', 'étagère'],
     peintre: ['peintre', 'peinture', 'peindre', 'plafond'],
     serrurier: ['serrurier', 'serrure', 'clé', 'clef', 'porte bloquée', 'verrou'],
@@ -907,12 +910,25 @@ async function handleRoute(request, { params }) {
           day: '2-digit', month: '2-digit', year: 'numeric',
           hour: '2-digit', minute: '2-digit'
         })
+        // Map slug → libellé pour le message de notification
+        const proLabels = {
+          plombier: 'Plombier', electricien: 'Électricien', climatiseur: 'Frigoriste',
+          macon: 'Maçon', tapissier: 'Tapissier', menuisier: 'Menuisier',
+          peintre: 'Peintre', serrurier: 'Serrurier',
+          nettoyage: 'Agent de nettoyage', mecanicien: 'Mécanicien automobile',
+          architecte: 'Architecte', 'technicien-batiment': 'Technicien du bâtiment',
+          'entrepreneur-batiment': 'Entrepreneur du bâtiment',
+          demenagement: 'Déménagement', technicien: 'Technicien',
+          autre: 'Autre professionnel'
+        }
+        const metierLabel = proLabels[serviceCategory] || serviceCategory
+
         const message =
           '🚀 Nouveau prestataire inscrit sur WookoPRO\n\n' +
           `Nom : ${businessName}\n` +
           `Téléphone : ${phone}\n` +
           `Email : ${email || '—'}\n` +
-          `Métier : ${serviceCategory}\n` +
+          `Métier : ${metierLabel}\n` +
           `Ville : ${city}\n` +
           `Date d'inscription : ${dateStr}\n\n` +
           'Accéder au tableau de bord administrateur pour validation et suivi.'
@@ -1789,14 +1805,25 @@ async function handleRoute(request, { params }) {
       const baseline = Math.max(requestsCount, 1)
       const conversionRate = requestsCount > 0 ? Number(((paymentsCount / requestsCount) * 100).toFixed(2)) : 0
 
-      // Category dictionary (slug → label)
+      // Catégories : slugs identiques, labels mis à jour (notion "professionnel")
       const categoryLabels = {
-        plombier: 'Plomberie', electricien: 'Électricité', climatiseur: 'Climatisation',
-        macon: 'Maçonnerie',
-        tapissier: 'Tapisserie',
-        menuisier: 'Menuiserie', peintre: 'Peinture', serrurier: 'Serrurerie',
-        nettoyage: 'Nettoyage', mecanicien: 'Mécanique', demenagement: 'Déménagement',
-        technicien: 'Technicien', autre: 'Autre'
+        plombier: 'Plombier',
+        electricien: 'Électricien',
+        climatiseur: 'Frigoriste',
+        macon: 'Maçon',
+        tapissier: 'Tapissier',
+        menuisier: 'Menuisier',
+        peintre: 'Peintre',
+        serrurier: 'Serrurier',
+        nettoyage: 'Agent de nettoyage',
+        mecanicien: 'Mécanicien automobile',
+        architecte: 'Architecte',
+        'technicien-batiment': 'Technicien du bâtiment',
+        'entrepreneur-batiment': 'Entrepreneur du bâtiment',
+        // Compat avec demandes historiques :
+        demenagement: 'Déménagement',
+        technicien: 'Technicien',
+        autre: 'Autre professionnel'
       }
 
       const topCategories = categoryAgg.map(c => ({
