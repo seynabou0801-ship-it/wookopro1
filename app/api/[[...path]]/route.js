@@ -9,7 +9,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'CHANGE_ME_IN_PRODUCTION'
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d'
 
 function signToken(payload) {
-  // payload = { sub: userId, role: 'ADMIN' | 'PROVIDER' | 'CLIENT' }
+  // payload = { sub: userId, role: 'ADMIN' | 'PROVIDER' | 'CLIENT', tv: tokenVersion }
   return jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN })
 }
 
@@ -21,7 +21,19 @@ function verifyToken(token) {
   }
 }
 
+// Helper pour signer un token utilisateur en intégrant le tokenVersion
+function signUserToken(user) {
+  return signToken({
+    sub: user.id,
+    role: user.role,
+    tv: user.tokenVersion ?? 0
+  })
+}
+
 // Extracts and verifies the Bearer token. Returns { user, payload } or null.
+// Vérifie aussi que le tokenVersion du JWT correspond à celui en base
+// (permet d'invalider toutes les sessions actives lors d'un changement
+//  de mot de passe / reset admin).
 async function getAuthUser(request, db) {
   const auth = request.headers.get('authorization') || ''
   const m = auth.match(/^Bearer\s+(.+)$/i)
@@ -30,7 +42,24 @@ async function getAuthUser(request, db) {
   if (!payload?.sub) return null
   const user = await db.collection('users').findOne({ id: payload.sub })
   if (!user) return null
+  // Vérification du tokenVersion : undefined === 0 pour rétro-compatibilité
+  const tokenTv = payload.tv ?? 0
+  const userTv = user.tokenVersion ?? 0
+  if (tokenTv !== userTv) return null
   return { user, payload }
+}
+
+// Génère un mot de passe temporaire lisible (8 chars: 1 maj, 1 min, 1 chiffre, etc.)
+function generateTempPassword() {
+  const upper = 'ABCDEFGHJKMNPQRSTUVWXYZ'
+  const lower = 'abcdefghjkmnpqrstuvwxyz'
+  const digits = '23456789'
+  const all = upper + lower + digits
+  const pick = (s) => s[Math.floor(Math.random() * s.length)]
+  let pwd = pick(upper) + pick(lower) + pick(digits)
+  for (let i = 0; i < 5; i++) pwd += pick(all)
+  // Shuffle
+  return pwd.split('').sort(() => Math.random() - 0.5).join('')
 }
 
 // Validation complexité minimale du mot de passe.
@@ -888,7 +917,7 @@ async function handleRoute(request, { params }) {
       }
       
       const provider = await db.collection('provider_profiles').findOne({ userId: user.id })
-      const token = signToken({ sub: user.id, role: user.role })
+      const token = signUserToken(user)
       
       return handleCORS(NextResponse.json({
         success: true,
@@ -1068,7 +1097,7 @@ async function handleRoute(request, { params }) {
         provider = await db.collection('provider_profiles').findOne({ userId: user.id })
       }
       
-      const token = signToken({ sub: user.id, role: user.role })
+      const token = signUserToken(user)
       
       return handleCORS(NextResponse.json({
         success: true,
@@ -2108,6 +2137,272 @@ async function handleRoute(request, { params }) {
         return handleCORS(NextResponse.json({ error: 'Notification non trouvée' }, { status: 404 }))
       }
       return handleCORS(NextResponse.json({ ok: true, deleted: id }))
+    }
+
+    // ============ PASSWORD MANAGEMENT (LOT 2 - UX) ============
+
+    // 1) FORGOT PASSWORD — Le prestataire (ou admin) demande une réinitialisation
+    //    On crée une notification admin de type PASSWORD_RESET_REQUEST.
+    //    Pour des raisons de sécurité, on retourne toujours success=true
+    //    même si l'utilisateur n'existe pas (anti-énumération).
+    if (route === '/auth/forgot-password' && method === 'POST') {
+      const body = await request.json()
+      const { phone, role } = body || {}
+
+      if (!phone) {
+        return handleCORS(NextResponse.json({ error: 'Numéro WhatsApp requis' }, { status: 400 }))
+      }
+
+      const normalizedPhone = phone.replace(/[^\d]/g, '').slice(-9)
+      const queryRole = role === 'ADMIN' ? 'ADMIN' : 'PROVIDER'
+
+      const user = await db.collection('users').findOne({
+        phone: { $regex: new RegExp(normalizedPhone) },
+        role: queryRole
+      })
+
+      // Réponse identique dans les deux cas (anti-énumération)
+      const genericMessage = 'Si ce numéro est enregistré, votre demande a été transmise à l\'administrateur. Vous recevrez votre nouveau mot de passe par WhatsApp.'
+
+      if (!user) {
+        console.log(`[forgot-password] Demande pour numéro inconnu : ${phone}`)
+        return handleCORS(NextResponse.json({
+          success: true,
+          message: genericMessage
+        }))
+      }
+
+      // Vérifie qu'il n'y a pas déjà une demande PENDING pour cet user
+      const existing = await db.collection('admin_notifications').findOne({
+        type: 'PASSWORD_RESET_REQUEST',
+        status: 'PENDING',
+        'payload.userId': user.id
+      })
+
+      if (existing) {
+        return handleCORS(NextResponse.json({
+          success: true,
+          message: 'Une demande de réinitialisation est déjà en attente pour ce compte. Veuillez patienter ou contacter le support.'
+        }))
+      }
+
+      // Récupérer le businessName si prestataire
+      let displayName = user.name
+      if (user.role === 'PROVIDER') {
+        const prof = await db.collection('provider_profiles').findOne({ userId: user.id })
+        if (prof?.businessName) displayName = prof.businessName
+      }
+
+      const now = new Date()
+      const message =
+        '🔐 Demande de réinitialisation de mot de passe\n\n' +
+        `Compte : ${displayName}\n` +
+        `Téléphone : ${user.phone}\n` +
+        `Rôle : ${user.role}\n` +
+        `Date : ${now.toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}\n\n` +
+        'Action requise : générer un mot de passe temporaire et le transmettre par WhatsApp.'
+
+      const notification = {
+        id: uuidv4(),
+        type: 'PASSWORD_RESET_REQUEST',
+        targetPhone: user.phone,
+        message,
+        payload: {
+          userId: user.id,
+          phone: user.phone,
+          name: displayName,
+          role: user.role
+        },
+        status: 'PENDING',
+        attempts: 0,
+        createdAt: now,
+        updatedAt: now
+      }
+      await db.collection('admin_notifications').insertOne(notification)
+      console.log(`[forgot-password] Notification créée pour ${displayName} (${user.id})`)
+
+      return handleCORS(NextResponse.json({
+        success: true,
+        message: genericMessage
+      }))
+    }
+
+    // 2) ADMIN RESET PASSWORD — L'admin clique sur la notification
+    //    et génère un mot de passe temporaire pour transmission WhatsApp.
+    //    Invalide toutes les sessions actives de l'utilisateur (tokenVersion++).
+    if (route.match(/^\/admin\/notifications\/[^/]+\/reset-password$/) && method === 'POST') {
+      const authData = await getAuthUser(request, db)
+      if (!authData || authData.user.role !== 'ADMIN') {
+        return handleCORS(NextResponse.json({ error: 'Non autorisé' }, { status: 401 }))
+      }
+
+      const notificationId = route.split('/')[3]
+      const notification = await db.collection('admin_notifications').findOne({ id: notificationId })
+
+      if (!notification) {
+        return handleCORS(NextResponse.json({ error: 'Notification non trouvée' }, { status: 404 }))
+      }
+      if (notification.type !== 'PASSWORD_RESET_REQUEST') {
+        return handleCORS(NextResponse.json({ error: 'Type de notification invalide' }, { status: 400 }))
+      }
+
+      const userId = notification.payload?.userId
+      if (!userId) {
+        return handleCORS(NextResponse.json({ error: 'Notification sans userId' }, { status: 400 }))
+      }
+
+      const targetUser = await db.collection('users').findOne({ id: userId })
+      if (!targetUser) {
+        return handleCORS(NextResponse.json({ error: 'Utilisateur introuvable' }, { status: 404 }))
+      }
+
+      // Génère le mot de passe temporaire et le hash
+      const tempPassword = generateTempPassword()
+      const passwordHash = await bcrypt.hash(tempPassword, 10)
+
+      // Incrémente tokenVersion pour invalider toutes les sessions actives
+      await db.collection('users').updateOne(
+        { id: userId },
+        {
+          $set: { passwordHash, updatedAt: new Date() },
+          $inc: { tokenVersion: 1 }
+        }
+      )
+
+      // Construit l'URL wa.me pour transmission au prestataire
+      const supportPhone = (targetUser.phone || '').replace(/[^\d]/g, '')
+      const waMessage =
+        '🔐 WookoPRO - Réinitialisation de votre mot de passe\n\n' +
+        `Bonjour ${notification.payload?.name || 'Prestataire'},\n\n` +
+        'Votre mot de passe temporaire est :\n\n' +
+        `🔑 ${tempPassword}\n\n` +
+        'Veuillez vous connecter avec ce mot de passe puis le changer immédiatement depuis votre tableau de bord (section "Mon compte").\n\n' +
+        'Pour votre sécurité, ce mot de passe ne devrait être utilisé qu\'une seule fois.'
+
+      const waUrl = supportPhone
+        ? `https://wa.me/${supportPhone}?text=${encodeURIComponent(waMessage)}`
+        : null
+
+      // Marquer la notification comme traitée
+      await db.collection('admin_notifications').updateOne(
+        { id: notificationId },
+        {
+          $set: {
+            status: 'SENT',
+            sentAt: new Date(),
+            updatedAt: new Date(),
+            resetBy: authData.user.id,
+            tempPasswordGeneratedAt: new Date()
+          },
+          $inc: { attempts: 1 }
+        }
+      )
+
+      console.log(`[admin-reset-password] Admin ${authData.user.id} a réinitialisé le mot de passe de ${userId}`)
+
+      return handleCORS(NextResponse.json({
+        success: true,
+        tempPassword,
+        waUrl,
+        waMessage,
+        message: 'Mot de passe temporaire généré. Toutes les sessions actives ont été invalidées.'
+      }))
+    }
+
+    // 3) CHANGE PASSWORD — L'utilisateur connecté change son propre mot de passe
+    //    Conserve la session actuelle (nouveau token avec tokenVersion incrémenté),
+    //    invalide toutes les AUTRES sessions actives.
+    if (route === '/auth/change-password' && method === 'POST') {
+      const authData = await getAuthUser(request, db)
+      if (!authData) {
+        return handleCORS(NextResponse.json({ error: 'Non authentifié' }, { status: 401 }))
+      }
+
+      const body = await request.json()
+      const { currentPassword, newPassword } = body || {}
+
+      if (!currentPassword || !newPassword) {
+        return handleCORS(NextResponse.json({ error: 'Mot de passe actuel et nouveau requis' }, { status: 400 }))
+      }
+
+      const user = authData.user
+      if (!user.passwordHash) {
+        return handleCORS(NextResponse.json({ error: 'Aucun mot de passe défini sur ce compte' }, { status: 400 }))
+      }
+
+      const valid = await bcrypt.compare(currentPassword, user.passwordHash)
+      if (!valid) {
+        return handleCORS(NextResponse.json({ error: 'Mot de passe actuel incorrect' }, { status: 401 }))
+      }
+
+      // Empêche de réutiliser exactement le même mot de passe
+      const sameAsBefore = await bcrypt.compare(newPassword, user.passwordHash)
+      if (sameAsBefore) {
+        return handleCORS(NextResponse.json({ error: 'Le nouveau mot de passe doit être différent de l\'ancien' }, { status: 400 }))
+      }
+
+      const pwdErr = validatePasswordStrength(newPassword)
+      if (pwdErr) {
+        return handleCORS(NextResponse.json({ error: pwdErr }, { status: 400 }))
+      }
+
+      const newHash = await bcrypt.hash(newPassword, 10)
+      const newTokenVersion = (user.tokenVersion ?? 0) + 1
+
+      await db.collection('users').updateOne(
+        { id: user.id },
+        {
+          $set: {
+            passwordHash: newHash,
+            tokenVersion: newTokenVersion,
+            updatedAt: new Date(),
+            lastPasswordChange: new Date()
+          }
+        }
+      )
+
+      // Génère un nouveau token avec le tokenVersion mis à jour (conserve la session actuelle)
+      const newToken = signUserToken({ ...user, tokenVersion: newTokenVersion })
+
+      // Notification admin (audit / traçabilité) - non bloquante
+      try {
+        let displayName = user.name
+        if (user.role === 'PROVIDER') {
+          const prof = await db.collection('provider_profiles').findOne({ userId: user.id })
+          if (prof?.businessName) displayName = prof.businessName
+        }
+        const now = new Date()
+        const auditMessage =
+          '🔒 Changement de mot de passe\n\n' +
+          `Compte : ${displayName}\n` +
+          `Téléphone : ${user.phone}\n` +
+          `Rôle : ${user.role}\n` +
+          `Date : ${now.toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}\n\n` +
+          'Toutes les autres sessions ont été déconnectées automatiquement.'
+
+        await db.collection('admin_notifications').insertOne({
+          id: uuidv4(),
+          type: 'PASSWORD_CHANGED',
+          targetPhone: user.phone,
+          message: auditMessage,
+          payload: { userId: user.id, name: displayName, role: user.role },
+          status: 'SENT',
+          attempts: 0,
+          createdAt: now,
+          updatedAt: now,
+          sentAt: now
+        })
+      } catch (auditErr) {
+        console.error('[change-password] Erreur enregistrement audit:', auditErr.message)
+      }
+
+      console.log(`[change-password] User ${user.id} a changé son mot de passe (tokenVersion=${newTokenVersion})`)
+
+      return handleCORS(NextResponse.json({
+        success: true,
+        token: newToken,
+        message: 'Mot de passe modifié avec succès. Les autres sessions actives ont été déconnectées.'
+      }))
     }
 
     // ============ SEED DATA ============

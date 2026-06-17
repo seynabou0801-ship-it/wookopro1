@@ -14,6 +14,61 @@ export default function ProviderDashboard() {
   const [leads, setLeads] = useState([])
   const [refreshing, setRefreshing] = useState(false)
 
+  // ⚡ NOUVEAU : modal "Changer mon mot de passe"
+  const [showChangePasswordModal, setShowChangePasswordModal] = useState(false)
+  const [cpCurrent, setCpCurrent] = useState('')
+  const [cpNew, setCpNew] = useState('')
+  const [cpConfirm, setCpConfirm] = useState('')
+  const [cpShowPwd, setCpShowPwd] = useState(false)
+  const [cpLoading, setCpLoading] = useState(false)
+  const [cpError, setCpError] = useState('')
+  const [cpSuccess, setCpSuccess] = useState(false)
+
+  const handleChangePassword = async (e) => {
+    e.preventDefault()
+    setCpError('')
+
+    if (cpNew !== cpConfirm) {
+      setCpError('La confirmation ne correspond pas au nouveau mot de passe')
+      return
+    }
+    if (cpNew.length < 8 || !/[A-Z]/.test(cpNew) || !/[a-z]/.test(cpNew) || !/\d/.test(cpNew)) {
+      setCpError('Le mot de passe doit contenir au moins 8 caractères, 1 majuscule, 1 minuscule et 1 chiffre')
+      return
+    }
+
+    setCpLoading(true)
+    try {
+      const token = localStorage.getItem('wooleen_token')
+      const res = await fetch('/api/auth/change-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ currentPassword: cpCurrent, newPassword: cpNew })
+      })
+      const data = await res.json()
+
+      if (res.ok && data.success) {
+        // Conserve la session actuelle : remplace le token par le nouveau
+        if (data.token) {
+          localStorage.setItem('wooleen_token', data.token)
+        }
+        setCpSuccess(true)
+        setCpCurrent('')
+        setCpNew('')
+        setCpConfirm('')
+      } else {
+        setCpError(data.error || data.message || 'Erreur lors du changement de mot de passe')
+      }
+    } catch (err) {
+      setCpError('Erreur réseau. Veuillez réessayer.')
+    } finally {
+      setCpLoading(false)
+    }
+  }
+
   useEffect(() => {
     const storedUser = localStorage.getItem('wooleen_user')
     if (!storedUser) {
@@ -168,6 +223,13 @@ export default function ProviderDashboard() {
           </div>
           <div className="flex items-center gap-4">
             <span className="text-sm text-gray-600 hidden sm:inline">{provider?.businessName}</span>
+            <button
+              onClick={() => setShowChangePasswordModal(true)}
+              className="text-sm text-gray-700 hover:text-[#FF6A00] font-medium border border-gray-200 px-3 py-1.5 rounded-lg hover:border-[#FF6A00] transition"
+              title="Changer mon mot de passe"
+            >
+              🔐 Mon compte
+            </button>
             <button
               onClick={handleLogout}
               className="text-sm text-red-600 hover:text-red-700 font-medium"
@@ -420,6 +482,143 @@ export default function ProviderDashboard() {
           </ul>
         </div>
       </main>
+
+      {/* ⚡ Modal "Changer mon mot de passe" */}
+      {showChangePasswordModal && (
+        <div
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowChangePasswordModal(false)
+              setCpSuccess(false)
+              setCpError('')
+            }
+          }}
+        >
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl">
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <h3 className="text-xl font-bold text-gray-900">🔐 Changer mon mot de passe</h3>
+                <p className="text-sm text-gray-500 mt-1">
+                  Saisissez votre mot de passe actuel et un nouveau mot de passe sécurisé.
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setShowChangePasswordModal(false)
+                  setCpSuccess(false)
+                  setCpError('')
+                }}
+                className="text-gray-400 hover:text-gray-700 text-2xl leading-none"
+              >
+                ×
+              </button>
+            </div>
+
+            {cpSuccess ? (
+              <div className="space-y-4">
+                <div className="bg-green-50 border-2 border-green-200 rounded-xl p-4">
+                  <p className="text-sm text-green-900 font-semibold mb-2">
+                    ✅ Mot de passe modifié avec succès
+                  </p>
+                  <p className="text-xs text-green-800">
+                    Votre session actuelle est conservée. Toutes les autres sessions actives (autres appareils ou navigateurs) ont été automatiquement déconnectées.
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowChangePasswordModal(false)
+                    setCpSuccess(false)
+                  }}
+                  className="w-full bg-gradient-to-r from-[#FF7A00] to-orange-500 text-white py-3 rounded-xl font-bold shadow-lg"
+                >
+                  Fermer
+                </button>
+              </div>
+            ) : (
+              <form onSubmit={handleChangePassword} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                    Mot de passe actuel *
+                  </label>
+                  <input
+                    type={cpShowPwd ? 'text' : 'password'}
+                    value={cpCurrent}
+                    onChange={(e) => setCpCurrent(e.target.value)}
+                    required
+                    autoComplete="current-password"
+                    className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-[#FF7A00]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                    Nouveau mot de passe *
+                  </label>
+                  <input
+                    type={cpShowPwd ? 'text' : 'password'}
+                    value={cpNew}
+                    onChange={(e) => setCpNew(e.target.value)}
+                    required
+                    autoComplete="new-password"
+                    className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-[#FF7A00]"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Min. 8 caractères, 1 majuscule, 1 minuscule, 1 chiffre.
+                  </p>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                    Confirmer le nouveau mot de passe *
+                  </label>
+                  <input
+                    type={cpShowPwd ? 'text' : 'password'}
+                    value={cpConfirm}
+                    onChange={(e) => setCpConfirm(e.target.value)}
+                    required
+                    autoComplete="new-password"
+                    className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-[#FF7A00]"
+                  />
+                </div>
+                <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={cpShowPwd}
+                    onChange={(e) => setCpShowPwd(e.target.checked)}
+                  />
+                  Afficher les mots de passe
+                </label>
+
+                {cpError && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-800">
+                    {cpError}
+                  </div>
+                )}
+
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-900">
+                  ℹ️ Après changement, votre session actuelle reste active. Toutes les autres sessions actives seront automatiquement déconnectées.
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowChangePasswordModal(false)}
+                    className="flex-1 py-3 border-2 border-gray-200 rounded-xl font-semibold text-gray-700 hover:bg-gray-50"
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={cpLoading}
+                    className="flex-1 bg-gradient-to-r from-[#FF7A00] to-orange-500 text-white py-3 rounded-xl font-bold shadow-lg disabled:opacity-50"
+                  >
+                    {cpLoading ? '⏳ Modification...' : 'Modifier'}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

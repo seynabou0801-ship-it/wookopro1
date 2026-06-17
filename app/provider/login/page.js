@@ -28,6 +28,32 @@ export default function ProviderAuthPage() {
   const [loading, setLoading] = useState(false)
   const [registered, setRegistered] = useState(false)
 
+  // ⚡ NOUVEAU : modal "Mot de passe oublié"
+  const [showForgotModal, setShowForgotModal] = useState(false)
+  const [forgotPhone, setForgotPhone] = useState('')
+  const [forgotLoading, setForgotLoading] = useState(false)
+  const [forgotMessage, setForgotMessage] = useState('')
+
+  const handleForgotPassword = async (e) => {
+    e.preventDefault()
+    if (!forgotPhone) return
+    setForgotLoading(true)
+    setForgotMessage('')
+    try {
+      const res = await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: forgotPhone, role: 'PROVIDER' })
+      })
+      const data = await res.json()
+      setForgotMessage(data.message || 'Demande envoyée.')
+    } catch (err) {
+      setForgotMessage('Erreur réseau. Veuillez réessayer.')
+    } finally {
+      setForgotLoading(false)
+    }
+  }
+
   // ⚡ Force le vidage des champs de connexion au chargement
   useEffect(() => {
     // Réinitialiser les champs de connexion
@@ -244,7 +270,11 @@ export default function ProviderAuthPage() {
                 <div className="text-center">
                   <button
                     type="button"
-                    onClick={() => alert('Contactez l\'administrateur pour réinitialiser votre mot de passe')}
+                    onClick={() => {
+                      setForgotPhone(formData.loginPhone || '')
+                      setForgotMessage('')
+                      setShowForgotModal(true)
+                    }}
                     className="text-[#FF7A00] text-sm font-semibold hover:underline"
                   >
                     Mot de passe oublié ?
@@ -497,6 +527,86 @@ export default function ProviderAuthPage() {
           animation: fadeIn 0.3s ease-out;
         }
       `}</style>
+
+      {/* ⚡ Modal "Mot de passe oublié" */}
+      {showForgotModal && (
+        <div
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          onClick={(e) => { if (e.target === e.currentTarget) setShowForgotModal(false) }}
+        >
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl animate-fadeIn">
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <h3 className="text-xl font-bold text-gray-900">🔐 Mot de passe oublié</h3>
+                <p className="text-sm text-gray-500 mt-1">
+                  Saisissez votre numéro WhatsApp prestataire
+                </p>
+              </div>
+              <button
+                onClick={() => setShowForgotModal(false)}
+                className="text-gray-400 hover:text-gray-700 text-2xl leading-none"
+              >
+                ×
+              </button>
+            </div>
+
+            {!forgotMessage ? (
+              <form onSubmit={handleForgotPassword} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Numéro WhatsApp *
+                  </label>
+                  <input
+                    type="tel"
+                    value={forgotPhone}
+                    onChange={(e) => setForgotPhone(e.target.value)}
+                    placeholder="+221 7X XXX XX XX"
+                    required
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-[#FF7A00] focus:ring-4 focus:ring-orange-100 transition-all"
+                  />
+                </div>
+
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-900">
+                  ℹ️ Votre demande sera transmise à l'administrateur. Vous recevrez un mot de passe temporaire par WhatsApp sous peu.
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowForgotModal(false)}
+                    className="flex-1 py-3 border-2 border-gray-200 rounded-xl font-semibold text-gray-700 hover:bg-gray-50"
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={forgotLoading}
+                    className="flex-1 bg-gradient-to-r from-[#FF7A00] to-orange-500 text-white py-3 rounded-xl font-bold shadow-lg disabled:opacity-50"
+                  >
+                    {forgotLoading ? '⏳ Envoi...' : 'Envoyer la demande'}
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <div className="space-y-4">
+                <div className="bg-green-50 border-2 border-green-200 rounded-xl p-4">
+                  <p className="text-sm text-green-900 font-medium">{forgotMessage}</p>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowForgotModal(false)
+                    setForgotPhone('')
+                    setForgotMessage('')
+                  }}
+                  className="w-full bg-gradient-to-r from-[#FF7A00] to-orange-500 text-white py-3 rounded-xl font-bold shadow-lg"
+                >
+                  Fermer
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

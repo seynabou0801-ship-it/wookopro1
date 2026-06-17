@@ -1,19 +1,7 @@
 #!/usr/bin/env python3
 """
-Diagnostic Test for Provider "Cheikh Mécanicien" Not Receiving Requests
-=======================================================================
-
-This test investigates why the provider "Cheikh Mécanicien" with an active BASIC subscription
-is not receiving any requests on their dashboard.
-
-Test Plan:
-1. Find provider "Cheikh Mécanicien" in the database
-2. Verify their profile configuration (category, availability, zones)
-3. Check their subscription status and details
-4. Look for existing "mecanicien" requests in the system
-5. Create a test request for "mecanicien" category
-6. Verify if the provider receives the test request
-7. Check provider's leads history
+Backend API Testing for Wooleen Password Management (Lot 2)
+Tests all password management endpoints with comprehensive scenarios
 """
 
 import requests
@@ -22,389 +10,860 @@ import sys
 from datetime import datetime
 
 # Configuration
-BASE_URL = "https://provider-connect-24.preview.emergentagent.com"
-API_BASE = f"{BASE_URL}/api"
+BASE_URL = "https://provider-connect-24.preview.emergentagent.com/api"
 
-def print_section(title):
-    """Print a formatted section header"""
-    print(f"\n{'='*60}")
-    print(f" {title}")
-    print(f"{'='*60}")
+# Test credentials
+ADMIN_PHONE = "+221700000001"
+ADMIN_PASSWORD = "wooleen2025"
+# Use different providers for different tests to avoid conflicts
+PROVIDER_PHONE_FORGOT = "+221700000103"  # For forgot password tests
+PROVIDER_PHONE_RESET = "+221700000104"   # For reset password tests  
+PROVIDER_PHONE_CHANGE = "+221700000105"  # For change password tests
+PROVIDER_PASSWORD = "wooleen2025"
 
-def print_result(test_name, success, details=""):
-    """Print test result with formatting"""
-    status = "✅ PASS" if success else "❌ FAIL"
-    print(f"{status} {test_name}")
-    if details:
-        print(f"   {details}")
+# Colors for output
+GREEN = '\033[92m'
+RED = '\033[91m'
+YELLOW = '\033[93m'
+BLUE = '\033[94m'
+RESET = '\033[0m'
 
-def make_request(method, endpoint, data=None, params=None):
-    """Make HTTP request with error handling"""
-    url = f"{API_BASE}{endpoint}"
+def log_test(test_name):
+    print(f"\n{BLUE}{'='*80}{RESET}")
+    print(f"{BLUE}TEST: {test_name}{RESET}")
+    print(f"{BLUE}{'='*80}{RESET}")
+
+def log_success(message):
+    print(f"{GREEN}✅ {message}{RESET}")
+
+def log_error(message):
+    print(f"{RED}❌ {message}{RESET}")
+
+def log_info(message):
+    print(f"{YELLOW}ℹ️  {message}{RESET}")
+
+def log_response(response):
+    print(f"Status: {response.status_code}")
     try:
-        if method.upper() == "GET":
-            response = requests.get(url, params=params, timeout=30)
-        elif method.upper() == "POST":
-            response = requests.post(url, json=data, timeout=30)
-        elif method.upper() == "PATCH":
-            response = requests.patch(url, json=data, timeout=30)
-        else:
-            raise ValueError(f"Unsupported method: {method}")
-        
-        return response
-    except requests.exceptions.RequestException as e:
-        print(f"❌ Request failed: {e}")
-        return None
+        print(f"Response: {json.dumps(response.json(), indent=2)}")
+    except:
+        print(f"Response: {response.text}")
 
-def find_cheikh_provider():
-    """Find the provider 'Cheikh Mécanicien' in the database"""
-    print_section("1. RECHERCHE DU PRESTATAIRE 'CHEIKH MÉCANICIEN'")
-    
-    response = make_request("GET", "/providers")
-    if not response or response.status_code != 200:
-        print_result("GET /api/providers", False, f"Status: {response.status_code if response else 'No response'}")
-        return None
-    
-    try:
-        providers = response.json()
-        print_result("GET /api/providers", True, f"Trouvé {len(providers)} prestataires")
-        
-        # Search for Cheikh or Mécanicien
-        cheikh_provider = None
-        for provider in providers:
-            # Get name from user object and category from serviceCategory
-            user_name = provider.get('user', {}).get('name', '') if provider.get('user') else provider.get('businessName', '')
-            name = user_name.lower()
-            category = provider.get('serviceCategory', '').lower()
-            
-            if 'cheikh' in name or 'mécanicien' in name or 'mecanicien' in name:
-                cheikh_provider = provider
-                break
-            elif category == 'mecanicien':
-                # If we find a mechanic, let's check if it could be Cheikh
-                print(f"   Mécanicien trouvé: {user_name} (ID: {provider.get('userId')})")
-                if not cheikh_provider:  # Take the first mechanic if no exact match
-                    cheikh_provider = provider
-        
-        if cheikh_provider:
-            user_name = cheikh_provider.get('user', {}).get('name', '') if cheikh_provider.get('user') else cheikh_provider.get('businessName', '')
-            print_result("Recherche Cheikh Mécanicien", True, f"Trouvé: {user_name}")
-            print(f"   📋 Détails du prestataire:")
-            print(f"      - Nom: {user_name}")
-            print(f"      - ID: {cheikh_provider.get('userId')}")
-            print(f"      - Catégorie: {cheikh_provider.get('serviceCategory')}")
-            print(f"      - Disponible: {cheikh_provider.get('isAvailable')}")
-            print(f"      - Ville: {cheikh_provider.get('city')}")
-            print(f"      - Zones: {cheikh_provider.get('zones', [])}")
-            print(f"      - Téléphone: {cheikh_provider.get('whatsappNumber')}")
-            print(f"      - Tier: {cheikh_provider.get('tier', 'N/A')}")
-            return cheikh_provider
-        else:
-            print_result("Recherche Cheikh Mécanicien", False, "Aucun prestataire 'Cheikh' ou 'Mécanicien' trouvé")
-            
-            # Show all mechanics for debugging
-            mechanics = [p for p in providers if p.get('serviceCategory', '').lower() == 'mecanicien']
-            if mechanics:
-                print(f"   🔧 Mécaniciens disponibles dans la base:")
-                for mech in mechanics:
-                    mech_name = mech.get('user', {}).get('name', '') if mech.get('user') else mech.get('businessName', '')
-                    print(f"      - {mech_name} (ID: {mech.get('userId')})")
-            
-            return None
-            
-    except json.JSONDecodeError:
-        print_result("Parse JSON providers", False, "Réponse JSON invalide")
-        return None
+# Test counters
+tests_passed = 0
+tests_failed = 0
 
-def check_subscription(provider_id):
-    """Check the subscription status for the provider"""
-    print_section("2. VÉRIFICATION DE L'ABONNEMENT")
-    
-    response = make_request("GET", "/subscriptions/my-subscription", params={"providerId": provider_id})
-    if not response:
-        print_result("GET /api/subscriptions/my-subscription", False, "Pas de réponse")
-        return None
-    
-    if response.status_code != 200:
-        print_result("GET /api/subscriptions/my-subscription", False, f"Status: {response.status_code}")
-        print(f"   Response: {response.text}")
-        return None
+def test_seed_database():
+    """Ensure database is seeded with test data"""
+    global tests_passed, tests_failed
+    log_test("Seed Database")
     
     try:
-        subscription = response.json()
-        print_result("GET /api/subscriptions/my-subscription", True, "Abonnement trouvé")
+        response = requests.post(f"{BASE_URL}/seed")
+        log_response(response)
         
-        print(f"   📊 Détails de l'abonnement:")
-        print(f"      - Status: {subscription.get('status')}")
-        print(f"      - Plan: {subscription.get('plan')}")
-        print(f"      - Créé le: {subscription.get('createdAt')}")
-        print(f"      - Expire le: {subscription.get('expiresAt')}")
-        print(f"      - Leads reçus ce mois: {subscription.get('leadsReceivedThisMonth', 0)}")
+        if response.status_code == 200:
+            data = response.json()
+            if data.get('ok'):
+                log_success("Database seeded successfully")
+                tests_passed += 1
+                return True
         
-        if subscription.get('plan'):
-            plan_details = subscription.get('plan', {})
-            print(f"      - Limite leads/mois: {plan_details.get('leadsPerMonth', 'N/A')}")
-            print(f"      - Prix: {plan_details.get('price', 'N/A')} FCFA")
-        
-        return subscription
-        
-    except json.JSONDecodeError:
-        print_result("Parse JSON subscription", False, "Réponse JSON invalide")
-        return None
+        log_error("Failed to seed database")
+        tests_failed += 1
+        return False
+    except Exception as e:
+        log_error(f"Exception during seed: {str(e)}")
+        tests_failed += 1
+        return False
 
-def check_existing_requests():
-    """Check if there are any existing 'mecanicien' requests"""
-    print_section("3. VÉRIFICATION DES DEMANDES EXISTANTES")
-    
-    response = make_request("GET", "/requests")
-    if not response or response.status_code != 200:
-        print_result("GET /api/requests", False, f"Status: {response.status_code if response else 'No response'}")
-        return []
+def test_admin_login():
+    """Test admin login and return token"""
+    global tests_passed, tests_failed
+    log_test("Admin Login")
     
     try:
-        requests_data = response.json()
-        print_result("GET /api/requests", True, f"Trouvé {len(requests_data)} demandes")
+        response = requests.post(
+            f"{BASE_URL}/auth/login",
+            json={"phone": ADMIN_PHONE, "password": ADMIN_PASSWORD}
+        )
+        log_response(response)
         
-        # Filter for mechanic requests
-        mechanic_requests = []
-        for req in requests_data:
-            category = req.get('serviceCategory', '').lower()
-            if 'mecanicien' in category or 'mécanique' in category:
-                mechanic_requests.append(req)
+        if response.status_code == 200:
+            data = response.json()
+            token = data.get('token')
+            if token:
+                log_success(f"Admin login successful, token: {token[:20]}...")
+                tests_passed += 1
+                return token
         
-        print(f"   🔧 Demandes de mécanicien trouvées: {len(mechanic_requests)}")
-        
-        if mechanic_requests:
-            for req in mechanic_requests[:5]:  # Show first 5
-                print(f"      - ID: {req.get('id')} | Status: {req.get('status')} | Ville: {req.get('city')} | Créé: {req.get('createdAt', '')[:10]}")
-        else:
-            print("      Aucune demande de mécanicien trouvée dans le système")
-        
-        return mechanic_requests
-        
-    except json.JSONDecodeError:
-        print_result("Parse JSON requests", False, "Réponse JSON invalide")
-        return []
+        log_error("Admin login failed")
+        tests_failed += 1
+        return None
+    except Exception as e:
+        log_error(f"Exception during admin login: {str(e)}")
+        tests_failed += 1
+        return None
 
-def create_test_request():
-    """Create a test request for 'mecanicien' category"""
-    print_section("4. CRÉATION D'UNE DEMANDE DE TEST")
+def test_provider_login(phone=None, password=None):
+    """Test provider login and return token"""
+    global tests_passed, tests_failed
     
-    test_data = {
-        "serviceCategory": "mecanicien",
-        "city": "Dakar",
-        "phone": "+221771234567",
-        "description": "Test demande mécanique - diagnostic Cheikh",
-        "source": "diagnostic_test"
-    }
+    # Use defaults if not provided
+    if phone is None:
+        phone = PROVIDER_PHONE_CHANGE  # Default to change password provider
+    if password is None:
+        password = PROVIDER_PASSWORD
     
-    print(f"   📝 Données de test:")
-    print(f"      - Service: {test_data['serviceCategory']}")
-    print(f"      - Ville: {test_data['city']}")
-    print(f"      - Téléphone: {test_data['phone']}")
-    print(f"      - Description: {test_data['description']}")
-    
-    response = make_request("POST", "/leads", data=test_data)
-    if not response:
-        print_result("POST /api/leads", False, "Pas de réponse")
-        return None
-    
-    if response.status_code != 200:
-        print_result("POST /api/leads", False, f"Status: {response.status_code}")
-        print(f"   Response: {response.text}")
-        return None
+    log_test(f"Provider Login ({phone})")
     
     try:
-        result = response.json()
-        print_result("POST /api/leads", True, "Demande de test créée")
+        response = requests.post(
+            f"{BASE_URL}/auth/provider/login",
+            json={"phone": phone, "password": password}
+        )
+        log_response(response)
         
-        print(f"   ✅ Résultat:")
-        print(f"      - Success: {result.get('success')}")
-        print(f"      - Lead ID: {result.get('leadId')}")
-        print(f"      - Request ID: {result.get('requestId')}")
-        print(f"      - Providers matchés: {result.get('matchedProviders', 0)}")
+        if response.status_code == 200:
+            data = response.json()
+            token = data.get('token')
+            if token:
+                log_success(f"Provider login successful, token: {token[:20]}...")
+                tests_passed += 1
+                return token
         
-        return result
-        
-    except json.JSONDecodeError:
-        print_result("Parse JSON lead creation", False, "Réponse JSON invalide")
+        log_error(f"Provider login failed for {phone}")
+        tests_failed += 1
+        return None
+    except Exception as e:
+        log_error(f"Exception during provider login: {str(e)}")
+        tests_failed += 1
         return None
 
-def check_provider_leads(provider_id):
-    """Check the leads received by the provider"""
-    print_section("5. VÉRIFICATION DES LEADS DU PRESTATAIRE")
+def test_forgot_password_valid_provider():
+    """Test forgot password with valid provider phone"""
+    global tests_passed, tests_failed
+    log_test("Forgot Password - Valid Provider")
     
-    # Try to get provider leads
-    response = make_request("GET", f"/provider/leads", params={"providerId": provider_id})
-    if response and response.status_code == 200:
-        try:
-            leads_data = response.json()
-            leads = leads_data.get('leads', []) if isinstance(leads_data, dict) else leads_data
-            print_result("GET /api/provider/leads", True, f"Trouvé {len(leads)} leads")
+    try:
+        response = requests.post(
+            f"{BASE_URL}/auth/forgot-password",
+            json={"phone": PROVIDER_PHONE_FORGOT, "role": "PROVIDER"}
+        )
+        log_response(response)
+        
+        if response.status_code == 200:
+            data = response.json()
+            if data.get('success') and data.get('message'):
+                log_success("Forgot password request accepted (generic message)")
+                tests_passed += 1
+                return True
+        
+        log_error("Forgot password failed for valid provider")
+        tests_failed += 1
+        return False
+    except Exception as e:
+        log_error(f"Exception during forgot password: {str(e)}")
+        tests_failed += 1
+        return False
+
+def test_forgot_password_unknown_phone():
+    """Test forgot password with unknown phone (anti-enumeration)"""
+    global tests_passed, tests_failed
+    log_test("Forgot Password - Unknown Phone (Anti-Enumeration)")
+    
+    try:
+        response = requests.post(
+            f"{BASE_URL}/auth/forgot-password",
+            json={"phone": "+221799999998", "role": "PROVIDER"}
+        )
+        log_response(response)
+        
+        if response.status_code == 200:
+            data = response.json()
+            if data.get('success') and data.get('message'):
+                log_success("Anti-enumeration working: same generic message for unknown phone")
+                tests_passed += 1
+                return True
+        
+        log_error("Anti-enumeration failed")
+        tests_failed += 1
+        return False
+    except Exception as e:
+        log_error(f"Exception during forgot password: {str(e)}")
+        tests_failed += 1
+        return False
+
+def test_forgot_password_duplicate():
+    """Test duplicate forgot password request"""
+    global tests_passed, tests_failed
+    log_test("Forgot Password - Duplicate Request")
+    
+    try:
+        # First request
+        response1 = requests.post(
+            f"{BASE_URL}/auth/forgot-password",
+            json={"phone": PROVIDER_PHONE_FORGOT, "role": "PROVIDER"}
+        )
+        
+        # Second request (should indicate already pending)
+        response2 = requests.post(
+            f"{BASE_URL}/auth/forgot-password",
+            json={"phone": PROVIDER_PHONE_FORGOT, "role": "PROVIDER"}
+        )
+        log_response(response2)
+        
+        if response2.status_code == 200:
+            data = response2.json()
+            message = data.get('message', '')
+            if 'attente' in message.lower() or 'pending' in message.lower():
+                log_success("Duplicate request handled correctly")
+                tests_passed += 1
+                return True
+        
+        log_error("Duplicate request not handled properly")
+        tests_failed += 1
+        return False
+    except Exception as e:
+        log_error(f"Exception during duplicate forgot password: {str(e)}")
+        tests_failed += 1
+        return False
+
+def test_forgot_password_missing_phone():
+    """Test forgot password without phone"""
+    global tests_passed, tests_failed
+    log_test("Forgot Password - Missing Phone")
+    
+    try:
+        response = requests.post(
+            f"{BASE_URL}/auth/forgot-password",
+            json={"role": "PROVIDER"}
+        )
+        log_response(response)
+        
+        if response.status_code == 400:
+            log_success("Missing phone validation working")
+            tests_passed += 1
+            return True
+        
+        log_error("Missing phone validation failed")
+        tests_failed += 1
+        return False
+    except Exception as e:
+        log_error(f"Exception during forgot password: {str(e)}")
+        tests_failed += 1
+        return False
+
+def get_password_reset_notification(admin_token):
+    """Get a PASSWORD_RESET_REQUEST notification"""
+    try:
+        response = requests.get(
+            f"{BASE_URL}/admin/notifications",
+            headers={"Authorization": f"Bearer {admin_token}"}
+        )
+        
+        if response.status_code == 200:
+            data = response.json()
+            notifications = data.get('notifications', [])
             
-            if leads:
-                print(f"   📨 Leads reçus:")
-                for lead in leads[:5]:  # Show first 5
-                    print(f"      - ID: {lead.get('id')} | Service: {lead.get('serviceCategory')} | Status: {lead.get('status')} | Date: {lead.get('createdAt', '')[:10]}")
+            # Find a PENDING PASSWORD_RESET_REQUEST
+            for notif in notifications:
+                if notif.get('type') == 'PASSWORD_RESET_REQUEST' and notif.get('status') == 'PENDING':
+                    return notif
+        
+        return None
+    except Exception as e:
+        log_error(f"Exception getting notifications: {str(e)}")
+        return None
+
+def test_reset_password_without_auth():
+    """Test reset password without authentication"""
+    global tests_passed, tests_failed
+    log_test("Reset Password - Without Auth")
+    
+    try:
+        response = requests.post(f"{BASE_URL}/admin/notifications/fake-id/reset-password")
+        log_response(response)
+        
+        if response.status_code == 401:
+            log_success("Unauthorized access blocked correctly")
+            tests_passed += 1
+            return True
+        
+        log_error("Should return 401 without auth")
+        tests_failed += 1
+        return False
+    except Exception as e:
+        log_error(f"Exception during reset password: {str(e)}")
+        tests_failed += 1
+        return False
+
+def test_reset_password_with_provider_auth():
+    """Test reset password with provider auth (should fail)"""
+    global tests_passed, tests_failed
+    log_test("Reset Password - With Provider Auth (Should Fail)")
+    
+    try:
+        provider_token = test_provider_login()
+        if not provider_token:
+            log_error("Could not get provider token")
+            tests_failed += 1
+            return False
+        
+        response = requests.post(
+            f"{BASE_URL}/admin/notifications/fake-id/reset-password",
+            headers={"Authorization": f"Bearer {provider_token}"}
+        )
+        log_response(response)
+        
+        if response.status_code == 401:
+            log_success("Provider auth correctly rejected for admin endpoint")
+            tests_passed += 1
+            return True
+        
+        log_error("Should return 401 for provider auth")
+        tests_failed += 1
+        return False
+    except Exception as e:
+        log_error(f"Exception during reset password: {str(e)}")
+        tests_failed += 1
+        return False
+
+def test_reset_password_invalid_notification():
+    """Test reset password with invalid notification ID"""
+    global tests_passed, tests_failed
+    log_test("Reset Password - Invalid Notification ID")
+    
+    try:
+        admin_token = test_admin_login()
+        if not admin_token:
+            log_error("Could not get admin token")
+            tests_failed += 1
+            return False
+        
+        response = requests.post(
+            f"{BASE_URL}/admin/notifications/invalid-id-12345/reset-password",
+            headers={"Authorization": f"Bearer {admin_token}"}
+        )
+        log_response(response)
+        
+        if response.status_code == 404:
+            log_success("Invalid notification ID handled correctly")
+            tests_passed += 1
+            return True
+        
+        log_error("Should return 404 for invalid notification ID")
+        tests_failed += 1
+        return False
+    except Exception as e:
+        log_error(f"Exception during reset password: {str(e)}")
+        tests_failed += 1
+        return False
+
+def test_reset_password_valid():
+    """Test complete reset password flow"""
+    global tests_passed, tests_failed
+    log_test("Reset Password - Valid Flow (Complete)")
+    
+    try:
+        # Step 1: Get admin token
+        admin_token = test_admin_login()
+        if not admin_token:
+            log_error("Could not get admin token")
+            tests_failed += 1
+            return False
+        
+        # Step 2: Get provider token BEFORE reset (using PROVIDER_PHONE_RESET)
+        old_provider_token = test_provider_login(phone=PROVIDER_PHONE_RESET, password=PROVIDER_PASSWORD)
+        if not old_provider_token:
+            log_error("Could not get provider token before reset")
+            tests_failed += 1
+            return False
+        
+        log_info(f"Old provider token: {old_provider_token[:30]}...")
+        
+        # Step 3: Create forgot password request for PROVIDER_PHONE_RESET
+        log_info("Creating forgot password request for reset test provider...")
+        forgot_response = requests.post(
+            f"{BASE_URL}/auth/forgot-password",
+            json={"phone": PROVIDER_PHONE_RESET, "role": "PROVIDER"}
+        )
+        
+        if forgot_response.status_code != 200:
+            log_error("Could not create forgot password request")
+            tests_failed += 1
+            return False
+        
+        # Step 4: Get the notification for PROVIDER_PHONE_RESET
+        log_info("Fetching PASSWORD_RESET_REQUEST notification...")
+        notification = get_password_reset_notification(admin_token)
+        
+        if not notification:
+            log_error("Could not find PASSWORD_RESET_REQUEST notification")
+            tests_failed += 1
+            return False
+        
+        notif_id = notification.get('id')
+        log_info(f"Found notification ID: {notif_id}")
+        
+        # Step 5: Admin resets password
+        log_info("Admin resetting password...")
+        reset_response = requests.post(
+            f"{BASE_URL}/admin/notifications/{notif_id}/reset-password",
+            headers={"Authorization": f"Bearer {admin_token}"}
+        )
+        log_response(reset_response)
+        
+        if reset_response.status_code != 200:
+            log_error("Reset password failed")
+            tests_failed += 1
+            return False
+        
+        reset_data = reset_response.json()
+        temp_password = reset_data.get('tempPassword')
+        
+        if not temp_password:
+            log_error("No tempPassword in response")
+            tests_failed += 1
+            return False
+        
+        log_info(f"Temp password generated: {temp_password}")
+        
+        # Validate temp password format (8 chars, 1 upper, 1 lower, 1 digit)
+        if len(temp_password) != 8:
+            log_error(f"Temp password length is {len(temp_password)}, expected 8")
+            tests_failed += 1
+            return False
+        
+        if not any(c.isupper() for c in temp_password):
+            log_error("Temp password missing uppercase letter")
+            tests_failed += 1
+            return False
+        
+        if not any(c.islower() for c in temp_password):
+            log_error("Temp password missing lowercase letter")
+            tests_failed += 1
+            return False
+        
+        if not any(c.isdigit() for c in temp_password):
+            log_error("Temp password missing digit")
+            tests_failed += 1
+            return False
+        
+        log_success("Temp password format valid (8 chars, 1 upper, 1 lower, 1 digit)")
+        
+        # Step 6: Verify notification status changed to SENT
+        log_info("Verifying notification status changed to SENT...")
+        notif_check = requests.get(
+            f"{BASE_URL}/admin/notifications",
+            headers={"Authorization": f"Bearer {admin_token}"}
+        )
+        
+        if notif_check.status_code == 200:
+            notifications = notif_check.json().get('notifications', [])
+            updated_notif = next((n for n in notifications if n.get('id') == notif_id), None)
+            
+            if updated_notif and updated_notif.get('status') == 'SENT':
+                log_success("Notification status updated to SENT")
             else:
-                print("      Aucun lead trouvé pour ce prestataire")
-            
-            return leads
-        except json.JSONDecodeError:
-            print_result("Parse JSON provider leads", False, "Réponse JSON invalide")
-    else:
-        print_result("GET /api/provider/leads", False, f"Status: {response.status_code if response else 'No response'}")
-    
-    # Alternative: Check dashboard data
-    print("\n   🔄 Tentative via dashboard API...")
-    response = make_request("GET", f"/provider/dashboard/{provider_id}")
-    if response and response.status_code == 200:
-        try:
-            dashboard = response.json()
-            print_result("GET /api/provider/dashboard", True, "Dashboard récupéré")
-            
-            matches = dashboard.get('matches', [])
-            print(f"      - Matches trouvés: {len(matches)}")
-            
-            if matches:
-                print(f"   📊 Matches récents:")
-                for match in matches[:3]:  # Show first 3
-                    print(f"      - Request ID: {match.get('requestId')} | Status: {match.get('status')} | Date: {match.get('createdAt', '')[:10]}")
-            
-            return matches
-        except json.JSONDecodeError:
-            print_result("Parse JSON dashboard", False, "Réponse JSON invalide")
-    else:
-        print_result("GET /api/provider/dashboard", False, f"Status: {response.status_code if response else 'No response'}")
-    
-    return []
+                log_error("Notification status not updated to SENT")
+                tests_failed += 1
+                return False
+        
+        # Step 7: Login with temp password
+        log_info("Testing login with temp password...")
+        temp_login_response = requests.post(
+            f"{BASE_URL}/auth/provider/login",
+            json={"phone": PROVIDER_PHONE_RESET, "password": temp_password}
+        )
+        
+        if temp_login_response.status_code != 200:
+            log_error("Could not login with temp password")
+            log_response(temp_login_response)
+            tests_failed += 1
+            return False
+        
+        new_token = temp_login_response.json().get('token')
+        log_success(f"Login with temp password successful, new token: {new_token[:30]}...")
+        
+        # Step 8: Verify OLD token is invalidated
+        log_info("Verifying old token is invalidated...")
+        old_token_test = requests.post(
+            f"{BASE_URL}/auth/change-password",
+            headers={"Authorization": f"Bearer {old_provider_token}"},
+            json={"currentPassword": "dummy", "newPassword": "Dummy123"}
+        )
+        
+        if old_token_test.status_code == 401:
+            log_success("Old token correctly invalidated")
+        else:
+            log_error("Old token still valid (should be invalidated)")
+            log_response(old_token_test)
+            tests_failed += 1
+            return False
+        
+        # Step 9: Restore to a valid password (seed password doesn't meet strength requirements)
+        log_info("Restoring to valid password (Wooleen2025)...")
+        restore_response = requests.post(
+            f"{BASE_URL}/auth/change-password",
+            headers={"Authorization": f"Bearer {new_token}"},
+            json={"currentPassword": temp_password, "newPassword": "Wooleen2025"}
+        )
+        
+        if restore_response.status_code == 200:
+            log_success("Password restored to Wooleen2025 (seed password doesn't meet strength requirements)")
+            # Note: Provider password is now Wooleen2025, not wooleen2025
+        else:
+            log_error("Could not restore password")
+            log_response(restore_response)
+        
+        log_success("✅ COMPLETE RESET PASSWORD FLOW VALIDATED")
+        tests_passed += 1
+        return True
+        
+    except Exception as e:
+        log_error(f"Exception during reset password flow: {str(e)}")
+        tests_failed += 1
+        return False
 
-def analyze_matching_logic():
-    """Analyze why the matching might not be working"""
-    print_section("6. ANALYSE DE LA LOGIQUE DE MATCHING")
-    
-    # Get all providers to understand matching criteria
-    response = make_request("GET", "/providers")
-    if not response or response.status_code != 200:
-        print_result("Analyse matching", False, "Impossible de récupérer les prestataires")
-        return
+def test_change_password_without_auth():
+    """Test change password without authentication"""
+    global tests_passed, tests_failed
+    log_test("Change Password - Without Auth")
     
     try:
-        providers = response.json()
-        mechanics = [p for p in providers if p.get('serviceCategory', '').lower() == 'mecanicien']
+        response = requests.post(
+            f"{BASE_URL}/auth/change-password",
+            json={"currentPassword": "test", "newPassword": "Test1234"}
+        )
+        log_response(response)
         
-        print(f"   🔧 Analyse des mécaniciens ({len(mechanics)} trouvés):")
+        if response.status_code == 401:
+            log_success("Unauthorized access blocked correctly")
+            tests_passed += 1
+            return True
         
-        for mech in mechanics:
-            mech_name = mech.get('user', {}).get('name', '') if mech.get('user') else mech.get('businessName', '')
-            available = mech.get('isAvailable', False)
-            city = mech.get('city', 'N/A')
-            zones = mech.get('zones', [])
-            tier = mech.get('tier', 'free')
-            
-            print(f"      - {mech_name}:")
-            print(f"        ✓ Disponible: {available}")
-            print(f"        ✓ Ville: {city}")
-            print(f"        ✓ Zones: {zones}")
-            print(f"        ✓ Tier: {tier}")
-            
-            # Check if this provider should match Dakar requests
-            should_match_dakar = (
-                available and 
-                (city.lower() == 'dakar' or 'dakar' in [z.lower() for z in zones])
+        log_error("Should return 401 without auth")
+        tests_failed += 1
+        return False
+    except Exception as e:
+        log_error(f"Exception during change password: {str(e)}")
+        tests_failed += 1
+        return False
+
+def test_change_password_wrong_current():
+    """Test change password with wrong current password"""
+    global tests_passed, tests_failed
+    log_test("Change Password - Wrong Current Password")
+    
+    try:
+        provider_token = test_provider_login(phone=PROVIDER_PHONE_CHANGE, password=PROVIDER_PASSWORD)
+        if not provider_token:
+            log_error("Could not get provider token")
+            tests_failed += 1
+            return False
+        
+        response = requests.post(
+            f"{BASE_URL}/auth/change-password",
+            headers={"Authorization": f"Bearer {provider_token}"},
+            json={"currentPassword": "wrongpassword", "newPassword": "NewPass123"}
+        )
+        log_response(response)
+        
+        if response.status_code == 401:
+            data = response.json()
+            if 'incorrect' in data.get('error', '').lower():
+                log_success("Wrong current password rejected correctly")
+                tests_passed += 1
+                return True
+        
+        log_error("Should return 401 for wrong current password")
+        tests_failed += 1
+        return False
+    except Exception as e:
+        log_error(f"Exception during change password: {str(e)}")
+        tests_failed += 1
+        return False
+
+def test_change_password_same_password():
+    """Test change password with same password"""
+    global tests_passed, tests_failed
+    log_test("Change Password - Same Password")
+    
+    try:
+        provider_token = test_provider_login(phone=PROVIDER_PHONE_CHANGE, password=PROVIDER_PASSWORD)
+        if not provider_token:
+            log_error("Could not get provider token")
+            tests_failed += 1
+            return False
+        
+        response = requests.post(
+            f"{BASE_URL}/auth/change-password",
+            headers={"Authorization": f"Bearer {provider_token}"},
+            json={"currentPassword": PROVIDER_PASSWORD, "newPassword": PROVIDER_PASSWORD}
+        )
+        log_response(response)
+        
+        if response.status_code == 400:
+            data = response.json()
+            if 'différent' in data.get('error', '').lower() or 'different' in data.get('error', '').lower():
+                log_success("Same password rejected correctly")
+                tests_passed += 1
+                return True
+        
+        log_error("Should return 400 for same password")
+        tests_failed += 1
+        return False
+    except Exception as e:
+        log_error(f"Exception during change password: {str(e)}")
+        tests_failed += 1
+        return False
+
+def test_change_password_weak():
+    """Test change password with weak password"""
+    global tests_passed, tests_failed
+    log_test("Change Password - Weak Password")
+    
+    try:
+        provider_token = test_provider_login(phone=PROVIDER_PHONE_CHANGE, password=PROVIDER_PASSWORD)
+        if not provider_token:
+            log_error("Could not get provider token")
+            tests_failed += 1
+            return False
+        
+        response = requests.post(
+            f"{BASE_URL}/auth/change-password",
+            headers={"Authorization": f"Bearer {provider_token}"},
+            json={"currentPassword": PROVIDER_PASSWORD, "newPassword": "abc12"}
+        )
+        log_response(response)
+        
+        if response.status_code == 400:
+            data = response.json()
+            error = data.get('error', '')
+            if any(word in error.lower() for word in ['caractères', 'majuscule', 'minuscule', 'chiffre']):
+                log_success("Weak password rejected with strength error")
+                tests_passed += 1
+                return True
+        
+        log_error("Should return 400 for weak password")
+        tests_failed += 1
+        return False
+    except Exception as e:
+        log_error(f"Exception during change password: {str(e)}")
+        tests_failed += 1
+        return False
+
+def test_change_password_valid():
+    """Test complete change password flow"""
+    global tests_passed, tests_failed
+    log_test("Change Password - Valid Flow (Complete)")
+    
+    try:
+        # Step 1: Login and get token (using PROVIDER_PHONE_CHANGE)
+        old_token = test_provider_login(phone=PROVIDER_PHONE_CHANGE, password=PROVIDER_PASSWORD)
+        if not old_token:
+            log_error("Could not get provider token")
+            tests_failed += 1
+            return False
+        
+        log_info(f"Old token: {old_token[:30]}...")
+        
+        # Step 2: Change password
+        new_password = "NewSecure123"
+        log_info(f"Changing password to: {new_password}")
+        
+        change_response = requests.post(
+            f"{BASE_URL}/auth/change-password",
+            headers={"Authorization": f"Bearer {old_token}"},
+            json={"currentPassword": PROVIDER_PASSWORD, "newPassword": new_password}
+        )
+        log_response(change_response)
+        
+        if change_response.status_code != 200:
+            log_error("Change password failed")
+            tests_failed += 1
+            return False
+        
+        change_data = change_response.json()
+        new_token = change_data.get('token')
+        
+        if not new_token:
+            log_error("No new token in response")
+            tests_failed += 1
+            return False
+        
+        log_success(f"Password changed, new token: {new_token[:30]}...")
+        
+        # Step 3: Verify new token works
+        log_info("Testing new token with authenticated endpoint...")
+        new_token_test = requests.post(
+            f"{BASE_URL}/auth/change-password",
+            headers={"Authorization": f"Bearer {new_token}"},
+            json={"currentPassword": new_password, "newPassword": "Wooleen2025"}
+        )
+        
+        if new_token_test.status_code == 200:
+            log_success("New token works correctly")
+            # Get the newest token after this change
+            final_token = new_token_test.json().get('token')
+        else:
+            log_error("New token doesn't work")
+            log_response(new_token_test)
+            tests_failed += 1
+            return False
+        
+        # Step 4: Verify old token is invalidated
+        log_info("Verifying old token is invalidated...")
+        old_token_test = requests.post(
+            f"{BASE_URL}/auth/change-password",
+            headers={"Authorization": f"Bearer {old_token}"},
+            json={"currentPassword": "dummy", "newPassword": "Dummy123"}
+        )
+        
+        if old_token_test.status_code == 401:
+            log_success("Old token correctly invalidated")
+        else:
+            log_error("Old token still valid (should be invalidated)")
+            log_response(old_token_test)
+            tests_failed += 1
+            return False
+        
+        # Step 5: Verify can login with new password
+        log_info("Testing login with restored password (Wooleen2025)...")
+        login_response = requests.post(
+            f"{BASE_URL}/auth/provider/login",
+            json={"phone": PROVIDER_PHONE_CHANGE, "password": "Wooleen2025"}
+        )
+        
+        if login_response.status_code == 200:
+            log_success("Login with restored password successful")
+        else:
+            log_error("Could not login with restored password")
+            log_response(login_response)
+            tests_failed += 1
+            return False
+        
+        # Step 6: Verify PASSWORD_CHANGED notification created
+        log_info("Verifying PASSWORD_CHANGED notification created...")
+        admin_token = test_admin_login()
+        if admin_token:
+            notif_response = requests.get(
+                f"{BASE_URL}/admin/notifications",
+                headers={"Authorization": f"Bearer {admin_token}"}
             )
-            print(f"        ➡️ Devrait matcher Dakar: {should_match_dakar}")
+            
+            if notif_response.status_code == 200:
+                notifications = notif_response.json().get('notifications', [])
+                password_changed_notif = next(
+                    (n for n in notifications if n.get('type') == 'PASSWORD_CHANGED'),
+                    None
+                )
+                
+                if password_changed_notif:
+                    log_success("PASSWORD_CHANGED notification created")
+                else:
+                    log_error("PASSWORD_CHANGED notification not found")
+                    tests_failed += 1
+                    return False
         
-        print_result("Analyse matching", True, f"{len(mechanics)} mécaniciens analysés")
+        log_success("✅ COMPLETE CHANGE PASSWORD FLOW VALIDATED")
+        tests_passed += 1
+        return True
         
-    except json.JSONDecodeError:
-        print_result("Analyse matching", False, "Erreur parsing JSON")
+    except Exception as e:
+        log_error(f"Exception during change password flow: {str(e)}")
+        tests_failed += 1
+        return False
+
+def test_admin_stats():
+    """Test admin stats endpoint (regression)"""
+    global tests_passed, tests_failed
+    log_test("Admin Stats (Regression)")
+    
+    try:
+        response = requests.get(f"{BASE_URL}/admin/stats")
+        log_response(response)
+        
+        if response.status_code == 200:
+            data = response.json()
+            if 'providers' in data and 'requests' in data:
+                log_success("Admin stats endpoint working")
+                tests_passed += 1
+                return True
+        
+        log_error("Admin stats endpoint failed")
+        tests_failed += 1
+        return False
+    except Exception as e:
+        log_error(f"Exception during admin stats: {str(e)}")
+        tests_failed += 1
+        return False
 
 def main():
-    """Main diagnostic function"""
-    print("🔍 DIAGNOSTIC: Pourquoi Cheikh Mécanicien ne reçoit pas de demandes")
-    print(f"🌐 API Base URL: {API_BASE}")
-    print(f"⏰ Test démarré à: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    """Run all tests"""
+    print(f"\n{BLUE}{'='*80}{RESET}")
+    print(f"{BLUE}WOOLEEN PASSWORD MANAGEMENT TESTING (LOT 2){RESET}")
+    print(f"{BLUE}BASE_URL: {BASE_URL}{RESET}")
+    print(f"{BLUE}{'='*80}{RESET}\n")
     
-    # Step 1: Find the provider
-    provider = find_cheikh_provider()
-    if not provider:
-        print("\n❌ DIAGNOSTIC ARRÊTÉ: Impossible de trouver le prestataire")
-        return
+    # Seed database first
+    test_seed_database()
     
-    provider_id = provider.get('userId')
-    if not provider_id:
-        print("\n❌ DIAGNOSTIC ARRÊTÉ: ID prestataire manquant")
-        return
+    # Test 1: Forgot Password Endpoint
+    print(f"\n{YELLOW}{'='*80}{RESET}")
+    print(f"{YELLOW}SECTION 1: FORGOT PASSWORD ENDPOINT{RESET}")
+    print(f"{YELLOW}{'='*80}{RESET}")
+    test_forgot_password_valid_provider()
+    test_forgot_password_unknown_phone()
+    test_forgot_password_duplicate()
+    test_forgot_password_missing_phone()
     
-    # Step 2: Check subscription
-    subscription = check_subscription(provider_id)
+    # Test 2: Admin Reset Password Endpoint
+    print(f"\n{YELLOW}{'='*80}{RESET}")
+    print(f"{YELLOW}SECTION 2: ADMIN RESET PASSWORD ENDPOINT{RESET}")
+    print(f"{YELLOW}{'='*80}{RESET}")
+    test_reset_password_without_auth()
+    test_reset_password_with_provider_auth()
+    test_reset_password_invalid_notification()
+    test_reset_password_valid()
     
-    # Step 3: Check existing requests
-    existing_requests = check_existing_requests()
+    # Test 3: Change Password Endpoint
+    print(f"\n{YELLOW}{'='*80}{RESET}")
+    print(f"{YELLOW}SECTION 3: CHANGE PASSWORD ENDPOINT{RESET}")
+    print(f"{YELLOW}{'='*80}{RESET}")
+    test_change_password_without_auth()
+    test_change_password_wrong_current()
+    test_change_password_same_password()
+    test_change_password_weak()
+    test_change_password_valid()
     
-    # Step 4: Create test request
-    test_result = create_test_request()
+    # Test 4: Regression Tests
+    print(f"\n{YELLOW}{'='*80}{RESET}")
+    print(f"{YELLOW}SECTION 4: REGRESSION TESTS{RESET}")
+    print(f"{YELLOW}{'='*80}{RESET}")
+    test_admin_login()
+    test_provider_login()
+    test_admin_stats()
     
-    # Step 5: Check provider leads
-    provider_leads = check_provider_leads(provider_id)
+    # Summary
+    print(f"\n{BLUE}{'='*80}{RESET}")
+    print(f"{BLUE}TEST SUMMARY{RESET}")
+    print(f"{BLUE}{'='*80}{RESET}")
+    print(f"{GREEN}Tests Passed: {tests_passed}{RESET}")
+    print(f"{RED}Tests Failed: {tests_failed}{RESET}")
+    print(f"Total Tests: {tests_passed + tests_failed}")
     
-    # Step 6: Analyze matching logic
-    analyze_matching_logic()
-    
-    # Final summary
-    print_section("RÉSUMÉ DU DIAGNOSTIC")
-    
-    print("📊 ÉTAT DU PRESTATAIRE:")
-    user_name = provider.get('user', {}).get('name', '') if provider.get('user') else provider.get('businessName', '')
-    print(f"   - Nom: {user_name}")
-    print(f"   - Catégorie: {provider.get('serviceCategory')}")
-    print(f"   - Disponible: {provider.get('isAvailable')}")
-    print(f"   - Ville: {provider.get('city')}")
-    print(f"   - Zones: {provider.get('zones', [])}")
-    
-    if subscription:
-        print(f"\n📋 ABONNEMENT:")
-        print(f"   - Status: {subscription.get('status')}")
-        print(f"   - Plan: {subscription.get('plan', {}).get('name', 'N/A')}")
-        print(f"   - Leads reçus: {subscription.get('leadsReceivedThisMonth', 0)}")
-    
-    print(f"\n🔧 DEMANDES MÉCANICIEN:")
-    print(f"   - Existantes: {len(existing_requests)}")
-    print(f"   - Test créé: {'✅' if test_result and test_result.get('success') else '❌'}")
-    if test_result:
-        print(f"   - Providers matchés: {test_result.get('matchedProviders', 0)}")
-    
-    print(f"\n📨 LEADS PRESTATAIRE:")
-    print(f"   - Leads trouvés: {len(provider_leads) if provider_leads else 0}")
-    
-    # Diagnostic conclusion
-    print(f"\n🎯 CONCLUSION:")
-    
-    issues_found = []
-    
-    if not provider.get('isAvailable'):
-        issues_found.append("❌ Prestataire marqué comme NON DISPONIBLE")
-    
-    if provider.get('serviceCategory', '').lower() != 'mecanicien':
-        issues_found.append(f"❌ Catégorie incorrecte: {provider.get('serviceCategory')} (attendu: mecanicien)")
-    
-    if subscription and subscription.get('status') != 'ACTIVE':
-        issues_found.append(f"❌ Abonnement non actif: {subscription.get('status')}")
-    
-    if test_result and test_result.get('matchedProviders', 0) == 0:
-        issues_found.append("❌ Aucun matching lors du test")
-    
-    if not issues_found:
-        print("   ✅ Aucun problème technique détecté")
-        print("   💡 Le prestataire devrait recevoir des demandes")
-        print("   🔍 Vérifier s'il y a des demandes récentes de mécanicien dans sa zone")
+    if tests_failed == 0:
+        print(f"\n{GREEN}{'='*80}{RESET}")
+        print(f"{GREEN}🎉 ALL TESTS PASSED! 🎉{RESET}")
+        print(f"{GREEN}{'='*80}{RESET}\n")
+        return 0
     else:
-        print("   🚨 PROBLÈMES IDENTIFIÉS:")
-        for issue in issues_found:
-            print(f"      {issue}")
-    
-    print(f"\n⏰ Diagnostic terminé à: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        print(f"\n{RED}{'='*80}{RESET}")
+        print(f"{RED}❌ SOME TESTS FAILED{RESET}")
+        print(f"{RED}{'='*80}{RESET}\n")
+        return 1
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
