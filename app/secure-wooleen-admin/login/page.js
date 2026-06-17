@@ -34,6 +34,12 @@ export default function AdminLoginPage() {
         
         localStorage.setItem('wooleen_token', data.token)
         localStorage.setItem('wooleen_user', JSON.stringify(data.user))
+
+        // ⚡ Force le changement de mot de passe à la 1ère connexion (admin restauré)
+        if (data.mustChangePassword || data.user.mustChangePassword) {
+          localStorage.setItem('wooleen_force_change_password', '1')
+        }
+
         router.push('/secure-wooleen-admin')
       } else {
         if (data.error === 'RATE_LIMITED') {

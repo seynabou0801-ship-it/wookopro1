@@ -1276,11 +1276,15 @@ async function handleRoute(request, { params }) {
       await clearLoginAttempts(db, phone, 'ADMIN')
       // ⚡ Lot 3c — Trace la connexion réussie
       await recordLoginEvent(db, request, { userId: user.id, phone, role: user.role || 'ADMIN', success: true })
-      
+
       return handleCORS(NextResponse.json({
         success: true,
         token,
-        user: { id: user.id, name: user.name, phone: user.phone, role: user.role },
+        user: {
+          id: user.id, name: user.name, phone: user.phone, role: user.role,
+          mustChangePassword: !!user.mustChangePassword
+        },
+        mustChangePassword: !!user.mustChangePassword,
         provider: provider ? {
           id: provider.id,
           businessName: provider.businessName,
@@ -2638,7 +2642,8 @@ async function handleRoute(request, { params }) {
             passwordHash: newHash,
             tokenVersion: newTokenVersion,
             updatedAt: new Date(),
-            lastPasswordChange: new Date()
+            lastPasswordChange: new Date(),
+            mustChangePassword: false
           }
         }
       )

@@ -73,6 +73,59 @@ export default function SecureAdminDashboard() {
   const [showPaymentProofModal, setShowPaymentProofModal] = useState(false)
   const [currentPaymentProof, setCurrentPaymentProof] = useState(null)
 
+  // ⚡ Modal forcé "Première connexion - changement de mot de passe obligatoire"
+  const [forceChangePwd, setForceChangePwd] = useState(false)
+  const [fcpCurrent, setFcpCurrent] = useState('')
+  const [fcpNew, setFcpNew] = useState('')
+  const [fcpConfirm, setFcpConfirm] = useState('')
+  const [fcpShow, setFcpShow] = useState(false)
+  const [fcpError, setFcpError] = useState('')
+  const [fcpLoading, setFcpLoading] = useState(false)
+
+  useEffect(() => {
+    // Détecte le flag de 1ère connexion
+    if (typeof window !== 'undefined') {
+      const must = localStorage.getItem('wooleen_force_change_password')
+      if (must === '1') setForceChangePwd(true)
+    }
+  }, [])
+
+  const submitForceChangePwd = async (e) => {
+    e?.preventDefault?.()
+    setFcpError('')
+    if (fcpNew !== fcpConfirm) {
+      setFcpError('La confirmation ne correspond pas au nouveau mot de passe')
+      return
+    }
+    if (fcpNew.length < 8 || !/[A-Z]/.test(fcpNew) || !/[a-z]/.test(fcpNew) || !/\d/.test(fcpNew)) {
+      setFcpError('Min. 8 caractères, 1 majuscule, 1 minuscule, 1 chiffre')
+      return
+    }
+    setFcpLoading(true)
+    try {
+      const token = localStorage.getItem('wooleen_token')
+      const res = await fetch('/api/auth/change-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ currentPassword: fcpCurrent, newPassword: fcpNew })
+      })
+      const data = await res.json()
+      if (res.ok && data.success) {
+        if (data.token) localStorage.setItem('wooleen_token', data.token)
+        localStorage.removeItem('wooleen_force_change_password')
+        setForceChangePwd(false)
+        setFcpCurrent(''); setFcpNew(''); setFcpConfirm('')
+        alert('✅ Mot de passe modifié avec succès. Toutes les autres sessions ont été déconnectées.')
+      } else {
+        setFcpError(data.error || data.message || 'Erreur de changement de mot de passe')
+      }
+    } catch (err) {
+      setFcpError('Erreur réseau')
+    } finally {
+      setFcpLoading(false)
+    }
+  }
+
   useEffect(() => {
     const storedUser = localStorage.getItem('wooleen_user')
     const storedToken = localStorage.getItem('wooleen_token')
@@ -952,6 +1005,75 @@ export default function SecureAdminDashboard() {
           </div>
         </div>
       </header>
+
+      {/* ⚡ Modal NON-DÉROBABLE : Changement de mot de passe obligatoire à la 1ère connexion */}
+      {forceChangePwd && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[300] flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl">
+            <div className="mb-4">
+              <h3 className="text-xl font-bold text-red-700">🔐 Changement de mot de passe obligatoire</h3>
+              <p className="text-sm text-gray-600 mt-1">
+                Pour des raisons de sécurité, vous devez définir un nouveau mot de passe avant d'accéder au back-office.
+              </p>
+            </div>
+            <form onSubmit={submitForceChangePwd} className="space-y-3">
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">Mot de passe temporaire actuel *</label>
+                <input
+                  type={fcpShow ? 'text' : 'password'}
+                  value={fcpCurrent}
+                  onChange={(e) => setFcpCurrent(e.target.value)}
+                  required
+                  autoComplete="current-password"
+                  className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-red-500 text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">Nouveau mot de passe *</label>
+                <input
+                  type={fcpShow ? 'text' : 'password'}
+                  value={fcpNew}
+                  onChange={(e) => setFcpNew(e.target.value)}
+                  required
+                  autoComplete="new-password"
+                  className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-red-500 text-sm"
+                />
+                <p className="text-[11px] text-gray-500 mt-0.5">Min. 8 caractères, 1 maj, 1 min, 1 chiffre</p>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">Confirmer le nouveau mot de passe *</label>
+                <input
+                  type={fcpShow ? 'text' : 'password'}
+                  value={fcpConfirm}
+                  onChange={(e) => setFcpConfirm(e.target.value)}
+                  required
+                  autoComplete="new-password"
+                  className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-red-500 text-sm"
+                />
+              </div>
+              <label className="flex items-center gap-2 text-xs text-gray-600 cursor-pointer">
+                <input type="checkbox" checked={fcpShow} onChange={(e) => setFcpShow(e.target.checked)} />
+                Afficher les mots de passe
+              </label>
+              {fcpError && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-2 text-xs text-red-800">
+                  {fcpError}
+                </div>
+              )}
+              <button
+                type="submit"
+                disabled={fcpLoading}
+                className="w-full py-3 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white rounded-xl font-bold shadow-lg disabled:opacity-50"
+              >
+                {fcpLoading ? '⏳ Modification...' : 'Valider et accéder au back-office'}
+              </button>
+              <p className="text-[11px] text-gray-500 text-center">
+                ⚠️ Cette action est obligatoire et ne peut pas être annulée.
+              </p>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* ⚡ Modal résultat de réinitialisation de mot de passe */}
       {resetResult && (
