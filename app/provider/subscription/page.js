@@ -4,8 +4,10 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Check, X, Upload, CreditCard, Smartphone } from 'lucide-react'
+import { useAuthSessionGuard } from '@/lib/use-auth-session-guard'
 
 export default function SubscriptionPage() {
+  useAuthSessionGuard()
   const router = useRouter()
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)

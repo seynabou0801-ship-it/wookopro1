@@ -93,14 +93,20 @@ export default function ProviderAuthPage() {
         router.push('/provider/dashboard')
       } else {
         // Gérer les différents types d'erreurs
-        if (data.error === 'COMPTE_EN_ATTENTE') {
+        if (data.error === 'RATE_LIMITED') {
+          alert('🔒 Trop de tentatives\n\n' + data.message)
+        } else if (data.error === 'COMPTE_EN_ATTENTE') {
           alert('⏳ Compte en attente de validation\n\n' + data.message)
         } else if (data.error === 'COMPTE_REJETE') {
           alert('❌ Compte refusé\n\n' + data.message)
         } else if (data.error === 'COMPTE_INACTIF') {
           alert('❌ Compte inactif\n\n' + data.message)
         } else {
-          alert('❌ ' + (data.message || data.error || 'Erreur de connexion'))
+          // Affiche le nombre de tentatives restantes si présent
+          const attemptsMsg = (typeof data.remainingAttempts === 'number')
+            ? `\n\nIl vous reste ${data.remainingAttempts} tentative${data.remainingAttempts > 1 ? 's' : ''} avant un blocage temporaire.`
+            : ''
+          alert('❌ ' + (data.message || data.error || 'Erreur de connexion') + attemptsMsg)
         }
       }
     } catch (error) {

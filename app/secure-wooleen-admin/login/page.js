@@ -36,7 +36,13 @@ export default function AdminLoginPage() {
         localStorage.setItem('wooleen_user', JSON.stringify(data.user))
         router.push('/secure-wooleen-admin')
       } else {
-        setError(data.error || 'Erreur de connexion')
+        if (data.error === 'RATE_LIMITED') {
+          setError(data.message || 'Trop de tentatives. Réessayez plus tard.')
+        } else if (typeof data.remainingAttempts === 'number') {
+          setError(`${data.error || 'Erreur de connexion'} — ${data.remainingAttempts} tentative${data.remainingAttempts > 1 ? 's' : ''} restante${data.remainingAttempts > 1 ? 's' : ''}`)
+        } else {
+          setError(data.error || data.message || 'Erreur de connexion')
+        }
       }
     } catch (err) {
       setError('Erreur de connexion au serveur')

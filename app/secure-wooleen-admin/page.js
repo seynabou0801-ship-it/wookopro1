@@ -9,6 +9,7 @@ import {
   formatNumber,
   formatPercentage
 } from './analytics-mock-data'
+import { useAuthSessionGuard } from '@/lib/use-auth-session-guard'
 
 // Slug → label lisible pour l'affichage des professionnels dans l'admin
 const PROFESSIONAL_LABELS = {
@@ -32,6 +33,7 @@ const PROFESSIONAL_LABELS = {
 const labelPro = (slug) => PROFESSIONAL_LABELS[slug] || (slug || '—')
 
 export default function SecureAdminDashboard() {
+  useAuthSessionGuard()
   const router = useRouter()
   const [user, setUser] = useState(null)
   const [stats, setStats] = useState(null)

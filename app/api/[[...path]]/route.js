@@ -62,6 +62,131 @@ function generateTempPassword() {
   return pwd.split('').sort(() => Math.random() - 0.5).join('')
 }
 
+// ============ RATE LIMITING (LOT 3a) ============
+// Politique: 5 tentatives échouées en 15 min → blocage 15 min sur ce phone+role
+const RATE_LIMIT_MAX_ATTEMPTS = 5
+const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000   // 15 minutes
+const RATE_LIMIT_BLOCK_MS = 15 * 60 * 1000    // 15 minutes
+
+function normalizePhone(phone) {
+  return (phone || '').replace(/[^\d]/g, '').slice(-9)
+}
+
+// Vérifie si l'utilisateur est actuellement bloqué. Retourne null si OK,
+// sinon { blocked: true, retryAfterSec, blockedUntil }.
+async function checkLoginRateLimit(db, phone, role) {
+  const key = `${normalizePhone(phone)}_${role}`
+  const entry = await db.collection('login_attempts').findOne({ key })
+  if (!entry) return null
+
+  const now = Date.now()
+  if (entry.blockedUntil && entry.blockedUntil.getTime() > now) {
+    return {
+      blocked: true,
+      retryAfterSec: Math.ceil((entry.blockedUntil.getTime() - now) / 1000),
+      blockedUntil: entry.blockedUntil
+    }
+  }
+  return null
+}
+
+// Enregistre une tentative échouée. Si on atteint le seuil, on bloque.
+// Retourne { count, blocked, retryAfterSec? }.
+async function recordFailedLogin(db, phone, role) {
+  const key = `${normalizePhone(phone)}_${role}`
+  const now = new Date()
+  const existing = await db.collection('login_attempts').findOne({ key })
+
+  let count = 1
+  let firstAttemptAt = now
+
+  if (existing) {
+    const windowExpired = (now.getTime() - existing.firstAttemptAt.getTime()) > RATE_LIMIT_WINDOW_MS
+    if (windowExpired) {
+      // Reset fenêtre glissante
+      count = 1
+      firstAttemptAt = now
+    } else {
+      count = (existing.count || 0) + 1
+      firstAttemptAt = existing.firstAttemptAt
+    }
+  }
+
+  const update = {
+    key,
+    phone,
+    role,
+    count,
+    firstAttemptAt,
+    lastAttemptAt: now,
+    updatedAt: now
+  }
+
+  if (count >= RATE_LIMIT_MAX_ATTEMPTS) {
+    update.blockedUntil = new Date(now.getTime() + RATE_LIMIT_BLOCK_MS)
+  }
+
+  await db.collection('login_attempts').updateOne(
+    { key },
+    { $set: update },
+    { upsert: true }
+  )
+
+  return {
+    count,
+    blocked: count >= RATE_LIMIT_MAX_ATTEMPTS,
+    retryAfterSec: count >= RATE_LIMIT_MAX_ATTEMPTS ? RATE_LIMIT_BLOCK_MS / 1000 : 0,
+    remainingAttempts: Math.max(0, RATE_LIMIT_MAX_ATTEMPTS - count)
+  }
+}
+
+// Réinitialise les tentatives sur login réussi.
+async function clearLoginAttempts(db, phone, role) {
+  const key = `${normalizePhone(phone)}_${role}`
+  await db.collection('login_attempts').deleteOne({ key })
+}
+
+function rateLimitBlockedResponse(rl) {
+  const minutes = Math.ceil(rl.retryAfterSec / 60)
+  return handleCORS(NextResponse.json({
+    error: 'RATE_LIMITED',
+    message: `Trop de tentatives échouées. Réessayez dans ${minutes} minute${minutes > 1 ? 's' : ''}.`,
+    retryAfterSec: rl.retryAfterSec,
+    blockedUntil: rl.blockedUntil
+  }, { status: 429 }))
+}
+
+// ============ LOGIN HISTORY (LOT 3c) ============
+// Trace toutes les tentatives de connexion (succès & échecs) pour audit.
+async function recordLoginEvent(db, request, { userId, phone, role, success, reason }) {
+  try {
+    const ip = (request.headers.get('x-forwarded-for') || '').split(',')[0].trim()
+      || request.headers.get('x-real-ip')
+      || request.headers.get('cf-connecting-ip')
+      || 'unknown'
+    const userAgent = request.headers.get('user-agent') || 'unknown'
+    const now = new Date()
+
+    await db.collection('login_history').insertOne({
+      id: uuidv4(),
+      userId: userId || null,
+      phone,
+      role,
+      success: !!success,
+      reason: reason || null,
+      ip,
+      userAgent: userAgent.substring(0, 300),
+      createdAt: now
+    })
+
+    // Auto-purge des entrées > 30 jours (best-effort, non bloquant)
+    const cutoff = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+    db.collection('login_history').deleteMany({ createdAt: { $lt: cutoff } }).catch(() => {})
+  } catch (err) {
+    console.error('[login-history] Erreur enregistrement:', err.message)
+  }
+}
+
 // Validation complexité minimale du mot de passe.
 // Renvoie null si OK, ou un message d'erreur sinon.
 function validatePasswordStrength(password) {
@@ -862,6 +987,12 @@ async function handleRoute(request, { params }) {
       if (!phone || !password) {
         return handleCORS(NextResponse.json({ error: 'Phone et password requis' }, { status: 400 }))
       }
+
+      // ⚡ Lot 3a — Rate limiting : vérifie le blocage AVANT toute opération
+      const rl = await checkLoginRateLimit(db, phone, 'PROVIDER')
+      if (rl?.blocked) {
+        return rateLimitBlockedResponse(rl)
+      }
       
       const user = await db.collection('users').findOne({ 
         phone: { $regex: new RegExp(phone.replace(/[^\d]/g, '').slice(-9)) },
@@ -869,7 +1000,13 @@ async function handleRoute(request, { params }) {
       })
       
       if (!user) {
-        return handleCORS(NextResponse.json({ error: 'Prestataire non trouvé' }, { status: 401 }))
+        const r = await recordFailedLogin(db, phone, 'PROVIDER')
+        await recordLoginEvent(db, request, { userId: null, phone, role: 'PROVIDER', success: false, reason: 'USER_NOT_FOUND' })
+        if (r.blocked) return rateLimitBlockedResponse(r)
+        return handleCORS(NextResponse.json({
+          error: 'Prestataire non trouvé',
+          remainingAttempts: r.remainingAttempts
+        }, { status: 401 }))
       }
 
       // ⚡ NOUVEAU : Vérifier le statut du compte AVANT validation mot de passe
@@ -913,11 +1050,22 @@ async function handleRoute(request, { params }) {
       }
       const validPassword = await bcrypt.compare(password, user.passwordHash)
       if (!validPassword) {
-        return handleCORS(NextResponse.json({ error: 'Mot de passe incorrect' }, { status: 401 }))
+        const r = await recordFailedLogin(db, phone, 'PROVIDER')
+        await recordLoginEvent(db, request, { userId: user.id, phone, role: 'PROVIDER', success: false, reason: 'WRONG_PASSWORD' })
+        if (r.blocked) return rateLimitBlockedResponse(r)
+        return handleCORS(NextResponse.json({
+          error: 'Mot de passe incorrect',
+          remainingAttempts: r.remainingAttempts
+        }, { status: 401 }))
       }
       
       const provider = await db.collection('provider_profiles').findOne({ userId: user.id })
       const token = signUserToken(user)
+      
+      // ⚡ Lot 3a — Reset des tentatives échouées sur login réussi
+      await clearLoginAttempts(db, phone, 'PROVIDER')
+      // ⚡ Lot 3c — Trace la connexion réussie
+      await recordLoginEvent(db, request, { userId: user.id, phone, role: 'PROVIDER', success: true })
       
       return handleCORS(NextResponse.json({
         success: true,
@@ -1072,13 +1220,25 @@ async function handleRoute(request, { params }) {
       if (!phone || !password) {
         return handleCORS(NextResponse.json({ error: 'Phone et password requis' }, { status: 400 }))
       }
+
+      // ⚡ Lot 3a — Rate limiting (admin login)
+      const rl = await checkLoginRateLimit(db, phone, 'ADMIN')
+      if (rl?.blocked) {
+        return rateLimitBlockedResponse(rl)
+      }
       
       const user = await db.collection('users').findOne({ 
         phone: { $regex: new RegExp(phone.replace(/[^\d]/g, '').slice(-9)) }
       })
       
       if (!user) {
-        return handleCORS(NextResponse.json({ error: 'Utilisateur non trouvé' }, { status: 401 }))
+        const r = await recordFailedLogin(db, phone, 'ADMIN')
+        await recordLoginEvent(db, request, { userId: null, phone, role: 'ADMIN', success: false, reason: 'USER_NOT_FOUND' })
+        if (r.blocked) return rateLimitBlockedResponse(r)
+        return handleCORS(NextResponse.json({
+          error: 'Utilisateur non trouvé',
+          remainingAttempts: r.remainingAttempts
+        }, { status: 401 }))
       }
       
       if (!user.passwordHash) {
@@ -1089,7 +1249,13 @@ async function handleRoute(request, { params }) {
       }
       const validPassword = await bcrypt.compare(password, user.passwordHash)
       if (!validPassword) {
-        return handleCORS(NextResponse.json({ error: 'Mot de passe incorrect' }, { status: 401 }))
+        const r = await recordFailedLogin(db, phone, 'ADMIN')
+        await recordLoginEvent(db, request, { userId: user.id, phone, role: 'ADMIN', success: false, reason: 'WRONG_PASSWORD' })
+        if (r.blocked) return rateLimitBlockedResponse(r)
+        return handleCORS(NextResponse.json({
+          error: 'Mot de passe incorrect',
+          remainingAttempts: r.remainingAttempts
+        }, { status: 401 }))
       }
       
       let provider = null
@@ -1098,6 +1264,11 @@ async function handleRoute(request, { params }) {
       }
       
       const token = signUserToken(user)
+
+      // ⚡ Lot 3a — Reset des tentatives échouées sur login réussi
+      await clearLoginAttempts(db, phone, 'ADMIN')
+      // ⚡ Lot 3c — Trace la connexion réussie
+      await recordLoginEvent(db, request, { userId: user.id, phone, role: user.role || 'ADMIN', success: true })
       
       return handleCORS(NextResponse.json({
         success: true,
@@ -2140,6 +2311,22 @@ async function handleRoute(request, { params }) {
     }
 
     // ============ PASSWORD MANAGEMENT (LOT 2 - UX) ============
+
+    // GET LOGIN HISTORY (LOT 3c) — affiche les dernières connexions de l'utilisateur connecté
+    if (route === '/auth/login-history' && method === 'GET') {
+      const authData = await getAuthUser(request, db)
+      if (!authData) {
+        return handleCORS(NextResponse.json({ error: 'Non authentifié' }, { status: 401 }))
+      }
+      const items = await db.collection('login_history')
+        .find({ userId: authData.user.id })
+        .project({ _id: 0 })
+        .sort({ createdAt: -1 })
+        .limit(20)
+        .toArray()
+      return handleCORS(NextResponse.json({ history: items }))
+    }
+
 
     // 1) FORGOT PASSWORD — Le prestataire (ou admin) demande une réinitialisation
     //    On crée une notification admin de type PASSWORD_RESET_REQUEST.

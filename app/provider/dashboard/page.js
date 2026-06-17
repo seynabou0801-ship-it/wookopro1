@@ -4,8 +4,10 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Phone, MessageCircle, Clock, CheckCircle2, XCircle } from 'lucide-react'
+import { useAuthSessionGuard } from '@/lib/use-auth-session-guard'
 
 export default function ProviderDashboard() {
+  useAuthSessionGuard()
   const router = useRouter()
   const [user, setUser] = useState(null)
   const [provider, setProvider] = useState(null)
@@ -13,6 +15,25 @@ export default function ProviderDashboard() {
   const [subscription, setSubscription] = useState(null)
   const [leads, setLeads] = useState([])
   const [refreshing, setRefreshing] = useState(false)
+
+  // ⚡ NOUVEAU Lot 3c — Historique des connexions
+  const [loginHistory, setLoginHistory] = useState([])
+  const [showHistoryModal, setShowHistoryModal] = useState(false)
+
+  const fetchLoginHistory = async () => {
+    try {
+      const token = localStorage.getItem('wooleen_token')
+      const res = await fetch('/api/auth/login-history', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setLoginHistory(data.history || [])
+      }
+    } catch (err) {
+      console.error('Erreur historique:', err)
+    }
+  }
 
   // ⚡ NOUVEAU : modal "Changer mon mot de passe"
   const [showChangePasswordModal, setShowChangePasswordModal] = useState(false)
@@ -223,6 +244,13 @@ export default function ProviderDashboard() {
           </div>
           <div className="flex items-center gap-4">
             <span className="text-sm text-gray-600 hidden sm:inline">{provider?.businessName}</span>
+            <button
+              onClick={() => { fetchLoginHistory(); setShowHistoryModal(true) }}
+              className="text-sm text-gray-700 hover:text-[#FF6A00] font-medium border border-gray-200 px-3 py-1.5 rounded-lg hover:border-[#FF6A00] transition hidden sm:inline-flex items-center gap-1"
+              title="Mes dernières connexions"
+            >
+              🕒 Connexions
+            </button>
             <button
               onClick={() => setShowChangePasswordModal(true)}
               className="text-sm text-gray-700 hover:text-[#FF6A00] font-medium border border-gray-200 px-3 py-1.5 rounded-lg hover:border-[#FF6A00] transition"
@@ -482,6 +510,83 @@ export default function ProviderDashboard() {
           </ul>
         </div>
       </main>
+
+      {/* ⚡ Modal "Mes dernières connexions" — Lot 3c */}
+      {showHistoryModal && (
+        <div
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          onClick={(e) => { if (e.target === e.currentTarget) setShowHistoryModal(false) }}
+        >
+          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[80vh] overflow-hidden shadow-2xl flex flex-col">
+            <div className="flex items-start justify-between p-6 border-b">
+              <div>
+                <h3 className="text-xl font-bold text-gray-900">🕒 Mes dernières connexions</h3>
+                <p className="text-sm text-gray-500 mt-1">
+                  Historique des 20 derniers événements de connexion (réussites & échecs).
+                </p>
+              </div>
+              <button
+                onClick={() => setShowHistoryModal(false)}
+                className="text-gray-400 hover:text-gray-700 text-2xl leading-none"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6">
+              {loginHistory.length === 0 ? (
+                <p className="text-center text-gray-500 py-12">Aucun historique disponible.</p>
+              ) : (
+                <div className="space-y-2">
+                  {loginHistory.map((h) => (
+                    <div
+                      key={h.id}
+                      className={`flex items-start gap-3 p-3 rounded-lg border ${
+                        h.success ? 'bg-emerald-50 border-emerald-200' : 'bg-red-50 border-red-200'
+                      }`}
+                    >
+                      <div className="text-2xl flex-shrink-0">
+                        {h.success ? '✅' : '❌'}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2 mb-1">
+                          <p className={`font-semibold text-sm ${h.success ? 'text-emerald-900' : 'text-red-900'}`}>
+                            {h.success ? 'Connexion réussie' : `Tentative échouée${h.reason ? ' — ' + (h.reason === 'WRONG_PASSWORD' ? 'mot de passe incorrect' : h.reason === 'USER_NOT_FOUND' ? 'utilisateur introuvable' : h.reason) : ''}`}
+                          </p>
+                          <span className="text-xs text-gray-500 whitespace-nowrap">
+                            {new Date(h.createdAt).toLocaleString('fr-FR', {
+                              day: '2-digit', month: '2-digit', year: 'numeric',
+                              hour: '2-digit', minute: '2-digit'
+                            })}
+                          </span>
+                        </div>
+                        <p className="text-xs text-gray-600 truncate">
+                          <span className="font-mono">IP: {h.ip}</span>
+                        </p>
+                        <p className="text-xs text-gray-500 truncate" title={h.userAgent}>
+                          {h.userAgent}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="border-t p-4 bg-gray-50 text-center">
+              <p className="text-xs text-gray-500 mb-2">
+                💡 Si vous voyez une connexion suspecte, changez votre mot de passe immédiatement.
+              </p>
+              <button
+                onClick={() => setShowHistoryModal(false)}
+                className="bg-gradient-to-r from-[#FF7A00] to-orange-500 text-white px-6 py-2 rounded-xl font-semibold shadow-md"
+              >
+                Fermer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ⚡ Modal "Changer mon mot de passe" */}
       {showChangePasswordModal && (

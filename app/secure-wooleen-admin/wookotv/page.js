@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import VideoTable from '@/components/admin/VideoTable'
 import VideoForm from '@/components/admin/VideoForm'
+import { useAuthSessionGuard } from '@/lib/use-auth-session-guard'
 
 /**
  * WookoTV admin — Video management page.
@@ -11,6 +12,7 @@ import VideoForm from '@/components/admin/VideoForm'
  * Non-destructive : separate route, no edit to existing admin dashboard logic.
  */
 export default function WookoTVAdminPage() {
+  useAuthSessionGuard()
   const router = useRouter()
   const [authChecked, setAuthChecked] = useState(false)
   const [videos, setVideos] = useState([])

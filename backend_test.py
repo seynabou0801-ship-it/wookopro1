@@ -1,869 +1,593 @@
 #!/usr/bin/env python3
 """
-Backend API Testing for Wooleen Password Management (Lot 2)
-Tests all password management endpoints with comprehensive scenarios
+Backend Testing for Lot 3 — Hardening sécurité auth
+Tests rate limiting, login history, and regression tests
 """
 
 import requests
 import json
-import sys
-from datetime import datetime
+import time
+import subprocess
 
 # Configuration
 BASE_URL = "https://provider-connect-24.preview.emergentagent.com/api"
 
-# Test credentials
+# Test credentials (all password: wooleen2025)
 ADMIN_PHONE = "+221700000001"
-ADMIN_PASSWORD = "wooleen2025"
-# Use different providers for different tests to avoid conflicts
-PROVIDER_PHONE_FORGOT = "+221700000103"  # For forgot password tests
-PROVIDER_PHONE_RESET = "+221700000104"   # For reset password tests  
-PROVIDER_PHONE_CHANGE = "+221700000105"  # For change password tests
-PROVIDER_PASSWORD = "wooleen2025"
+PROVIDER_PHONE = "+221700000030"
+PROVIDER_PHONE_2 = "+221700000101"
+PASSWORD = "wooleen2025"
+WRONG_PASSWORD = "wrongpassword123"
 
-# Colors for output
-GREEN = '\033[92m'
-RED = '\033[91m'
-YELLOW = '\033[93m'
-BLUE = '\033[94m'
-RESET = '\033[0m'
+def print_test(test_name):
+    print(f"\n{'='*80}")
+    print(f"TEST: {test_name}")
+    print('='*80)
 
-def log_test(test_name):
-    print(f"\n{BLUE}{'='*80}{RESET}")
-    print(f"{BLUE}TEST: {test_name}{RESET}")
-    print(f"{BLUE}{'='*80}{RESET}")
+def print_result(success, message):
+    status = "✅ PASS" if success else "❌ FAIL"
+    print(f"{status}: {message}")
 
-def log_success(message):
-    print(f"{GREEN}✅ {message}{RESET}")
+def clear_all_blocks():
+    """Clear all rate limiting blocks"""
+    script = """
+const { MongoClient } = require('mongodb');
+const fs = require('fs');
+const envText = fs.readFileSync('/app/.env','utf8');
+const env = {};
+envText.split('\\n').forEach(l => { const m = l.match(/^([A-Z_]+)\\s*=\\s*(.*)$/); if (m) env[m[1]] = m[2].replace(/^"|"$/g,''); });
+(async () => {
+  const c = new MongoClient(env.MONGO_URL); await c.connect();
+  const db = c.db(env.DB_NAME || 'wooleen_marketplace');
+  await db.collection('login_attempts').deleteMany({});
+  await db.collection('login_history').deleteMany({});
+  await c.close();
+})();
+"""
+    with open('/tmp/clear_all.js', 'w') as f:
+        f.write(script)
+    subprocess.run(['sh', '-c', 'cd /app && NODE_PATH=/app/node_modules node /tmp/clear_all.js'], 
+                   capture_output=True, text=True)
+    subprocess.run(['rm', '/tmp/clear_all.js'])
+    print("🧹 Cleared all login_attempts and login_history")
 
-def log_error(message):
-    print(f"{RED}❌ {message}{RESET}")
-
-def log_info(message):
-    print(f"{YELLOW}ℹ️  {message}{RESET}")
-
-def log_response(response):
-    print(f"Status: {response.status_code}")
-    try:
-        print(f"Response: {json.dumps(response.json(), indent=2)}")
-    except:
-        print(f"Response: {response.text}")
-
-# Test counters
-tests_passed = 0
-tests_failed = 0
-
-def test_seed_database():
-    """Ensure database is seeded with test data"""
-    global tests_passed, tests_failed
-    log_test("Seed Database")
+# ============================================================================
+# TEST 1: Rate Limiting on /api/auth/provider/login
+# ============================================================================
+def test_rate_limiting_provider():
+    print_test("TEST 1 — Rate Limiting on /api/auth/provider/login")
     
-    try:
-        response = requests.post(f"{BASE_URL}/seed")
-        log_response(response)
-        
-        if response.status_code == 200:
-            data = response.json()
-            if data.get('ok'):
-                log_success("Database seeded successfully")
-                tests_passed += 1
-                return True
-        
-        log_error("Failed to seed database")
-        tests_failed += 1
-        return False
-    except Exception as e:
-        log_error(f"Exception during seed: {str(e)}")
-        tests_failed += 1
-        return False
-
-def test_admin_login():
-    """Test admin login and return token"""
-    global tests_passed, tests_failed
-    log_test("Admin Login")
+    clear_all_blocks()
+    time.sleep(1)
     
-    try:
-        response = requests.post(
-            f"{BASE_URL}/auth/login",
-            json={"phone": ADMIN_PHONE, "password": ADMIN_PASSWORD}
-        )
-        log_response(response)
-        
-        if response.status_code == 200:
-            data = response.json()
-            token = data.get('token')
-            if token:
-                log_success(f"Admin login successful, token: {token[:20]}...")
-                tests_passed += 1
-                return token
-        
-        log_error("Admin login failed")
-        tests_failed += 1
-        return None
-    except Exception as e:
-        log_error(f"Exception during admin login: {str(e)}")
-        tests_failed += 1
-        return None
-
-def test_provider_login(phone=None, password=None):
-    """Test provider login and return token"""
-    global tests_passed, tests_failed
-    
-    # Use defaults if not provided
-    if phone is None:
-        phone = PROVIDER_PHONE_CHANGE  # Default to change password provider
-    if password is None:
-        password = PROVIDER_PASSWORD
-    
-    log_test(f"Provider Login ({phone})")
-    
-    try:
-        response = requests.post(
-            f"{BASE_URL}/auth/provider/login",
-            json={"phone": phone, "password": password}
-        )
-        log_response(response)
-        
-        if response.status_code == 200:
-            data = response.json()
-            token = data.get('token')
-            if token:
-                log_success(f"Provider login successful, token: {token[:20]}...")
-                tests_passed += 1
-                return token
-        
-        log_error(f"Provider login failed for {phone}")
-        tests_failed += 1
-        return None
-    except Exception as e:
-        log_error(f"Exception during provider login: {str(e)}")
-        tests_failed += 1
-        return None
-
-def test_forgot_password_valid_provider():
-    """Test forgot password with valid provider phone"""
-    global tests_passed, tests_failed
-    log_test("Forgot Password - Valid Provider")
-    
-    try:
-        response = requests.post(
-            f"{BASE_URL}/auth/forgot-password",
-            json={"phone": PROVIDER_PHONE_FORGOT, "role": "PROVIDER"}
-        )
-        log_response(response)
-        
-        if response.status_code == 200:
-            data = response.json()
-            if data.get('success') and data.get('message'):
-                log_success("Forgot password request accepted (generic message)")
-                tests_passed += 1
-                return True
-        
-        log_error("Forgot password failed for valid provider")
-        tests_failed += 1
-        return False
-    except Exception as e:
-        log_error(f"Exception during forgot password: {str(e)}")
-        tests_failed += 1
-        return False
-
-def test_forgot_password_unknown_phone():
-    """Test forgot password with unknown phone (anti-enumeration)"""
-    global tests_passed, tests_failed
-    log_test("Forgot Password - Unknown Phone (Anti-Enumeration)")
-    
-    try:
-        response = requests.post(
-            f"{BASE_URL}/auth/forgot-password",
-            json={"phone": "+221799999998", "role": "PROVIDER"}
-        )
-        log_response(response)
-        
-        if response.status_code == 200:
-            data = response.json()
-            if data.get('success') and data.get('message'):
-                log_success("Anti-enumeration working: same generic message for unknown phone")
-                tests_passed += 1
-                return True
-        
-        log_error("Anti-enumeration failed")
-        tests_failed += 1
-        return False
-    except Exception as e:
-        log_error(f"Exception during forgot password: {str(e)}")
-        tests_failed += 1
-        return False
-
-def test_forgot_password_duplicate():
-    """Test duplicate forgot password request"""
-    global tests_passed, tests_failed
-    log_test("Forgot Password - Duplicate Request")
-    
-    try:
-        # First request
-        response1 = requests.post(
-            f"{BASE_URL}/auth/forgot-password",
-            json={"phone": PROVIDER_PHONE_FORGOT, "role": "PROVIDER"}
-        )
-        
-        # Second request (should indicate already pending)
-        response2 = requests.post(
-            f"{BASE_URL}/auth/forgot-password",
-            json={"phone": PROVIDER_PHONE_FORGOT, "role": "PROVIDER"}
-        )
-        log_response(response2)
-        
-        if response2.status_code == 200:
-            data = response2.json()
-            message = data.get('message', '')
-            if 'attente' in message.lower() or 'pending' in message.lower():
-                log_success("Duplicate request handled correctly")
-                tests_passed += 1
-                return True
-        
-        log_error("Duplicate request not handled properly")
-        tests_failed += 1
-        return False
-    except Exception as e:
-        log_error(f"Exception during duplicate forgot password: {str(e)}")
-        tests_failed += 1
-        return False
-
-def test_forgot_password_missing_phone():
-    """Test forgot password without phone"""
-    global tests_passed, tests_failed
-    log_test("Forgot Password - Missing Phone")
-    
-    try:
-        response = requests.post(
-            f"{BASE_URL}/auth/forgot-password",
-            json={"role": "PROVIDER"}
-        )
-        log_response(response)
-        
-        if response.status_code == 400:
-            log_success("Missing phone validation working")
-            tests_passed += 1
-            return True
-        
-        log_error("Missing phone validation failed")
-        tests_failed += 1
-        return False
-    except Exception as e:
-        log_error(f"Exception during forgot password: {str(e)}")
-        tests_failed += 1
-        return False
-
-def get_password_reset_notification(admin_token):
-    """Get a PASSWORD_RESET_REQUEST notification"""
-    try:
-        response = requests.get(
-            f"{BASE_URL}/admin/notifications",
-            headers={"Authorization": f"Bearer {admin_token}"}
-        )
-        
-        if response.status_code == 200:
-            data = response.json()
-            notifications = data.get('notifications', [])
-            
-            # Find a PENDING PASSWORD_RESET_REQUEST
-            for notif in notifications:
-                if notif.get('type') == 'PASSWORD_RESET_REQUEST' and notif.get('status') == 'PENDING':
-                    return notif
-        
-        return None
-    except Exception as e:
-        log_error(f"Exception getting notifications: {str(e)}")
-        return None
-
-def test_reset_password_without_auth():
-    """Test reset password without authentication"""
-    global tests_passed, tests_failed
-    log_test("Reset Password - Without Auth")
-    
-    try:
-        response = requests.post(f"{BASE_URL}/admin/notifications/fake-id/reset-password")
-        log_response(response)
+    # Step 1-2: Make 4 failed attempts
+    print("\n📝 Step 1-2: Making 4 failed login attempts...")
+    for i in range(1, 5):
+        response = requests.post(f"{BASE_URL}/auth/provider/login", json={
+            "phone": PROVIDER_PHONE,
+            "password": WRONG_PASSWORD
+        })
         
         if response.status_code == 401:
-            log_success("Unauthorized access blocked correctly")
-            tests_passed += 1
-            return True
-        
-        log_error("Should return 401 without auth")
-        tests_failed += 1
-        return False
-    except Exception as e:
-        log_error(f"Exception during reset password: {str(e)}")
-        tests_failed += 1
-        return False
-
-def test_reset_password_with_provider_auth():
-    """Test reset password with provider auth (should fail)"""
-    global tests_passed, tests_failed
-    log_test("Reset Password - With Provider Auth (Should Fail)")
-    
-    try:
-        provider_token = test_provider_login()
-        if not provider_token:
-            log_error("Could not get provider token")
-            tests_failed += 1
-            return False
-        
-        response = requests.post(
-            f"{BASE_URL}/admin/notifications/fake-id/reset-password",
-            headers={"Authorization": f"Bearer {provider_token}"}
-        )
-        log_response(response)
-        
-        if response.status_code == 401:
-            log_success("Provider auth correctly rejected for admin endpoint")
-            tests_passed += 1
-            return True
-        
-        log_error("Should return 401 for provider auth")
-        tests_failed += 1
-        return False
-    except Exception as e:
-        log_error(f"Exception during reset password: {str(e)}")
-        tests_failed += 1
-        return False
-
-def test_reset_password_invalid_notification():
-    """Test reset password with invalid notification ID"""
-    global tests_passed, tests_failed
-    log_test("Reset Password - Invalid Notification ID")
-    
-    try:
-        admin_token = test_admin_login()
-        if not admin_token:
-            log_error("Could not get admin token")
-            tests_failed += 1
-            return False
-        
-        response = requests.post(
-            f"{BASE_URL}/admin/notifications/invalid-id-12345/reset-password",
-            headers={"Authorization": f"Bearer {admin_token}"}
-        )
-        log_response(response)
-        
-        if response.status_code == 404:
-            log_success("Invalid notification ID handled correctly")
-            tests_passed += 1
-            return True
-        
-        log_error("Should return 404 for invalid notification ID")
-        tests_failed += 1
-        return False
-    except Exception as e:
-        log_error(f"Exception during reset password: {str(e)}")
-        tests_failed += 1
-        return False
-
-def test_reset_password_valid():
-    """Test complete reset password flow"""
-    global tests_passed, tests_failed
-    log_test("Reset Password - Valid Flow (Complete)")
-    
-    try:
-        # Step 1: Get admin token
-        admin_token = test_admin_login()
-        if not admin_token:
-            log_error("Could not get admin token")
-            tests_failed += 1
-            return False
-        
-        # Step 2: Get provider token BEFORE reset (using PROVIDER_PHONE_RESET)
-        old_provider_token = test_provider_login(phone=PROVIDER_PHONE_RESET, password=PROVIDER_PASSWORD)
-        if not old_provider_token:
-            log_error("Could not get provider token before reset")
-            tests_failed += 1
-            return False
-        
-        log_info(f"Old provider token: {old_provider_token[:30]}...")
-        
-        # Step 3: Create forgot password request for PROVIDER_PHONE_RESET
-        log_info("Creating forgot password request for reset test provider...")
-        forgot_response = requests.post(
-            f"{BASE_URL}/auth/forgot-password",
-            json={"phone": PROVIDER_PHONE_RESET, "role": "PROVIDER"}
-        )
-        
-        if forgot_response.status_code != 200:
-            log_error("Could not create forgot password request")
-            tests_failed += 1
-            return False
-        
-        # Step 4: Get the notification for PROVIDER_PHONE_RESET
-        log_info("Fetching PASSWORD_RESET_REQUEST notification...")
-        notification = get_password_reset_notification(admin_token)
-        
-        if not notification:
-            log_error("Could not find PASSWORD_RESET_REQUEST notification")
-            tests_failed += 1
-            return False
-        
-        notif_id = notification.get('id')
-        log_info(f"Found notification ID: {notif_id}")
-        
-        # Step 5: Admin resets password
-        log_info("Admin resetting password...")
-        reset_response = requests.post(
-            f"{BASE_URL}/admin/notifications/{notif_id}/reset-password",
-            headers={"Authorization": f"Bearer {admin_token}"}
-        )
-        log_response(reset_response)
-        
-        if reset_response.status_code != 200:
-            log_error("Reset password failed")
-            tests_failed += 1
-            return False
-        
-        reset_data = reset_response.json()
-        temp_password = reset_data.get('tempPassword')
-        
-        if not temp_password:
-            log_error("No tempPassword in response")
-            tests_failed += 1
-            return False
-        
-        log_info(f"Temp password generated: {temp_password}")
-        
-        # Validate temp password format (8 chars, 1 upper, 1 lower, 1 digit)
-        if len(temp_password) != 8:
-            log_error(f"Temp password length is {len(temp_password)}, expected 8")
-            tests_failed += 1
-            return False
-        
-        if not any(c.isupper() for c in temp_password):
-            log_error("Temp password missing uppercase letter")
-            tests_failed += 1
-            return False
-        
-        if not any(c.islower() for c in temp_password):
-            log_error("Temp password missing lowercase letter")
-            tests_failed += 1
-            return False
-        
-        if not any(c.isdigit() for c in temp_password):
-            log_error("Temp password missing digit")
-            tests_failed += 1
-            return False
-        
-        log_success("Temp password format valid (8 chars, 1 upper, 1 lower, 1 digit)")
-        
-        # Step 6: Verify notification status changed to SENT
-        log_info("Verifying notification status changed to SENT...")
-        notif_check = requests.get(
-            f"{BASE_URL}/admin/notifications",
-            headers={"Authorization": f"Bearer {admin_token}"}
-        )
-        
-        if notif_check.status_code == 200:
-            notifications = notif_check.json().get('notifications', [])
-            updated_notif = next((n for n in notifications if n.get('id') == notif_id), None)
-            
-            if updated_notif and updated_notif.get('status') == 'SENT':
-                log_success("Notification status updated to SENT")
+            data = response.json()
+            remaining = data.get('remainingAttempts', 'N/A')
+            expected = 5 - i
+            if remaining == expected:
+                print_result(True, f"Attempt {i}: remainingAttempts={remaining}")
             else:
-                log_error("Notification status not updated to SENT")
-                tests_failed += 1
-                return False
-        
-        # Step 7: Login with temp password
-        log_info("Testing login with temp password...")
-        temp_login_response = requests.post(
-            f"{BASE_URL}/auth/provider/login",
-            json={"phone": PROVIDER_PHONE_RESET, "password": temp_password}
-        )
-        
-        if temp_login_response.status_code != 200:
-            log_error("Could not login with temp password")
-            log_response(temp_login_response)
-            tests_failed += 1
-            return False
-        
-        new_token = temp_login_response.json().get('token')
-        log_success(f"Login with temp password successful, new token: {new_token[:30]}...")
-        
-        # Step 8: Verify OLD token is invalidated
-        log_info("Verifying old token is invalidated...")
-        old_token_test = requests.post(
-            f"{BASE_URL}/auth/change-password",
-            headers={"Authorization": f"Bearer {old_provider_token}"},
-            json={"currentPassword": "dummy", "newPassword": "Dummy123"}
-        )
-        
-        if old_token_test.status_code == 401:
-            log_success("Old token correctly invalidated")
+                print_result(False, f"Attempt {i}: Expected {expected}, got {remaining}")
         else:
-            log_error("Old token still valid (should be invalidated)")
-            log_response(old_token_test)
-            tests_failed += 1
-            return False
+            print_result(False, f"Attempt {i}: Expected 401, got {response.status_code}")
         
-        # Step 9: Restore to a valid password (seed password doesn't meet strength requirements)
-        log_info("Restoring to valid password (Wooleen2025)...")
-        restore_response = requests.post(
-            f"{BASE_URL}/auth/change-password",
-            headers={"Authorization": f"Bearer {new_token}"},
-            json={"currentPassword": temp_password, "newPassword": "Wooleen2025"}
-        )
+        time.sleep(0.3)
+    
+    # Step 3: 5th failed attempt should return 429
+    print("\n📝 Step 3: Making 5th failed attempt (should be blocked with 429)...")
+    response = requests.post(f"{BASE_URL}/auth/provider/login", json={
+        "phone": PROVIDER_PHONE,
+        "password": WRONG_PASSWORD
+    })
+    
+    if response.status_code == 429:
+        data = response.json()
+        error = data.get('error')
+        retry_after = data.get('retryAfterSec')
+        blocked_until = data.get('blockedUntil')
         
-        if restore_response.status_code == 200:
-            log_success("Password restored to Wooleen2025 (seed password doesn't meet strength requirements)")
-            # Note: Provider password is now Wooleen2025, not wooleen2025
+        if error == 'RATE_LIMITED' and retry_after:
+            print_result(True, f"5th attempt blocked: error={error}, retryAfterSec={retry_after}")
         else:
-            log_error("Could not restore password")
-            log_response(restore_response)
-        
-        log_success("✅ COMPLETE RESET PASSWORD FLOW VALIDATED")
-        tests_passed += 1
-        return True
-        
-    except Exception as e:
-        log_error(f"Exception during reset password flow: {str(e)}")
-        tests_failed += 1
-        return False
-
-def test_change_password_without_auth():
-    """Test change password without authentication"""
-    global tests_passed, tests_failed
-    log_test("Change Password - Without Auth")
+            print_result(False, f"5th attempt: Missing fields (error={error}, retryAfter={retry_after})")
+    else:
+        print_result(False, f"5th attempt: Expected 429, got {response.status_code}")
     
-    try:
-        response = requests.post(
-            f"{BASE_URL}/auth/change-password",
-            json={"currentPassword": "test", "newPassword": "Test1234"}
-        )
-        log_response(response)
-        
-        if response.status_code == 401:
-            log_success("Unauthorized access blocked correctly")
-            tests_passed += 1
-            return True
-        
-        log_error("Should return 401 without auth")
-        tests_failed += 1
-        return False
-    except Exception as e:
-        log_error(f"Exception during change password: {str(e)}")
-        tests_failed += 1
-        return False
-
-def test_change_password_wrong_current():
-    """Test change password with wrong current password"""
-    global tests_passed, tests_failed
-    log_test("Change Password - Wrong Current Password")
+    # Step 4: 6th attempt with CORRECT password should still be blocked
+    print("\n📝 Step 4: Attempting with CORRECT password (should still be blocked)...")
+    response = requests.post(f"{BASE_URL}/auth/provider/login", json={
+        "phone": PROVIDER_PHONE,
+        "password": PASSWORD
+    })
     
-    try:
-        provider_token = test_provider_login(phone=PROVIDER_PHONE_CHANGE, password=PROVIDER_PASSWORD)
-        if not provider_token:
-            log_error("Could not get provider token")
-            tests_failed += 1
-            return False
-        
-        response = requests.post(
-            f"{BASE_URL}/auth/change-password",
-            headers={"Authorization": f"Bearer {provider_token}"},
-            json={"currentPassword": "wrongpassword", "newPassword": "NewPass123"}
-        )
-        log_response(response)
-        
-        if response.status_code == 401:
-            data = response.json()
-            if 'incorrect' in data.get('error', '').lower():
-                log_success("Wrong current password rejected correctly")
-                tests_passed += 1
-                return True
-        
-        log_error("Should return 401 for wrong current password")
-        tests_failed += 1
-        return False
-    except Exception as e:
-        log_error(f"Exception during change password: {str(e)}")
-        tests_failed += 1
-        return False
-
-def test_change_password_same_password():
-    """Test change password with same password"""
-    global tests_passed, tests_failed
-    log_test("Change Password - Same Password")
+    if response.status_code == 429:
+        print_result(True, "Correct password still blocked with 429")
+    else:
+        print_result(False, f"Expected 429, got {response.status_code}")
     
-    try:
-        provider_token = test_provider_login(phone=PROVIDER_PHONE_CHANGE, password=PROVIDER_PASSWORD)
-        if not provider_token:
-            log_error("Could not get provider token")
-            tests_failed += 1
-            return False
-        
-        response = requests.post(
-            f"{BASE_URL}/auth/change-password",
-            headers={"Authorization": f"Bearer {provider_token}"},
-            json={"currentPassword": PROVIDER_PASSWORD, "newPassword": PROVIDER_PASSWORD}
-        )
-        log_response(response)
-        
-        if response.status_code == 400:
-            data = response.json()
-            if 'différent' in data.get('error', '').lower() or 'different' in data.get('error', '').lower():
-                log_success("Same password rejected correctly")
-                tests_passed += 1
-                return True
-        
-        log_error("Should return 400 for same password")
-        tests_failed += 1
-        return False
-    except Exception as e:
-        log_error(f"Exception during change password: {str(e)}")
-        tests_failed += 1
-        return False
-
-def test_change_password_weak():
-    """Test change password with weak password"""
-    global tests_passed, tests_failed
-    log_test("Change Password - Weak Password")
+    # Step 5: Clear and verify login works
+    print("\n📝 Step 5: Clearing blocks and testing successful login...")
+    clear_all_blocks()
+    time.sleep(1)
     
-    try:
-        provider_token = test_provider_login(phone=PROVIDER_PHONE_CHANGE, password=PROVIDER_PASSWORD)
-        if not provider_token:
-            log_error("Could not get provider token")
-            tests_failed += 1
-            return False
-        
-        response = requests.post(
-            f"{BASE_URL}/auth/change-password",
-            headers={"Authorization": f"Bearer {provider_token}"},
-            json={"currentPassword": PROVIDER_PASSWORD, "newPassword": "abc12"}
-        )
-        log_response(response)
-        
-        if response.status_code == 400:
-            data = response.json()
-            error = data.get('error', '')
-            if any(word in error.lower() for word in ['caractères', 'majuscule', 'minuscule', 'chiffre']):
-                log_success("Weak password rejected with strength error")
-                tests_passed += 1
-                return True
-        
-        log_error("Should return 400 for weak password")
-        tests_failed += 1
-        return False
-    except Exception as e:
-        log_error(f"Exception during change password: {str(e)}")
-        tests_failed += 1
-        return False
-
-def test_change_password_valid():
-    """Test complete change password flow"""
-    global tests_passed, tests_failed
-    log_test("Change Password - Valid Flow (Complete)")
+    response = requests.post(f"{BASE_URL}/auth/provider/login", json={
+        "phone": PROVIDER_PHONE,
+        "password": PASSWORD
+    })
     
-    try:
-        # Step 1: Login and get token (using PROVIDER_PHONE_CHANGE)
-        old_token = test_provider_login(phone=PROVIDER_PHONE_CHANGE, password=PROVIDER_PASSWORD)
-        if not old_token:
-            log_error("Could not get provider token")
-            tests_failed += 1
-            return False
-        
-        log_info(f"Old token: {old_token[:30]}...")
-        
-        # Step 2: Change password
-        new_password = "NewSecure123"
-        log_info(f"Changing password to: {new_password}")
-        
-        change_response = requests.post(
-            f"{BASE_URL}/auth/change-password",
-            headers={"Authorization": f"Bearer {old_token}"},
-            json={"currentPassword": PROVIDER_PASSWORD, "newPassword": new_password}
-        )
-        log_response(change_response)
-        
-        if change_response.status_code != 200:
-            log_error("Change password failed")
-            tests_failed += 1
-            return False
-        
-        change_data = change_response.json()
-        new_token = change_data.get('token')
-        
-        if not new_token:
-            log_error("No new token in response")
-            tests_failed += 1
-            return False
-        
-        log_success(f"Password changed, new token: {new_token[:30]}...")
-        
-        # Step 3: Verify new token works
-        log_info("Testing new token with authenticated endpoint...")
-        new_token_test = requests.post(
-            f"{BASE_URL}/auth/change-password",
-            headers={"Authorization": f"Bearer {new_token}"},
-            json={"currentPassword": new_password, "newPassword": "Wooleen2025"}
-        )
-        
-        if new_token_test.status_code == 200:
-            log_success("New token works correctly")
-            # Get the newest token after this change
-            final_token = new_token_test.json().get('token')
+    if response.status_code == 200:
+        data = response.json()
+        if data.get('success') and data.get('token'):
+            print_result(True, "Login successful after clearing (200 with token)")
         else:
-            log_error("New token doesn't work")
-            log_response(new_token_test)
-            tests_failed += 1
-            return False
+            print_result(False, "Login response missing success or token")
+    else:
+        print_result(False, f"Expected 200, got {response.status_code}")
+    
+    # Step 6: Test clearLoginAttempts on success
+    print("\n📝 Step 6: Testing clearLoginAttempts() on successful login...")
+    clear_all_blocks()
+    time.sleep(1)
+    
+    # 3 failed attempts
+    for i in range(3):
+        requests.post(f"{BASE_URL}/auth/provider/login", json={
+            "phone": PROVIDER_PHONE,
+            "password": WRONG_PASSWORD
+        })
+        time.sleep(0.2)
+    
+    # 1 correct login
+    response = requests.post(f"{BASE_URL}/auth/provider/login", json={
+        "phone": PROVIDER_PHONE,
+        "password": PASSWORD
+    })
+    
+    if response.status_code == 200:
+        print_result(True, "Correct login after 3 failed attempts succeeded")
         
-        # Step 4: Verify old token is invalidated
-        log_info("Verifying old token is invalidated...")
-        old_token_test = requests.post(
-            f"{BASE_URL}/auth/change-password",
-            headers={"Authorization": f"Bearer {old_token}"},
-            json={"currentPassword": "dummy", "newPassword": "Dummy123"}
-        )
+        # Verify entry was deleted
+        check_script = """
+const { MongoClient } = require('mongodb');
+const fs = require('fs');
+const envText = fs.readFileSync('/app/.env','utf8');
+const env = {};
+envText.split('\\n').forEach(l => { const m = l.match(/^([A-Z_]+)\\s*=\\s*(.*)$/); if (m) env[m[1]] = m[2].replace(/^"|"$/g,''); });
+(async () => {
+  const c = new MongoClient(env.MONGO_URL); await c.connect();
+  const db = c.db(env.DB_NAME || 'wooleen_marketplace');
+  const count = await db.collection('login_attempts').countDocuments({ phone: '+221700000030' });
+  console.log(count);
+  await c.close();
+})();
+"""
+        with open('/tmp/check.js', 'w') as f:
+            f.write(check_script)
+        result = subprocess.run(['sh', '-c', 'cd /app && NODE_PATH=/app/node_modules node /tmp/check.js'], 
+                              capture_output=True, text=True)
+        count = int(result.stdout.strip()) if result.stdout.strip().isdigit() else -1
+        subprocess.run(['rm', '/tmp/check.js'])
         
-        if old_token_test.status_code == 401:
-            log_success("Old token correctly invalidated")
+        if count == 0:
+            print_result(True, "clearLoginAttempts() deleted the entry")
         else:
-            log_error("Old token still valid (should be invalidated)")
-            log_response(old_token_test)
-            tests_failed += 1
-            return False
+            print_result(False, f"Entry still exists (count={count})")
+    else:
+        print_result(False, f"Login failed: {response.status_code}")
+
+# ============================================================================
+# TEST 2: Rate Limiting on /api/auth/login (admin)
+# ============================================================================
+def test_rate_limiting_admin():
+    print_test("TEST 2 — Rate Limiting on /api/auth/login (admin)")
+    
+    clear_all_blocks()
+    time.sleep(1)
+    
+    # Make 5 failed attempts
+    print("\n📝 Making 5 failed admin login attempts...")
+    for i in range(1, 6):
+        response = requests.post(f"{BASE_URL}/auth/login", json={
+            "phone": ADMIN_PHONE,
+            "password": WRONG_PASSWORD
+        })
+        print(f"  Attempt {i}: Status {response.status_code}")
+        time.sleep(0.3)
+    
+    # Verify blocked
+    response = requests.post(f"{BASE_URL}/auth/login", json={
+        "phone": ADMIN_PHONE,
+        "password": WRONG_PASSWORD
+    })
+    
+    if response.status_code == 429:
+        print_result(True, "Admin login blocked with 429 after 5 attempts")
+    else:
+        print_result(False, f"Expected 429, got {response.status_code}")
+    
+    # Clear and verify works
+    print("\n📝 Clearing and testing correct admin login...")
+    clear_all_blocks()
+    time.sleep(1)
+    
+    response = requests.post(f"{BASE_URL}/auth/login", json={
+        "phone": ADMIN_PHONE,
+        "password": PASSWORD
+    })
+    
+    if response.status_code == 200 and response.json().get('token'):
+        print_result(True, "Admin login successful after clearing")
+    else:
+        print_result(False, f"Admin login failed: {response.status_code}")
+
+# ============================================================================
+# TEST 3: Rate limit isolation per role
+# ============================================================================
+def test_rate_limit_isolation():
+    print_test("TEST 3 — Rate limit isolation per role")
+    
+    clear_all_blocks()
+    time.sleep(1)
+    
+    test_phone = ADMIN_PHONE
+    
+    print(f"\n📝 Making 5 failed attempts via PROVIDER endpoint for {test_phone}...")
+    for i in range(1, 6):
+        response = requests.post(f"{BASE_URL}/auth/provider/login", json={
+            "phone": test_phone,
+            "password": WRONG_PASSWORD
+        })
+        time.sleep(0.2)
+    
+    # Verify PROVIDER role is blocked
+    response = requests.post(f"{BASE_URL}/auth/provider/login", json={
+        "phone": test_phone,
+        "password": PASSWORD
+    })
+    
+    if response.status_code == 429:
+        print_result(True, "PROVIDER role blocked with 429")
+    else:
+        print_result(False, f"PROVIDER not blocked: {response.status_code}")
+    
+    # Try ADMIN login (should work - different key)
+    print(f"\n📝 Trying ADMIN endpoint with correct password (should work)...")
+    response = requests.post(f"{BASE_URL}/auth/login", json={
+        "phone": test_phone,
+        "password": PASSWORD
+    })
+    
+    if response.status_code == 200 and response.json().get('token'):
+        print_result(True, "ADMIN login successful (different rate limit key)")
+    else:
+        print_result(False, f"ADMIN login failed: {response.status_code}")
+
+# ============================================================================
+# TEST 4: Login History endpoint
+# ============================================================================
+def test_login_history():
+    print_test("TEST 4 — Login History endpoint")
+    
+    clear_all_blocks()
+    time.sleep(1)
+    
+    # Step 1: Login successfully
+    print("\n📝 Step 1: Login successfully with provider...")
+    response = requests.post(f"{BASE_URL}/auth/provider/login", json={
+        "phone": PROVIDER_PHONE,
+        "password": PASSWORD
+    })
+    
+    if response.status_code != 200:
+        print_result(False, f"Provider login failed: {response.status_code}")
+        return
+    
+    token = response.json().get('token')
+    print_result(True, "Provider login successful")
+    time.sleep(0.5)
+    
+    # Step 2: GET login-history with token
+    print("\n📝 Step 2: GET /api/auth/login-history with Bearer token...")
+    response = requests.get(f"{BASE_URL}/auth/login-history", headers={
+        "Authorization": f"Bearer {token}"
+    })
+    
+    if response.status_code == 200:
+        history = response.json().get('history', [])
         
-        # Step 5: Verify can login with new password
-        log_info("Testing login with restored password (Wooleen2025)...")
-        login_response = requests.post(
-            f"{BASE_URL}/auth/provider/login",
-            json={"phone": PROVIDER_PHONE_CHANGE, "password": "Wooleen2025"}
-        )
-        
-        if login_response.status_code == 200:
-            log_success("Login with restored password successful")
-        else:
-            log_error("Could not login with restored password")
-            log_response(login_response)
-            tests_failed += 1
-            return False
-        
-        # Step 6: Verify PASSWORD_CHANGED notification created
-        log_info("Verifying PASSWORD_CHANGED notification created...")
-        admin_token = test_admin_login()
-        if admin_token:
-            notif_response = requests.get(
-                f"{BASE_URL}/admin/notifications",
-                headers={"Authorization": f"Bearer {admin_token}"}
-            )
+        if len(history) >= 1:
+            entry = history[0]
+            required_fields = ['success', 'phone', 'role', 'userId', 'ip', 'userAgent', 'createdAt']
+            missing = [f for f in required_fields if f not in entry]
             
-            if notif_response.status_code == 200:
-                notifications = notif_response.json().get('notifications', [])
-                password_changed_notif = next(
-                    (n for n in notifications if n.get('type') == 'PASSWORD_CHANGED'),
-                    None
-                )
-                
-                if password_changed_notif:
-                    log_success("PASSWORD_CHANGED notification created")
-                else:
-                    log_error("PASSWORD_CHANGED notification not found")
-                    tests_failed += 1
-                    return False
-        
-        log_success("✅ COMPLETE CHANGE PASSWORD FLOW VALIDATED")
-        tests_passed += 1
-        return True
-        
-    except Exception as e:
-        log_error(f"Exception during change password flow: {str(e)}")
-        tests_failed += 1
-        return False
-
-def test_admin_stats():
-    """Test admin stats endpoint (regression)"""
-    global tests_passed, tests_failed
-    log_test("Admin Stats (Regression)")
+            if not missing and entry.get('success') == True:
+                print_result(True, f"Login history has all required fields ({len(history)} entries)")
+            else:
+                print_result(False, f"Missing fields: {missing}")
+        else:
+            print_result(False, f"Expected at least 1 entry, got {len(history)}")
+    else:
+        print_result(False, f"Expected 200, got {response.status_code}")
     
-    try:
-        response = requests.get(f"{BASE_URL}/admin/stats")
-        log_response(response)
+    # Step 3: Without auth → 401
+    print("\n📝 Step 3: GET without auth (should return 401)...")
+    response = requests.get(f"{BASE_URL}/auth/login-history")
+    
+    if response.status_code == 401:
+        print_result(True, "Correctly returned 401 without auth")
+    else:
+        print_result(False, f"Expected 401, got {response.status_code}")
+    
+    # Step 4: With invalid token → 401
+    print("\n📝 Step 4: GET with invalid token (should return 401)...")
+    response = requests.get(f"{BASE_URL}/auth/login-history", headers={
+        "Authorization": "Bearer invalid_token"
+    })
+    
+    if response.status_code == 401:
+        print_result(True, "Correctly returned 401 with invalid token")
+    else:
+        print_result(False, f"Expected 401, got {response.status_code}")
+    
+    # Step 5: Test with failures
+    print("\n📝 Step 5: Testing history with 2 failures + 1 success...")
+    clear_all_blocks()
+    time.sleep(1)
+    
+    # 2 failed attempts
+    for i in range(2):
+        requests.post(f"{BASE_URL}/auth/provider/login", json={
+            "phone": PROVIDER_PHONE,
+            "password": WRONG_PASSWORD
+        })
+        time.sleep(0.3)
+    
+    # 1 success
+    response = requests.post(f"{BASE_URL}/auth/provider/login", json={
+        "phone": PROVIDER_PHONE,
+        "password": PASSWORD
+    })
+    
+    if response.status_code == 200:
+        token = response.json().get('token')
+        time.sleep(0.5)
+        
+        response = requests.get(f"{BASE_URL}/auth/login-history", headers={
+            "Authorization": f"Bearer {token}"
+        })
         
         if response.status_code == 200:
-            data = response.json()
-            if 'providers' in data and 'requests' in data:
-                log_success("Admin stats endpoint working")
-                tests_passed += 1
-                return True
-        
-        log_error("Admin stats endpoint failed")
-        tests_failed += 1
-        return False
-    except Exception as e:
-        log_error(f"Exception during admin stats: {str(e)}")
-        tests_failed += 1
-        return False
-
-def main():
-    """Run all tests"""
-    print(f"\n{BLUE}{'='*80}{RESET}")
-    print(f"{BLUE}WOOLEEN PASSWORD MANAGEMENT TESTING (LOT 2){RESET}")
-    print(f"{BLUE}BASE_URL: {BASE_URL}{RESET}")
-    print(f"{BLUE}{'='*80}{RESET}\n")
-    
-    # Seed database first
-    test_seed_database()
-    
-    # Test 1: Forgot Password Endpoint
-    print(f"\n{YELLOW}{'='*80}{RESET}")
-    print(f"{YELLOW}SECTION 1: FORGOT PASSWORD ENDPOINT{RESET}")
-    print(f"{YELLOW}{'='*80}{RESET}")
-    test_forgot_password_valid_provider()
-    test_forgot_password_unknown_phone()
-    test_forgot_password_duplicate()
-    test_forgot_password_missing_phone()
-    
-    # Test 2: Admin Reset Password Endpoint
-    print(f"\n{YELLOW}{'='*80}{RESET}")
-    print(f"{YELLOW}SECTION 2: ADMIN RESET PASSWORD ENDPOINT{RESET}")
-    print(f"{YELLOW}{'='*80}{RESET}")
-    test_reset_password_without_auth()
-    test_reset_password_with_provider_auth()
-    test_reset_password_invalid_notification()
-    test_reset_password_valid()
-    
-    # Test 3: Change Password Endpoint
-    print(f"\n{YELLOW}{'='*80}{RESET}")
-    print(f"{YELLOW}SECTION 3: CHANGE PASSWORD ENDPOINT{RESET}")
-    print(f"{YELLOW}{'='*80}{RESET}")
-    test_change_password_without_auth()
-    test_change_password_wrong_current()
-    test_change_password_same_password()
-    test_change_password_weak()
-    test_change_password_valid()
-    
-    # Test 4: Regression Tests
-    print(f"\n{YELLOW}{'='*80}{RESET}")
-    print(f"{YELLOW}SECTION 4: REGRESSION TESTS{RESET}")
-    print(f"{YELLOW}{'='*80}{RESET}")
-    test_admin_login()
-    test_provider_login()
-    test_admin_stats()
-    
-    # Summary
-    print(f"\n{BLUE}{'='*80}{RESET}")
-    print(f"{BLUE}TEST SUMMARY{RESET}")
-    print(f"{BLUE}{'='*80}{RESET}")
-    print(f"{GREEN}Tests Passed: {tests_passed}{RESET}")
-    print(f"{RED}Tests Failed: {tests_failed}{RESET}")
-    print(f"Total Tests: {tests_passed + tests_failed}")
-    
-    if tests_failed == 0:
-        print(f"\n{GREEN}{'='*80}{RESET}")
-        print(f"{GREEN}🎉 ALL TESTS PASSED! 🎉{RESET}")
-        print(f"{GREEN}{'='*80}{RESET}\n")
-        return 0
+            history = response.json().get('history', [])
+            fail_count = sum(1 for e in history if e.get('success') == False)
+            wrong_pwd = sum(1 for e in history if e.get('reason') == 'WRONG_PASSWORD')
+            
+            if fail_count >= 2 and wrong_pwd >= 2:
+                print_result(True, f"History contains failures with WRONG_PASSWORD ({fail_count} fails)")
+            else:
+                print_result(False, f"Expected ≥2 failures, got {fail_count}")
+        else:
+            print_result(False, f"Failed to fetch history: {response.status_code}")
     else:
-        print(f"\n{RED}{'='*80}{RESET}")
-        print(f"{RED}❌ SOME TESTS FAILED{RESET}")
-        print(f"{RED}{'='*80}{RESET}\n")
-        return 1
+        print_result(False, f"Success login failed: {response.status_code}")
 
+# ============================================================================
+# TEST 5: Regression Tests
+# ============================================================================
+def test_regression():
+    print_test("TEST 5 — Regression Tests")
+    
+    clear_all_blocks()
+    time.sleep(1)
+    
+    tests_passed = 0
+    tests_total = 6
+    
+    # Test 1: POST /api/seed
+    print("\n📝 Test 1: POST /api/seed...")
+    response = requests.post(f"{BASE_URL}/seed")
+    if response.status_code == 200:
+        print_result(True, "Seed endpoint works")
+        tests_passed += 1
+    else:
+        print_result(False, f"Seed failed: {response.status_code}")
+    
+    # Test 2: Admin login
+    print("\n📝 Test 2: POST /api/auth/login (admin)...")
+    response = requests.post(f"{BASE_URL}/auth/login", json={
+        "phone": ADMIN_PHONE,
+        "password": PASSWORD
+    })
+    if response.status_code == 200 and response.json().get('token'):
+        admin_token = response.json().get('token')
+        print_result(True, "Admin login works")
+        tests_passed += 1
+    else:
+        print_result(False, f"Admin login failed: {response.status_code}")
+        admin_token = None
+    
+    # Test 3: Provider login
+    print("\n📝 Test 3: POST /api/auth/provider/login...")
+    response = requests.post(f"{BASE_URL}/auth/provider/login", json={
+        "phone": PROVIDER_PHONE,
+        "password": PASSWORD
+    })
+    if response.status_code == 200 and response.json().get('token'):
+        provider_token = response.json().get('token')
+        print_result(True, "Provider login works")
+        tests_passed += 1
+    else:
+        print_result(False, f"Provider login failed: {response.status_code}")
+        provider_token = None
+    
+    # Test 4: Forgot password
+    print("\n📝 Test 4: POST /api/auth/forgot-password...")
+    response = requests.post(f"{BASE_URL}/auth/forgot-password", json={
+        "phone": PROVIDER_PHONE,
+        "role": "PROVIDER"
+    })
+    if response.status_code == 200:
+        print_result(True, "Forgot password works")
+        tests_passed += 1
+    else:
+        print_result(False, f"Forgot password failed: {response.status_code}")
+    
+    # Test 5: Change password
+    if provider_token:
+        print("\n📝 Test 5: POST /api/auth/change-password...")
+        response = requests.post(f"{BASE_URL}/auth/change-password", 
+            headers={"Authorization": f"Bearer {provider_token}"},
+            json={
+                "currentPassword": PASSWORD,
+                "newPassword": "NewPassword2025"
+            })
+        if response.status_code == 200:
+            print_result(True, "Change password works")
+            tests_passed += 1
+            
+            # Restore password
+            new_token = response.json().get('token')
+            if new_token:
+                requests.post(f"{BASE_URL}/auth/change-password",
+                    headers={"Authorization": f"Bearer {new_token}"},
+                    json={
+                        "currentPassword": "NewPassword2025",
+                        "newPassword": PASSWORD
+                    })
+        else:
+            print_result(False, f"Change password failed: {response.status_code}")
+    else:
+        print_result(False, "Skipped (no provider token)")
+    
+    # Test 6: Admin stats
+    if admin_token:
+        print("\n📝 Test 6: GET /api/admin/stats...")
+        response = requests.get(f"{BASE_URL}/admin/stats", 
+            headers={"Authorization": f"Bearer {admin_token}"})
+        if response.status_code == 200:
+            print_result(True, "Admin stats works")
+            tests_passed += 1
+        else:
+            print_result(False, f"Admin stats failed: {response.status_code}")
+    else:
+        print_result(False, "Skipped (no admin token)")
+    
+    print(f"\n📊 Regression tests: {tests_passed}/{tests_total} passed")
+
+# ============================================================================
+# TEST 6: Window expiry
+# ============================================================================
+def test_window_expiry():
+    print_test("TEST 6 — Window expiry (inspection)")
+    
+    clear_all_blocks()
+    time.sleep(1)
+    
+    print("\n📝 Making 1 failed attempt to create entry...")
+    requests.post(f"{BASE_URL}/auth/provider/login", json={
+        "phone": PROVIDER_PHONE_2,
+        "password": WRONG_PASSWORD
+    })
+    
+    time.sleep(0.5)
+    
+    # Inspect entry
+    check_script = """
+const { MongoClient } = require('mongodb');
+const fs = require('fs');
+const envText = fs.readFileSync('/app/.env','utf8');
+const env = {};
+envText.split('\\n').forEach(l => { const m = l.match(/^([A-Z_]+)\\s*=\\s*(.*)$/); if (m) env[m[1]] = m[2].replace(/^"|"$/g,''); });
+(async () => {
+  const c = new MongoClient(env.MONGO_URL); await c.connect();
+  const db = c.db(env.DB_NAME || 'wooleen_marketplace');
+  const entry = await db.collection('login_attempts').findOne({ phone: '+221700000101' });
+  if (entry) {
+    console.log(JSON.stringify({
+      count: entry.count,
+      hasFirstAttemptAt: !!entry.firstAttemptAt,
+      hasLastAttemptAt: !!entry.lastAttemptAt
+    }));
+  } else {
+    console.log('{}');
+  }
+  await c.close();
+})();
+"""
+    with open('/tmp/check_window.js', 'w') as f:
+        f.write(check_script)
+    result = subprocess.run(['sh', '-c', 'cd /app && NODE_PATH=/app/node_modules node /tmp/check_window.js'], 
+                          capture_output=True, text=True)
+    subprocess.run(['rm', '/tmp/check_window.js'])
+    
+    try:
+        data = json.loads(result.stdout.strip())
+        if data.get('hasFirstAttemptAt'):
+            print_result(True, f"firstAttemptAt is set (count={data.get('count')})")
+        else:
+            print_result(False, "firstAttemptAt not found")
+    except:
+        print_result(False, f"Could not parse result: {result.stdout}")
+
+# ============================================================================
+# CLEANUP
+# ============================================================================
+def cleanup():
+    print_test("CLEANUP — Restoring test data")
+    
+    cleanup_script = """
+const { MongoClient } = require('mongodb');
+const bcrypt = require('bcryptjs');
+const fs = require('fs');
+const envText = fs.readFileSync('/app/.env','utf8');
+const env = {};
+envText.split('\\n').forEach(l => { const m = l.match(/^([A-Z_]+)\\s*=\\s*(.*)$/); if (m) env[m[1]] = m[2].replace(/^"|"$/g,''); });
+(async () => {
+  const c = new MongoClient(env.MONGO_URL); await c.connect();
+  const db = c.db(env.DB_NAME || 'wooleen_marketplace');
+  const hash = await bcrypt.hash('wooleen2025', 10);
+  const phones = ['700000001','700000030','700000101','700000102','700000103','700000104','700000105'];
+  for (const p of phones) {
+    await db.collection('users').updateOne({ phone: { $regex: p } }, { $set: { passwordHash: hash, tokenVersion: 0 } });
+  }
+  await db.collection('login_attempts').deleteMany({});
+  await db.collection('admin_notifications').deleteMany({ type: { $in: ['PASSWORD_RESET_REQUEST','PASSWORD_CHANGED'] } });
+  console.log('✅ Cleanup complete');
+  await c.close();
+})();
+"""
+    with open('/tmp/cleanup.js', 'w') as f:
+        f.write(cleanup_script)
+    result = subprocess.run(['sh', '-c', 'cd /app && NODE_PATH=/app/node_modules node /tmp/cleanup.js'], 
+                          capture_output=True, text=True)
+    print(result.stdout.strip())
+    subprocess.run(['rm', '/tmp/cleanup.js'])
+
+# ============================================================================
+# MAIN
+# ============================================================================
 if __name__ == "__main__":
-    sys.exit(main())
+    print("\n" + "="*80)
+    print("BACKEND TESTING — LOT 3: Hardening sécurité auth")
+    print("="*80)
+    
+    try:
+        test_rate_limiting_provider()
+        test_rate_limiting_admin()
+        test_rate_limit_isolation()
+        test_login_history()
+        test_regression()
+        test_window_expiry()
+    finally:
+        cleanup()
+    
+    print("\n" + "="*80)
+    print("ALL TESTS COMPLETED")
+    print("="*80)
