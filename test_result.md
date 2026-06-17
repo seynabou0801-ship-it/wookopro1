@@ -1336,3 +1336,30 @@ agent_communication:
           Intercepte 401 sur /api/* (sauf endpoints d'auth) si un token est en localStorage → 
           toast "Session expirée" + logout + redirection vers la page de login adaptée selon role.
           Idempotent (flag __wookoAuthGuardInstalled).
+
+  - task: "Soft Delete Provider Endpoint (NEW)"
+    implemented: true
+    working: true
+    file: "app/api/[[...path]]/route.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: |
+          DELETE /api/admin/providers/:userId
+          Auth: Bearer ADMIN. Body : { reason: string (min 3 chars) }.
+          Soft delete : user.status = 'DELETED', deletedAt, deletedBy, deletedReason, tokenVersion++ (invalide sessions).
+          provider_profile : isAvailable = false, deletedAt.
+          Conserve toutes les subscriptions et request_matches (audit).
+          Réponse 200 avec warning si abonnement ACTIVE/TRIAL en cours.
+          Tests manuels OK :
+          - DELETE sans auth → 401
+          - DELETE avec admin → 200 + warning si sub active
+          - Re-DELETE → 400 'déjà supprimé'
+          - Login prestataire supprimé → 403 COMPTE_SUPPRIME
+          - GET /providers → exclut DELETED par défaut
+          - GET /providers?includeDeleted=true → inclut DELETED
+          - Login admin existant continue à fonctionner (régression OK)
+

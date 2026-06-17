@@ -362,7 +362,7 @@ async function findEligibleProviders(db, request) {
     const user = await db.collection('users').findOne({ id: profile.userId })
     if (!user) continue
 
-    // ⚡ FILTRE: Exclure les prestataires désactivés/suspendus
+    // ⚡ FILTRE: Exclure les prestataires désactivés/suspendus/supprimés
     const userStatus = user.status || 'ACTIVE'  // Par défaut ACTIVE pour rétrocompatibilité
     if (userStatus !== 'ACTIVE') {
       console.log(`⚠️ ${profile.businessName} exclu: statut=${userStatus}`)
@@ -1028,6 +1028,13 @@ async function handleRoute(request, { params }) {
         return handleCORS(NextResponse.json({ 
           error: 'COMPTE_INACTIF',
           message: 'Votre compte a été désactivé par l\'administration. Contactez le support au +33 7 77 36 94 62.'
+        }, { status: 403 }))
+      }
+
+      if (user.status === 'DELETED') {
+        return handleCORS(NextResponse.json({
+          error: 'COMPTE_SUPPRIME',
+          message: 'Ce compte a été supprimé. Veuillez créer un nouveau compte ou contacter le support au +33 7 77 36 94 62.'
         }, { status: 403 }))
       }
 
@@ -1711,10 +1718,15 @@ async function handleRoute(request, { params }) {
 
     // ============ PROVIDERS CRUD ============
     if (route === '/providers' && method === 'GET') {
+      const url = new URL(request.url)
+      const includeDeleted = url.searchParams.get('includeDeleted') === 'true'
+
       const providers = await db.collection('provider_profiles')
         .aggregate([
           { $lookup: { from: 'users', localField: 'userId', foreignField: 'id', as: 'user' } },
           { $unwind: { path: '$user', preserveNullAndEmptyArrays: true } },
+          // ⚡ Exclut les prestataires supprimés (sauf si includeDeleted=true)
+          ...(includeDeleted ? [] : [{ $match: { 'user.status': { $ne: 'DELETED' } } }]),
           { $sort: { tier: -1, rating: -1, createdAt: -1 } }
         ])
         .toArray()
@@ -1724,7 +1736,9 @@ async function handleRoute(request, { params }) {
         ...p,
         accountStatus: p.user?.status || 'ACTIVE',  // Status du compte user
         disabledReason: p.user?.disabledReason || null,
-        disabledAt: p.user?.disabledAt || null
+        disabledAt: p.user?.disabledAt || null,
+        deletedAt: p.user?.deletedAt || null,
+        deletedReason: p.user?.deletedReason || null
       }))
       
       return handleCORS(NextResponse.json(enrichedProviders))
@@ -1818,6 +1832,87 @@ async function handleRoute(request, { params }) {
         success: true,
         user: cleanUser,
         message: `Statut changé vers ${body.status}`
+      }))
+    }
+
+    // ============ SOFT DELETE PRESTATAIRE (ADMIN) ============
+    // DELETE /api/admin/providers/:userId
+    // Soft delete : marque user.status = 'DELETED', conserve tout l'historique
+    // (subscriptions + request_matches) pour audit. Invalide les sessions.
+    const adminDeleteMatch = route.match(/^\/admin\/providers\/([a-zA-Z0-9-]+)$/)
+    if (adminDeleteMatch && method === 'DELETE') {
+      const authData = await getAuthUser(request, db)
+      if (!authData || authData.user.role !== 'ADMIN') {
+        return handleCORS(NextResponse.json({ error: 'Non autorisé' }, { status: 401 }))
+      }
+
+      const userId = adminDeleteMatch[1]
+      const body = await request.json().catch(() => ({}))
+      const reason = body.reason || 'Suppression administrative'
+
+      const targetUser = await db.collection('users').findOne({ id: userId })
+      if (!targetUser) {
+        return handleCORS(NextResponse.json({ error: 'Prestataire non trouvé' }, { status: 404 }))
+      }
+      if (targetUser.role !== 'PROVIDER') {
+        return handleCORS(NextResponse.json({
+          error: 'Cet utilisateur n\'est pas un prestataire'
+        }, { status: 400 }))
+      }
+      if (targetUser.status === 'DELETED') {
+        return handleCORS(NextResponse.json({
+          error: 'Ce prestataire est déjà supprimé'
+        }, { status: 400 }))
+      }
+
+      // Récupérer le profil pour le log
+      const profile = await db.collection('provider_profiles').findOne({ userId })
+      const businessName = profile?.businessName || targetUser.name
+
+      // Vérifier abonnement actif (warning, pas bloquant)
+      const activeSub = await db.collection('subscriptions').findOne({
+        providerId: userId,
+        status: { $in: ['ACTIVE', 'TRIAL'] }
+      })
+
+      const now = new Date()
+      // Soft-delete : marque user comme DELETED + incrémente tokenVersion (invalide sessions)
+      await db.collection('users').updateOne(
+        { id: userId },
+        {
+          $set: {
+            status: 'DELETED',
+            deletedAt: now,
+            deletedBy: authData.user.id,
+            deletedReason: reason,
+            isAvailable: false,
+            updatedAt: now
+          },
+          $inc: { tokenVersion: 1 }
+        }
+      )
+
+      // Marque le profil comme indisponible (pour exclure du dispatch)
+      await db.collection('provider_profiles').updateOne(
+        { userId },
+        {
+          $set: {
+            isAvailable: false,
+            deletedAt: now,
+            updatedAt: now
+          }
+        }
+      )
+
+      console.log(`🗑️ Prestataire ${businessName} (${userId}) supprimé par admin ${authData.user.id}`)
+
+      return handleCORS(NextResponse.json({
+        success: true,
+        message: `Prestataire "${businessName}" supprimé avec succès.`,
+        warning: activeSub
+          ? `Ce prestataire avait un abonnement ${activeSub.plan} (${activeSub.status}) actif. Il a été conservé pour traçabilité financière.`
+          : null,
+        userId
       }))
     }
 

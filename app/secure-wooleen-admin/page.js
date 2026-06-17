@@ -531,6 +531,60 @@ export default function SecureAdminDashboard() {
     }
   }
 
+  // ⚡ NOUVEAU : State pour suppression prestataire (soft delete)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [providerToDelete, setProviderToDelete] = useState(null)
+  const [deleteReason, setDeleteReason] = useState('')
+  const [deleteWarning, setDeleteWarning] = useState(null)
+  const [deleteLoading, setDeleteLoading] = useState(false)
+
+  const handleDeleteProvider = async () => {
+    if (!providerToDelete) return
+    if (!deleteReason.trim() || deleteReason.trim().length < 3) {
+      alert('⚠️ Veuillez fournir une raison (minimum 3 caractères).')
+      return
+    }
+    setDeleteLoading(true)
+    setDeleteWarning(null)
+    try {
+      const token = localStorage.getItem('wooleen_token')
+      const res = await fetch(`/api/admin/providers/${providerToDelete.userId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ reason: deleteReason.trim() })
+      })
+      const data = await res.json()
+      if (res.ok && data.success) {
+        if (data.warning) {
+          setDeleteWarning(data.warning)
+          // Affiche le warning 2s puis ferme
+          setTimeout(() => {
+            setShowDeleteModal(false)
+            setProviderToDelete(null)
+            setDeleteReason('')
+            setDeleteWarning(null)
+          }, 2500)
+        } else {
+          setShowDeleteModal(false)
+          setProviderToDelete(null)
+          setDeleteReason('')
+        }
+        alert(`✅ ${data.message}` + (data.warning ? `\n\nℹ️ ${data.warning}` : ''))
+        await fetchData()
+      } else {
+        alert('❌ ' + (data.error || 'Erreur lors de la suppression'))
+      }
+    } catch (err) {
+      console.error('Erreur suppression:', err)
+      alert('❌ Erreur réseau')
+    } finally {
+      setDeleteLoading(false)
+    }
+  }
+
   const updateProviderStatus = async (providerId, newStatus, reason = null) => {
     setActionLoading(true)
     try {
@@ -967,6 +1021,93 @@ export default function SecureAdminDashboard() {
                 className="px-6 py-3 border-2 border-gray-200 rounded-xl font-semibold text-gray-700 hover:bg-gray-50"
               >
                 Fermer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ⚡ Modal de confirmation de suppression de prestataire */}
+      {showDeleteModal && providerToDelete && (
+        <div
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4"
+          onClick={(e) => { if (e.target === e.currentTarget && !deleteLoading) setShowDeleteModal(false) }}
+        >
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl">
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <h3 className="text-xl font-bold text-red-700">🗑️ Supprimer ce prestataire ?</h3>
+                <p className="text-sm text-gray-500 mt-1">
+                  Action de suppression douce (soft delete)
+                </p>
+              </div>
+              <button
+                onClick={() => !deleteLoading && setShowDeleteModal(false)}
+                className="text-gray-400 hover:text-gray-700 text-2xl leading-none"
+                disabled={deleteLoading}
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 mb-4">
+              <p className="font-semibold text-gray-900">{providerToDelete.businessName}</p>
+              <p className="text-sm text-gray-600 mt-0.5">
+                {providerToDelete.serviceCategory} · {providerToDelete.city} · {providerToDelete.user?.phone}
+              </p>
+            </div>
+
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-900 mb-4">
+              ⚠️ <strong>Effets de la suppression :</strong>
+              <ul className="list-disc list-inside mt-1 space-y-0.5">
+                <li>Le compte sera marqué <code className="bg-amber-100 px-1 rounded">DELETED</code> (non visible)</li>
+                <li>Toutes les sessions actives seront déconnectées</li>
+                <li>Plus aucun lead ne sera dispatché</li>
+                <li>Le prestataire ne pourra plus se connecter</li>
+                <li>L'historique (leads, abonnements) est conservé pour audit</li>
+              </ul>
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                Raison de la suppression <span className="text-red-600">*</span>
+              </label>
+              <textarea
+                value={deleteReason}
+                onChange={(e) => setDeleteReason(e.target.value)}
+                placeholder="Ex : Compte frauduleux, doublon, demande prestataire..."
+                rows={3}
+                required
+                disabled={deleteLoading}
+                className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-red-500 text-sm"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Cette raison sera enregistrée pour audit.
+              </p>
+            </div>
+
+            {deleteWarning && (
+              <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 text-xs text-orange-900 mb-4">
+                ⚠️ {deleteWarning}
+              </div>
+            )}
+
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setShowDeleteModal(false)}
+                disabled={deleteLoading}
+                className="flex-1 py-3 border-2 border-gray-200 rounded-xl font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                Annuler
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteProvider}
+                disabled={deleteLoading || deleteReason.trim().length < 3}
+                className="flex-1 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold shadow-lg disabled:opacity-50"
+              >
+                {deleteLoading ? '⏳ Suppression...' : '🗑️ Confirmer la suppression'}
               </button>
             </div>
           </div>
@@ -1476,6 +1617,21 @@ export default function SecureAdminDashboard() {
                               🟢 Activer
                             </button>
                           )}
+
+                          {/* ⚡ Bouton Supprimer (soft delete) */}
+                          <button
+                            onClick={() => {
+                              setProviderToDelete(p)
+                              setDeleteReason('')
+                              setDeleteWarning(null)
+                              setShowDeleteModal(true)
+                            }}
+                            disabled={actionLoading}
+                            className="px-3 py-1 bg-gray-700 text-white rounded text-xs font-medium hover:bg-gray-900 disabled:opacity-50"
+                            title="Supprimer ce prestataire"
+                          >
+                            🗑️ Supprimer
+                          </button>
                         </div>
                       </td>
                     </tr>
