@@ -1555,10 +1555,13 @@ async function handleRoute(request, { params }) {
         }
       }
       
-      // Update provider response rate
-      const allMatches = await db.collection('request_matches').find({ providerId }).toArray()
-      const responded = allMatches.filter(m => m.status !== 'SENT').length
-      const responseRate = allMatches.length > 0 ? Math.round((responded / allMatches.length) * 100) : 0
+      // Update provider response rate (avec count optimisés)
+      const totalMatches = await db.collection('request_matches').countDocuments({ providerId })
+      const respondedMatches = await db.collection('request_matches').countDocuments({
+        providerId,
+        status: { $ne: 'SENT' }
+      })
+      const responseRate = totalMatches > 0 ? Math.round((respondedMatches / totalMatches) * 100) : 0
       await db.collection('provider_profiles').updateOne(
         { id: providerId },
         { $set: { responseRate } }
