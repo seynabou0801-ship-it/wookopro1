@@ -979,6 +979,179 @@ async function handleRoute(request, { params }) {
       }))
     }
 
+    // ============ BOOTSTRAP ADMIN (ONE-SHOT, secured by env token) ============
+    // ⚠️ Endpoint d'URGENCE permettant de restaurer/créer un admin si le compte
+    // a été perdu en prod. Utilisable UNE SEULE FOIS (flag DB `bootstrap_admin_used`).
+    // Doit être protégé par le header X-Bootstrap-Token correspondant à
+    // process.env.BOOTSTRAP_ADMIN_TOKEN. Aucune désactivation côté code : on
+    // s'appuie sur le flag DB pour bloquer toute réutilisation.
+    if (route === '/bootstrap-admin' && method === 'POST') {
+      const envToken = process.env.BOOTSTRAP_ADMIN_TOKEN
+      if (!envToken || envToken.length < 32) {
+        return handleCORS(NextResponse.json({
+          error: 'BOOTSTRAP_DISABLED',
+          message: 'L\'endpoint de bootstrap est désactivé (BOOTSTRAP_ADMIN_TOKEN non configuré).'
+        }, { status: 403 }))
+      }
+
+      const providedToken = request.headers.get('x-bootstrap-token') || ''
+      // Comparaison en temps constant (anti-timing-attack)
+      const bufA = Buffer.from(envToken)
+      const bufB = Buffer.from(providedToken)
+      const tokenOk = (bufA.length === bufB.length) && require('crypto').timingSafeEqual(bufA, bufB)
+      if (!tokenOk) {
+        // Log la tentative (best-effort)
+        console.warn(`[bootstrap-admin] ⚠️ Tentative non autorisée depuis ${request.headers.get('x-forwarded-for') || 'unknown'}`)
+        return handleCORS(NextResponse.json({
+          error: 'UNAUTHORIZED',
+          message: 'Token invalide'
+        }, { status: 401 }))
+      }
+
+      // Vérifie le flag one-shot
+      const flagDoc = await db.collection('system_flags').findOne({ id: 'bootstrap_admin_used' })
+      if (flagDoc?.used) {
+        return handleCORS(NextResponse.json({
+          error: 'ALREADY_USED',
+          message: 'Cet endpoint a déjà été utilisé.',
+          usedAt: flagDoc.usedAt,
+          usedBy: flagDoc.usedBy
+        }, { status: 410 })) // 410 Gone
+      }
+
+      const body = await request.json().catch(() => ({}))
+      const { phone, name, confirm } = body
+      if (confirm !== 'I_UNDERSTAND_THIS_IS_ONE_SHOT') {
+        return handleCORS(NextResponse.json({
+          error: 'CONFIRMATION_REQUIRED',
+          message: 'Champ "confirm" requis avec la valeur "I_UNDERSTAND_THIS_IS_ONE_SHOT".'
+        }, { status: 400 }))
+      }
+      if (!phone || phone.replace(/[^\d]/g, '').length < 8) {
+        return handleCORS(NextResponse.json({
+          error: 'INVALID_PHONE',
+          message: 'Téléphone admin requis (format international, ex: +33777369462).'
+        }, { status: 400 }))
+      }
+
+      // Génère un mot de passe temporaire (12 chars, forte entropie)
+      const upper = 'ABCDEFGHJKMNPQRSTUVWXYZ'
+      const lower = 'abcdefghjkmnpqrstuvwxyz'
+      const digits = '23456789'
+      const symbols = '@#$%&*!'
+      const all = upper + lower + digits + symbols
+      const pick = (s) => s[Math.floor(Math.random() * s.length)]
+      let tempPwd = pick(upper) + pick(lower) + pick(digits) + pick(symbols)
+      for (let i = 0; i < 8; i++) tempPwd += pick(all)
+      tempPwd = tempPwd.split('').sort(() => Math.random() - 0.5).join('')
+
+      const passwordHash = await bcrypt.hash(tempPwd, 10)
+      const now = new Date()
+
+      // Cherche un admin existant à recycler
+      const phoneTail = phone.replace(/[^\d]/g, '').slice(-9)
+      const targetExisting = await db.collection('users').findOne({
+        role: 'ADMIN',
+        phone: { $regex: new RegExp(phoneTail) }
+      })
+      const fallback = await db.collection('users').findOne({ role: 'ADMIN' })
+      const adminToUpdate = targetExisting || fallback
+
+      let finalId = null
+      let actionType = null
+      if (adminToUpdate) {
+        actionType = 'UPDATE'
+        finalId = adminToUpdate.id
+        await db.collection('users').updateOne(
+          { id: adminToUpdate.id },
+          {
+            $set: {
+              phone,
+              name: name || adminToUpdate.name || 'Administrateur',
+              role: 'ADMIN',
+              status: 'ACTIVE',
+              passwordHash,
+              mustChangePassword: true,
+              updatedAt: now,
+              lastPasswordChange: now,
+              restoredAt: now,
+              restoredBy: 'bootstrap-endpoint'
+            },
+            $inc: { tokenVersion: 1 }
+          }
+        )
+      } else {
+        actionType = 'CREATE'
+        finalId = uuidv4()
+        await db.collection('users').insertOne({
+          id: finalId,
+          phone,
+          name: name || 'Administrateur',
+          role: 'ADMIN',
+          status: 'ACTIVE',
+          passwordHash,
+          mustChangePassword: true,
+          tokenVersion: 0,
+          createdAt: now,
+          updatedAt: now,
+          lastPasswordChange: now,
+          restoredAt: now,
+          restoredBy: 'bootstrap-endpoint'
+        })
+      }
+
+      // Nettoie les verrouillages rate-limit liés à ce numéro et au rôle ADMIN
+      await db.collection('login_attempts').deleteMany({
+        $or: [
+          { phone: { $regex: new RegExp(phoneTail) } },
+          { role: 'ADMIN' }
+        ]
+      })
+
+      // Audit trail (cloche admin)
+      await db.collection('admin_notifications').insertOne({
+        id: uuidv4(),
+        type: 'ADMIN_RESTORED',
+        targetPhone: phone,
+        message: `🛡️ Restauration admin via endpoint bootstrap (${actionType}) pour ${phone}. Mot de passe temporaire, changement obligatoire à la 1ère connexion.`,
+        payload: { operation: actionType, adminId: finalId, phone, via: 'bootstrap-endpoint' },
+        status: 'SENT',
+        attempts: 0,
+        createdAt: now,
+        updatedAt: now,
+        sentAt: now
+      })
+
+      // 🔒 Pose le flag one-shot — empêche toute réutilisation future
+      const ip = (request.headers.get('x-forwarded-for') || '').split(',')[0].trim() || 'unknown'
+      await db.collection('system_flags').updateOne(
+        { id: 'bootstrap_admin_used' },
+        {
+          $set: {
+            id: 'bootstrap_admin_used',
+            used: true,
+            usedAt: now,
+            usedBy: ip,
+            adminId: finalId,
+            adminPhone: phone,
+            action: actionType
+          }
+        },
+        { upsert: true }
+      )
+
+      console.log(`[bootstrap-admin] ✅ ${actionType} admin ${finalId} (${phone}) via endpoint depuis ${ip}`)
+
+      return handleCORS(NextResponse.json({
+        success: true,
+        action: actionType,
+        admin: { id: finalId, phone, role: 'ADMIN', status: 'ACTIVE', mustChangePassword: true },
+        tempPassword: tempPwd,
+        loginUrl: '/secure-wooleen-admin/login',
+        message: 'Admin restauré. Connectez-vous avec ce mot de passe temporaire, vous serez forcé à le changer immédiatement. Cet endpoint est désormais désactivé.'
+      }))
+    }
+
     // ============ AUTHENTICATION ============
     if (route === '/auth/provider/login' && method === 'POST') {
       const body = await request.json()
