@@ -3,7 +3,7 @@
 ## Admin Account
 - **URL**: `/secure-wooleen-admin/login`
 - **Phone**: `+221700000001`
-- **Password**: `Wooleen2025` (⚠️ Majuscule au W)
+- **Password**: `Serignebabacarsy1`
 - **Role**: ADMIN
 
 ## Provider Accounts (all password `wooleen2025` lowercase)
