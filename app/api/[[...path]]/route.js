@@ -371,10 +371,40 @@ async function findEligibleProviders(db, request) {
       continue
     }
 
-    const subscription = await db.collection('subscriptions').findOne({ 
+    let subscription = await db.collection('subscriptions').findOne({ 
       providerId: profile.userId,
       status: { $in: ['TRIAL', 'ACTIVE'] }  // TRIAL + ACTIVE acceptés
     })
+
+    // ⚡ AUTO-HEAL : si le prestataire est ACTIVE/VALIDE et isAvailable mais
+    //   n'a aucune subscription valide, on lui crée automatiquement une
+    //   subscription TRIAL (7 jours). Cela répare rétroactivement les
+    //   prestataires validés via l'ancien flow (avant le fix).
+    if (!subscription) {
+      const anySub = await db.collection('subscriptions').findOne({ providerId: profile.userId })
+      if (!anySub) {
+        const now = new Date()
+        const newSub = {
+          id: 'sub_' + uuidv4(),
+          providerId: profile.userId,
+          plan: 'BASIC',
+          status: 'TRIAL',
+          planDetails: { leadsPerDay: 5 },
+          leadsReceivedThisMonth: 0,
+          createdAt: now,
+          trialStartedAt: now,
+          trialEndsAt: new Date(now.getTime() + TRIAL_PERIOD_DAYS * 24 * 60 * 60 * 1000),
+          autoHealed: true,
+          autoHealedAt: now
+        }
+        await db.collection('subscriptions').insertOne(newSub)
+        subscription = newSub
+        console.log(`🔧 Auto-heal : subscription TRIAL créée pour ${profile.businessName} (${profile.userId})`)
+      } else {
+        // Subscription existe mais SUSPENDED/CANCELED/EXPIRED → exclure
+        continue
+      }
+    }
 
     if (!subscription) continue
 
