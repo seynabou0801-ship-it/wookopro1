@@ -363,8 +363,10 @@ async function findEligibleProviders(db, request) {
     if (!user) continue
 
     // ⚡ FILTRE: Exclure les prestataires désactivés/suspendus/supprimés
+    //   ACTIVE et VALIDE sont acceptés (rétro-compat avec anciens prestataires
+    //   validés avant le fix du flow de validation).
     const userStatus = user.status || 'ACTIVE'  // Par défaut ACTIVE pour rétrocompatibilité
-    if (userStatus !== 'ACTIVE') {
+    if (userStatus !== 'ACTIVE' && userStatus !== 'VALIDE') {
       console.log(`⚠️ ${profile.businessName} exclu: statut=${userStatus}`)
       continue
     }
@@ -3037,36 +3039,71 @@ async function handleRoute(request, { params }) {
         return handleCORS(NextResponse.json({ error: 'Prestataire non trouvé' }, { status: 404 }))
       }
 
-      // Changer le statut à VALIDE
+      const now = new Date()
+
+      // ⚡ FIX : statut "ACTIVE" pour que le dispatch accepte le prestataire
+      //          (le dispatch ne reconnaît que ACTIVE).
       await db.collection('users').updateOne(
         { id: userId },
         { 
           $set: { 
-            status: 'VALIDE',
-            validatedAt: new Date(),
-            updatedAt: new Date()
+            status: 'ACTIVE',
+            validatedAt: now,
+            updatedAt: now
           } 
         }
       )
 
-      // Activer le profil prestataire
+      // Activer le profil prestataire (disponible + vérifié)
       await db.collection('provider_profiles').updateOne(
         { userId },
         { 
           $set: { 
-            status: 'VALIDE',
+            status: 'ACTIVE',
             isAvailable: true,
             isVerified: true,
-            updatedAt: new Date()
+            updatedAt: now
           } 
         }
       )
 
-      // TODO: Envoyer notification WhatsApp au prestataire
+      // ⚡ FIX : créer automatiquement une subscription TRIAL si aucune n'existe
+      //          (sinon le prestataire validé reste exclu du dispatch).
+      const existingSub = await db.collection('subscriptions').findOne({ providerId: userId })
+      if (!existingSub) {
+        await db.collection('subscriptions').insertOne({
+          id: 'sub_' + uuidv4(),
+          providerId: userId,
+          plan: 'BASIC',
+          status: 'TRIAL',
+          planDetails: { leadsPerDay: 5 },
+          leadsReceivedThisMonth: 0,
+          createdAt: now,
+          trialStartedAt: now,
+          trialEndsAt: new Date(now.getTime() + TRIAL_PERIOD_DAYS * 24 * 60 * 60 * 1000)
+        })
+        console.log(`✅ Subscription TRIAL auto-créée pour le prestataire ${userId}`)
+      } else if (!['TRIAL', 'ACTIVE'].includes(existingSub.status)) {
+        // Réactive une subscription existante (au cas où SUSPENDED, CANCELED, etc.)
+        await db.collection('subscriptions').updateOne(
+          { id: existingSub.id },
+          {
+            $set: {
+              status: 'TRIAL',
+              plan: existingSub.plan || 'BASIC',
+              planDetails: existingSub.planDetails || { leadsPerDay: 5 },
+              trialStartedAt: now,
+              trialEndsAt: new Date(now.getTime() + TRIAL_PERIOD_DAYS * 24 * 60 * 60 * 1000),
+              updatedAt: now
+            }
+          }
+        )
+        console.log(`✅ Subscription réactivée en TRIAL pour ${userId}`)
+      }
 
       return handleCORS(NextResponse.json({ 
         success: true,
-        message: 'Prestataire validé avec succès'
+        message: 'Prestataire validé avec succès. Abonnement TRIAL activé (7 jours).'
       }))
     }
 
