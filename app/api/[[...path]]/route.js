@@ -1035,6 +1035,117 @@ async function handleRoute(request, { params }) {
 
     // ============ AUTHENTICATION ============
 
+    // ============ ADMIN PASSWORD RESET (ONE-SHOT, NON-DESTRUCTIF) ============
+    // ⚠️ Endpoint d'urgence pour réinitialiser le passwordHash d'un compte admin.
+    // - Protégé par X-Reset-Token = process.env.ADMIN_RESET_TOKEN
+    // - Utilisable UNE SEULE FOIS (flag DB `admin_password_reset_used`)
+    // - NON-DESTRUCTIF : modifie uniquement passwordHash, mustChangePassword,
+    //   lastPasswordChange, updatedAt, et incrémente tokenVersion.
+    // - À retirer après usage + redéploiement.
+    if (route === '/admin-password-reset' && method === 'POST') {
+      const envToken = process.env.ADMIN_RESET_TOKEN
+      if (!envToken || envToken.length < 32) {
+        return handleCORS(NextResponse.json({
+          error: 'RESET_DISABLED',
+          message: 'L\'endpoint de réinitialisation est désactivé.'
+        }, { status: 403 }))
+      }
+
+      const providedToken = request.headers.get('x-reset-token') || ''
+      const bufA = Buffer.from(envToken)
+      const bufB = Buffer.from(providedToken)
+      const tokenOk = (bufA.length === bufB.length) && require('crypto').timingSafeEqual(bufA, bufB)
+      if (!tokenOk) {
+        console.warn(`[admin-password-reset] ⚠️ Tentative non autorisée depuis ${request.headers.get('x-forwarded-for') || 'unknown'}`)
+        return handleCORS(NextResponse.json({ error: 'UNAUTHORIZED', message: 'Token invalide' }, { status: 401 }))
+      }
+
+      const flagDoc = await db.collection('system_flags').findOne({ id: 'admin_password_reset_used' })
+      if (flagDoc?.used) {
+        return handleCORS(NextResponse.json({
+          error: 'ALREADY_USED',
+          message: 'Cet endpoint a déjà été utilisé.',
+          usedAt: flagDoc.usedAt
+        }, { status: 410 }))
+      }
+
+      const body = await request.json().catch(() => ({}))
+      const { phone, newPassword, confirm } = body
+
+      if (confirm !== 'I_UNDERSTAND_THIS_IS_ONE_SHOT') {
+        return handleCORS(NextResponse.json({
+          error: 'CONFIRMATION_REQUIRED',
+          message: 'Champ "confirm" requis avec la valeur "I_UNDERSTAND_THIS_IS_ONE_SHOT".'
+        }, { status: 400 }))
+      }
+      if (!phone || phone.replace(/[^\d]/g, '').length < 8) {
+        return handleCORS(NextResponse.json({ error: 'INVALID_PHONE', message: 'Téléphone requis.' }, { status: 400 }))
+      }
+      const pwdErr = validatePasswordStrength(newPassword)
+      if (pwdErr) {
+        return handleCORS(NextResponse.json({ error: 'INVALID_PASSWORD', message: pwdErr }, { status: 400 }))
+      }
+
+      const phoneTail = phone.replace(/[^\d]/g, '').slice(-9)
+      const target = await db.collection('users').findOne({
+        phone: { $regex: new RegExp(phoneTail) },
+        role: 'ADMIN'
+      })
+
+      if (!target) {
+        return handleCORS(NextResponse.json({ error: 'ADMIN_NOT_FOUND', message: 'Aucun admin avec ce numéro.' }, { status: 404 }))
+      }
+
+      const hadPasswordBefore = !!target.passwordHash
+      const newHash = await bcrypt.hash(newPassword, 10)
+      const now = new Date()
+
+      const r = await db.collection('users').updateOne(
+        { id: target.id },
+        {
+          $set: { passwordHash: newHash, mustChangePassword: false, lastPasswordChange: now, updatedAt: now },
+          $inc: { tokenVersion: 1 }
+        }
+      )
+
+      const ip = (request.headers.get('x-forwarded-for') || '').split(',')[0].trim() || 'unknown'
+      await db.collection('system_flags').updateOne(
+        { id: 'admin_password_reset_used' },
+        {
+          $set: {
+            id: 'admin_password_reset_used',
+            used: true, usedAt: now, usedBy: ip,
+            adminId: target.id, adminPhone: target.phone
+          }
+        },
+        { upsert: true }
+      )
+
+      const after = await db.collection('users').findOne(
+        { id: target.id },
+        { projection: { _id: 0, id: 1, phone: 1, status: 1, passwordHash: 1, tokenVersion: 1, mustChangePassword: 1 } }
+      )
+
+      console.log(`[admin-password-reset] ✅ Reset admin ${target.id} (${target.phone}) depuis ${ip}`)
+
+      return handleCORS(NextResponse.json({
+        success: true,
+        report: {
+          before: { id: target.id, phone: target.phone, status: target.status, hadPasswordHash: hadPasswordBefore },
+          after: {
+            id: after.id, phone: after.phone, status: after.status,
+            hasPasswordHash: !!after.passwordHash,
+            hashLength: after.passwordHash?.length || 0,
+            tokenVersion: after.tokenVersion,
+            mustChangePassword: after.mustChangePassword
+          },
+          updateResult: { matched: r.matchedCount, modified: r.modifiedCount }
+        },
+        message: 'Mot de passe réinitialisé. Endpoint désormais désactivé.'
+      }))
+    }
+
+
     if (route === '/auth/provider/login' && method === 'POST') {
       const body = await request.json()
       const { phone, password } = body
