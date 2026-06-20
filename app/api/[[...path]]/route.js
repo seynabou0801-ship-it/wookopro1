@@ -969,12 +969,34 @@ async function handleRoute(request, { params }) {
       
       // ⚡ NOUVEAU : Dispatch automatique immédiat
       const matches = await dispatchRequestToProviders(db, serviceRequest)
-      
+
+      // ⚡ Récupère le meilleur prestataire matché (pour ouverture wa.me directe)
+      let bestProvider = null
+      if (matches.length > 0) {
+        const top = matches[0]   // ordre déjà par score décroissant
+        const profile = await db.collection('provider_profiles').findOne({ userId: top.providerId })
+        const userDoc = await db.collection('users').findOne({ id: top.providerId })
+        if (profile && userDoc) {
+          bestProvider = {
+            id: top.providerId,
+            businessName: profile.businessName || userDoc.name,
+            phone: userDoc.phone,
+            whatsappNumber: profile.whatsappNumber || userDoc.phone,
+            serviceCategory: profile.serviceCategory,
+            city: profile.city,
+            tier: profile.tier || 'free',
+            rating: profile.rating || 0
+          }
+        }
+      }
+
       return handleCORS(NextResponse.json({
         success: true,
         leadId: lead.id,
         requestId: serviceRequest.id,
         dispatchedTo: matches.length,
+        bestProvider,                                 // ⚡ nouveau : prestataire prioritaire
+        matchedCount: matches.length,
         message: `Demande envoyée à ${matches.length} prestataires`
       }))
     }

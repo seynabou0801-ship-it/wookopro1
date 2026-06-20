@@ -93,19 +93,40 @@ export default function HomePage() {
 
       const data = await res.json()
 
-      // Construire le message WhatsApp prérempli
+      // Construire le message WhatsApp prérempli (avec coordonnées client + détail)
       const category = SERVICE_CATEGORIES.find(c => c.value === formData.serviceCategory)?.label || formData.serviceCategory
-      const message = `Bonjour 👋 Je cherche un ${category} à ${formData.city}. Pouvez-vous m'aider ?`
+      const desc = (formData.description || '').trim()
 
-      // Ouvrir WhatsApp avec le message prérempli
-      openWhatsApp(phone, message)
+      // ⚡ NOUVEAU : si un prestataire matché est retourné, on ouvre SON wa.me
+      //    avec un message détaillé. Sinon, fallback sur le support admin.
+      if (data?.success && data.bestProvider?.whatsappNumber) {
+        const provider = data.bestProvider
+        const message =
+          `Bonjour ${provider.businessName} 👋\n\n` +
+          `J'ai trouvé votre profil sur WookoPRO et j'ai besoin de vos services :\n\n` +
+          `• Service : ${category}\n` +
+          `• Ville : ${formData.city}\n` +
+          (desc ? `• Détails : ${desc}\n` : '') +
+          (formData.phone ? `• Mon numéro : ${formData.phone}\n` : '') +
+          `\nPouvez-vous me recontacter rapidement ? Merci !`
+
+        openWhatsApp(provider.whatsappNumber, message)
+      } else {
+        // Aucun prestataire matché → fallback sur le support admin
+        const fallbackMessage =
+          `Bonjour 👋 Je cherche un ${category} à ${formData.city}.` +
+          (desc ? `\n\nDétails : ${desc}` : '') +
+          (formData.phone ? `\n\nMon numéro : ${formData.phone}` : '') +
+          `\n\nAucun prestataire actif n'a été trouvé. Pouvez-vous m'aider ?`
+        openWhatsApp(phone, fallbackMessage)
+      }
 
       // Reset form
       setIsLeadModalOpen(false)
       setFormData({ serviceCategory: '', city: '', phone: '', description: '' })
     } catch (error) {
       console.error('Error:', error)
-      // En cas d'erreur, ouvrir quand même WhatsApp
+      // En cas d'erreur, ouvrir quand même WhatsApp vers le support
       openWhatsApp(phone, "Bonjour WookoPRO, j'ai besoin d'un prestataire.")
     }
 
