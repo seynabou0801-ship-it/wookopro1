@@ -1,12 +1,16 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 
 export default function ProviderAuthPage() {
   const router = useRouter()
-  const [activeTab, setActiveTab] = useState('login')
+  const searchParams = useSearchParams()
+  // ⚡ Lecture du paramètre `tab` : ?tab=register → onglet Inscription actif
+  //   Absence du paramètre → onglet Connexion par défaut (comportement inchangé)
+  const initialTab = searchParams?.get('tab') === 'register' ? 'register' : 'login'
+  const [activeTab, setActiveTab] = useState(initialTab)
   const [showPassword, setShowPassword] = useState({
     login: false,
     register: false,

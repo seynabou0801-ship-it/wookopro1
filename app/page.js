@@ -471,6 +471,68 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* CHANGE: Provider recruitment section — Nouvel espace prestataire */}
+      <section className="bg-gray-900 py-20 sm:py-24">
+        <div className="max-w-7xl mx-auto px-6 sm:px-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-center">
+
+            {/* Colonne gauche — Texte & CTA */}
+            <div>
+              <span className="inline-block px-4 py-1.5 rounded-full text-xs font-bold tracking-wider uppercase bg-[#FF7A00]/15 text-[#FF7A00] mb-5">
+                Nouveau — Espace Prestataire
+              </span>
+
+              <h2 className="text-4xl sm:text-5xl font-bold text-white mb-5 leading-tight">
+                Vous êtes un professionnel&nbsp;?
+              </h2>
+
+              <p className="text-base sm:text-lg text-gray-300 mb-8 leading-relaxed">
+                Plombier, électricien, menuisier, ménage… rejoignez 500+ prestataires
+                actifs et recevez des demandes de clients près de chez vous, directement
+                sur WhatsApp.
+              </p>
+
+              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+                <Link
+                  href="/provider/login?tab=register"
+                  className="inline-flex items-center justify-center gap-2 bg-[#FF7A00] hover:bg-orange-600 text-white px-6 py-3.5 rounded-xl font-bold text-base shadow-lg shadow-orange-500/20 transition-all hover:scale-[1.02]"
+                >
+                  Devenir prestataire →
+                </Link>
+                <Link
+                  href="/provider/login"
+                  className="inline-flex items-center justify-center gap-2 border-2 border-white/30 hover:border-white hover:bg-white/10 text-white px-6 py-3.5 rounded-xl font-bold text-base transition-all"
+                >
+                  J'ai déjà un compte
+                </Link>
+              </div>
+            </div>
+
+            {/* Colonne droite — 3 cartes de bénéfices */}
+            <div className="flex flex-col gap-3">
+              {[
+                'Inscription gratuite en 2 minutes',
+                'Demandes clients par WhatsApp',
+                'Aucune commission cachée'
+              ].map((text, idx) => (
+                <div
+                  key={idx}
+                  className="flex items-center gap-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl px-5 py-4 transition-colors"
+                >
+                  <div className="flex-shrink-0 w-10 h-10 rounded-full bg-[#FF7A00]/20 flex items-center justify-center">
+                    <CheckCircle2 className="w-5 h-5 text-[#FF7A00]" />
+                  </div>
+                  <p className="text-white font-medium text-base sm:text-lg">{text}</p>
+                </div>
+              ))}
+            </div>
+
+          </div>
+        </div>
+      </section>
+
+
+
       {/* CHANGE 5: New "3 informations suffisent" section */}
       <section id="how-it-works" className="wpro-hiw py-16 sm:py-20 bg-white">
         <div className="max-w-7xl mx-auto px-6 sm:px-8">
